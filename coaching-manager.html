@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>コーチング管理</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  /* ── Login overlay ── */
+  .login-overlay { position:fixed; inset:0; background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); display:flex; align-items:center; justify-content:center; z-index:1000; }
+  .login-box { background:#1e293b; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:40px 36px; width:100%; max-width:400px; box-shadow:0 24px 64px rgba(0,0,0,0.4); }
+  .login-logo { display:flex; align-items:center; gap:12px; margin-bottom:28px; justify-content:center; }
+  .login-logo-icon { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; }
+  .login-logo-icon svg { width:22px; height:22px; stroke:white; }
+  .login-logo h1 { font-size:18px; font-weight:700; color:#f1f5f9; }
+  .login-box h2 { text-align:center; color:#f1f5f9; font-size:20px; font-weight:700; margin-bottom:6px; }
+  .login-box p { text-align:center; color:#64748b; font-size:13px; margin-bottom:28px; }
+  .login-form .form-group { margin-bottom:14px; }
+  .login-form label { display:block; font-size:12px; font-weight:500; color:#94a3b8; margin-bottom:6px; }
+  .login-form input { width:100%; padding:10px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.12); border-radius:9px; color:#f1f5f9; font-size:14px; outline:none; transition:border-color 0.15s; }
+  .login-form input:focus { border-color:#6366f1; }
+  .login-btn { width:100%; padding:11px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none; border-radius:10px; color:white; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:opacity 0.15s; }
+  .login-btn:hover { opacity:0.9; }
+  .login-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .login-error { color:#f87171; font-size:12px; text-align:center; margin-top:10px; min-height:16px; }
+  /* ── Loading overlay ── */
+  .loading-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.7); display:flex; align-items:center; justify-content:center; z-index:900; backdrop-filter:blur(4px); }
+  .loading-spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,0.15); border-top-color:#6366f1; border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  /* ── User info ── */
+  .user-info { font-size:11px; color:#475569; padding:0 20px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f7f8fa;
+    --border: #e8eaed;
+    --text: #111827;
+    --text2: #6b7280;
+    --text3: #9ca3af;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --accent-light: #eef2ff;
+    --success: #10b981;
+    --success-light: #d1fae5;
+    --warning: #f59e0b;
+    --warning-light: #fef3c7;
+    --danger: #ef4444;
+    --danger-light: #fee2e2;
+    --purple: #8b5cf6;
+    --purple-light: #ede9fe;
+    --teal: #14b8a6;
+    --teal-light: #ccfbf1;
+    --sb-bg: #0f172a;
+    --sb-text: #94a3b8;
+    --sb-hover: rgba(255,255,255,0.06);
+    --sb-active: rgba(99,102,241,0.18);
+    --sb-active-text: #a5b4fc;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+  }
+  body { font-family: 'Inter', -apple-system, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
+
+  /* ── App layout ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .main { flex: 1; overflow-y: auto; background: var(--bg); }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 228px; background: var(--sb-bg); display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-header { padding: 24px 20px 16px; }
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .sidebar-logo-icon { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sidebar-logo-icon svg { width: 18px; height: 18px; stroke: white; }
+  .sidebar-header h1 { font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.01em; }
+  .sidebar-header p { font-size: 11px; color: #475569; margin-top: 1px; padding-left: 44px; }
+  .nav { padding: 8px 12px; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .nav-section { font-size: 10px; font-weight: 600; color: #334155; text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 8px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; color: var(--sb-text); font-size: 13px; font-weight: 500; border: none; background: none; width: 100%; text-align: left; border-radius: 8px; transition: all 0.15s; }
+  .nav-item:hover { background: var(--sb-hover); color: #e2e8f0; }
+  .nav-item.active { background: var(--sb-active); color: var(--sb-active-text); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 4px; }
+  .sidebar-footer .btn { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); color: #94a3b8; font-size: 12px; padding: 7px 12px; border-radius: 8px; }
+  .sidebar-footer .btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+
+  /* ── Content ── */
+  .content { padding: 32px 36px; max-width: 1140px; }
+  .page-header { margin-bottom: 28px; }
+  .page-header h2 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .page-header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 22px; box-shadow: var(--shadow); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* ── Stat cards ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .stat-card { border-radius: var(--radius-lg); padding: 18px 20px; position: relative; overflow: hidden; }
+  .stat-card-1 { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+  .stat-card-2 { background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); }
+  .stat-card-3 { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+  .stat-card-4 { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); }
+  .stat-card-plain { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat-card::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.08); }
+  .stat-card-plain::before { display:none; }
+  .stat-label { font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+  .stat-card-1 .stat-label, .stat-card-2 .stat-label, .stat-card-3 .stat-label, .stat-card-4 .stat-label { color: rgba(255,255,255,0.75); }
+  .stat-card-plain .stat-label { color: var(--text2); }
+  .stat-value { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+  .stat-card-1 .stat-value, .stat-card-2 .stat-value, .stat-card-3 .stat-value, .stat-card-4 .stat-value { color: #ffffff; }
+  .stat-card-plain .stat-value { color: var(--text); }
+  .stat-sub { font-size: 11px; margin-top: 6px; }
+  .stat-card-1 .stat-sub, .stat-card-2 .stat-sub, .stat-card-3 .stat-sub, .stat-card-4 .stat-sub { color: rgba(255,255,255,0.65); }
+  .stat-card-plain .stat-sub { color: var(--text2); }
+  .stat-progress { height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; margin-top: 12px; }
+  .stat-progress-bar { height: 100%; border-radius: 2px; background: rgba(255,255,255,0.9); }
+
+  /* ── Layouts ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 11px 14px; font-weight: 600; color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+
+  /* ── Badges ── */
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; letter-spacing: 0.01em; }
+  .badge-blue { background: #eef2ff; color: #4f46e5; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-purple { background: #ede9fe; color: #6d28d9; }
+  .badge-teal { background: #ccfbf1; color: #0f766e; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-pink { background: #fce7f3; color: #9d174d; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; box-shadow: var(--shadow); }
+  .btn:hover { background: var(--surface2); border-color: #d1d5db; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; box-shadow: 0 2px 8px rgba(99,102,241,0.35); }
+  .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 4px 12px rgba(99,102,241,0.45); transform: translateY(-1px); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; box-shadow: none; }
+  .btn-danger { color: var(--danger); border-color: #fca5a5; box-shadow: none; }
+  .btn-danger:hover { background: var(--danger-light); }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  input, select, textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text); outline: none; transition: all 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  textarea { resize: vertical; min-height: 60px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal { background: var(--surface); border-radius: var(--radius-xl); width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+  .modal-header { padding: 22px 26px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 1; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+  .modal-header h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .modal-body { padding: 22px 26px; }
+  .modal-footer { padding: 18px 26px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+  .modal-close { background: #f1f5f9; border: none; cursor: pointer; color: var(--text2); padding: 6px 8px; font-size: 16px; line-height: 1; border-radius: 8px; transition: all 0.15s; }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+
+  /* ── Progress ── */
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .progress-bar { height: 8px; background: #e9ecef; border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+
+  /* ── Info rows ── */
+  .info-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--text2); min-width: 120px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; padding-top: 2px; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 48px 24px; color: var(--text2); }
+  .empty svg { width: 44px; height: 44px; margin: 0 auto 12px; opacity: 0.2; display: block; }
+  .empty p { font-size: 13px; }
+
+  /* ── Search ── */
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 34px; }
+  .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+
+  /* ── Avatar ── */
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+
+  /* ── Goals grid ── */
+  .year-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .month-goal-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow); }
+  .month-goal-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(99,102,241,0.15); transform: translateY(-2px); }
+  .month-goal-card.has-goal { border-color: #c7d2fe; background: #fafbff; }
+  .month-goal-card .month-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .month-goal-card .month-stat { font-size: 11px; color: var(--text2); }
+  .month-goal-card .month-pct { font-size: 13px; font-weight: 700; margin-top: 4px; }
+
+  /* ── Service checkboxes ── */
+  .svc-checkboxes { display: flex; flex-direction: column; gap: 8px; }
+  .svc-checkbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+  .svc-checkbox-row:hover { border-color: var(--accent); background: var(--accent-light); }
+  .svc-checkbox-row input[type=checkbox] { width: auto; flex-shrink: 0; accent-color: var(--accent); width: 16px; height: 16px; }
+  .svc-checkbox-row label { margin-bottom: 0; font-size: 13px; color: var(--text); font-weight: 500; cursor: pointer; text-transform: none; letter-spacing: 0; }
+
+  /* ── Misc ── */
+  .year-nav { display: flex; align-items: center; gap: 12px; }
+  .year-nav span { font-size: 15px; font-weight: 700; min-width: 80px; text-align: center; color: var(--text); }
+  .mode-toggle { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 2px; }
+  .mode-btn { padding: 6px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text2); font-family: inherit; }
+  .mode-btn.active { background: white; color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 100px; padding-top: 10px; }
+  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; transition: height 0.5s; }
+  .bar-label { font-size: 10px; color: var(--text2); font-weight: 500; }
+  .inflow-detail { margin-top: 6px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .ml-auto { margin-left: auto; }
+  .text-sm { font-size: 13px; }
+  .text-xs { font-size: 12px; }
+  .text-muted { color: var(--text2); }
+  .fw-500 { font-weight: 500; }
+  .fw-600 { font-weight: 600; }
+  .mb-4 { margin-bottom: 16px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* ── Sessions ── */
+  .session-content-area { white-space:pre-wrap; line-height:1.7; font-size:13px; color:var(--text); background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; max-height:180px; overflow-y:auto; }
+  .session-content-area.full { max-height:none; }
+  .session-label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin:14px 0 4px; }
+  .session-detail-section { margin-bottom:16px; }
+  .sheets-btn { background:var(--success); color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .15s; }
+  .sheets-btn:hover { opacity:.85; }
+  .sheets-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .session-row-summary { max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--text2); }
+
+  /* ── Finance ── */
+  .finance-bar-wrap { display:flex; align-items:flex-end; gap:5px; height:160px; padding-bottom:28px; position:relative; overflow-x:auto; }
+  .finance-bar-group { flex-shrink:0; width:48px; display:flex; flex-direction:column; align-items:center; gap:2px; position:relative; }
+  .finance-bar-cols { display:flex; align-items:flex-end; gap:2px; height:140px; }
+  .finance-bar { border-radius:3px 3px 0 0; min-height:2px; }
+  .finance-bar-label { font-size:9px; color:var(--text3); position:absolute; bottom:0; white-space:nowrap; }
+  .finance-legend { display:flex; gap:12px; font-size:11px; color:var(--text2); margin-top:8px; flex-wrap:wrap; }
+  .finance-legend span { display:flex; align-items:center; gap:4px; }
+  .finance-dot { display:inline-block; width:10px; height:10px; border-radius:2px; }
+  .insight-card { display:flex; gap:10px; padding:12px 14px; border-radius:var(--radius); margin-bottom:8px; }
+  .insight-icon { font-size:20px; flex-shrink:0; }
+  .insight-title { font-size:13px; font-weight:600; color:var(--text); }
+  .insight-body { font-size:12px; color:var(--text2); margin-top:3px; }
+  /* ── Scrollbar ── */
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+
+  @media (max-width: 768px) {
+    .sidebar { width: 64px; }
+    .nav-item span, .sidebar-header p, .sidebar-header h1, .sidebar-footer .btn span, .nav-section { display: none; }
+    .sidebar-logo { justify-content: center; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .form-row, .form-row-3 { grid-template-columns: 1fr; }
+    .year-grid { grid-template-columns: repeat(3, 1fr); }
+    .content { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-overlay" class="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <h1>コーチング管理</h1>
+    </div>
+    <h2>ログイン</h2>
+    <p>メールアドレスとパスワードを入力してください</p>
+    <div class="login-form">
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input id="login-email" type="email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="form-group">
+        <label>パスワード</label>
+        <input id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">ログイン</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display:none">
+  <div class="loading-spinner"></div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h1>コーチング管理</h1>
+      </div>
+      <p>Business Manager</p>
+    </div>
+    <div class="user-info" id="sidebar-user-email"></div>
+    <nav class="nav">
+      <div class="nav-section">メイン</div>
+      <button class="nav-item active" onclick="showPage('dashboard', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>ダッシュボード</span>
+      </button>
+      <div class="nav-section">管理</div>
+      <button class="nav-item" onclick="showPage('customers', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>顧客管理</span>
+      </button>
+      <button class="nav-item" onclick="showPage('sales', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>売上管理</span>
+      </button>
+      <button class="nav-item" onclick="showPage('appointments', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>アポイント</span>
+      </button>
+      <button class="nav-item" onclick="showPage('goals', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span>目標管理</span>
+      </button>
+      <button class="nav-item" onclick="showPage('finance', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>財務管理</span>
+      </button>
+      <button class="nav-item" onclick="showPage('community', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>ラボ会員</span>
+      </button>
+      <button class="nav-item" onclick="showPage('sessions', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>セッション管理</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-sm" onclick="doLogout()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>ログアウト</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- Dashboard -->
+    <div id="page-dashboard" class="content">
+      <div class="page-header">
+        <h2>ダッシュボード</h2>
+        <p id="dashboard-subtitle"></p>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">今月の目標達成率</span>
+            <span id="current-month-label" class="text-xs text-muted"></span>
+          </div>
+          <div id="goal-progress"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">サービス別売上（今月）</span></div>
+          <div id="service-chart"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">最近のアポイント</span>
+          <button class="btn btn-sm" onclick="showPage('appointments', document.querySelectorAll('.nav-item')[3])">すべて見る</button>
+        </div>
+        <div id="recent-appointments"></div>
+      </div>
+    </div>
+
+    <!-- Customers -->
+    <div id="page-customers" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>顧客管理</h2><p>顧客情報・契約・支払い履歴</p></div>
+        <div class="ml-auto flex gap-2 items-center">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="顧客を検索..." id="customer-search" oninput="renderCustomers()" style="width:200px">
+          </div>
+          <button class="btn btn-primary" onclick="openModal('customer')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            顧客追加
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>顧客名</th><th>性別</th><th>サービス</th><th>契約期間</th><th>売上換算日</th><th>合計支払</th><th>ステータス</th><th></th></tr></thead>
+            <tbody id="customers-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales -->
+    <div id="page-sales" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>売上管理</h2><p>売上の記録と推移</p></div>
+        <div class="ml-auto flex gap-2 items-center">
+          <div class="flex items-center gap-2">
+            <button class="btn btn-sm" onclick="changeSalesMonth(-1)">◀</button>
+            <span id="sales-month-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
+            <button class="btn btn-sm" onclick="changeSalesMonth(1)">▶</button>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('sale')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            売上追加
+          </button>
+        </div>
+      </div>
+      <div class="stats-grid" id="sales-stats"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>日付</th><th>顧客名</th><th>サービス</th><th>金額</th><th>メモ</th><th></th></tr></thead>
+            <tbody id="sales-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Appointments -->
+    <div id="page-appointments" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>アポイント管理</h2><p>商談リストと進捗管理</p></div>
+        <div class="ml-auto flex gap-2 items-center">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="検索..." id="appt-search" oninput="renderAppointments()" style="width:160px">
+          </div>
+          <select id="appt-status-filter" onchange="renderAppointments()" style="width:110px">
+            <option value="">すべて</option>
+            <option value="見込み">見込み</option>
+            <option value="再アポ">再アポ</option>
+            <option value="契約">契約</option>
+            <option value="失注">失注</option>
+          </select>
+          <button class="btn btn-primary" onclick="openModal('appointment')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            追加
+          </button>
+        </div>
+      </div>
+      <div class="stats-grid" id="appt-stats"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>氏名</th><th>事業内容・役職</th><th>日時</th><th>流入</th><th>ステータス</th><th>次回アクション</th><th></th></tr></thead>
+            <tbody id="appointments-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goals -->
+    <div id="page-goals" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>目標管理</h2><p id="goals-subtitle">年間・月次目標と達成率</p></div>
+        <div class="ml-auto flex items-center gap-2">
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="mode-btn-calendar" onclick="setGoalMode('calendar')">1月〜12月</button>
+            <button class="mode-btn" id="mode-btn-fiscal" onclick="setGoalMode('fiscal')">9月〜8月（期）</button>
+          </div>
+          <div class="year-nav">
+            <button class="btn btn-sm" onclick="changeGoalYear(-1)">◀</button>
+            <span id="goal-year-label"></span>
+            <button class="btn btn-sm" onclick="changeGoalYear(1)">▶</button>
+          </div>
+        </div>
+      </div>
+      <div id="goals-content"></div>
+    </div>
+
+    <!-- Community -->
+    <div id="page-community" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>紹介営業ラボ</h2><p>コミュニティ会員管理・月次売上自動計算</p></div>
+        <div class="ml-auto">
+          <button class="btn btn-primary" onclick="openCommunityModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            会員を追加
+          </button>
+        </div>
+      </div>
+      <div id="community-content"></div>
+    </div>
+
+    <!-- Sessions -->
+    <div id="page-sessions" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>セッション管理</h2><p>コーチングセッション記録・Google Sheets連携</p></div>
+        <div class="ml-auto flex gap-2 items-center">
+          <select id="session-client-filter" onchange="renderSessions()" style="width:160px">
+            <option value="">全クライアント</option>
+          </select>
+          <button class="btn btn-primary" onclick="openSessionModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            セッション追加
+          </button>
+        </div>
+      </div>
+      <div class="stats-grid" id="session-stats"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>クライアント</th><th>日付</th><th>サマリー</th><th>Sheets</th><th></th></tr></thead>
+            <tbody id="sessions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Finance -->
+    <div id="page-finance" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>財務管理</h2><p id="finance-subtitle">損益計算書の分析・予測・アドバイス</p></div>
+        <div class="ml-auto">
+          <label class="btn btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            freee CSVを読み込む
+            <input type="file" accept=".csv" style="display:none" onchange="loadFinanceCSV(this)">
+          </label>
+        </div>
+      </div>
+      <div id="finance-content"></div>
+    </div>
+  </main>
+</div>
+
+<div id="modal-container"></div>
+
+<script>
+// ===== SUPABASE SETUP =====
+const { createClient } = supabase;
+const SUPABASE_URL = 'https://eubdmgfrskohfwfezwgd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1YmRtZ2Zyc2tvaGZ3ZmV6d2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MTgwMzQsImV4cCI6MjA5ODI5NDAzNH0.3D7ywzqodZf92LbK8he8Ht8CFi3f4UeLSbIbhlImNyQ';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let db = { customers:[], sales:[], appointments:[], goals:{}, sessions:[] };
+
+function showLoading(v){ document.getElementById('loading-overlay').style.display=v?'flex':'none'; }
+
+async function loadAll(){
+  showLoading(true);
+  const [c,s,a,g,sess] = await Promise.all([
+    sb.from('customers').select('id,data').order('created_at'),
+    sb.from('sales').select('id,data').order('created_at',{ascending:false}),
+    sb.from('appointments').select('id,data').order('created_at',{ascending:false}),
+    sb.from('goals').select('period_key,data'),
+    sb.from('sessions').select('id,data').order('created_at',{ascending:false}),
+  ]);
+  db.customers = (c.data||[]).map(r=>({...r.data, id:r.id}));
+  db.sales = (s.data||[]).map(r=>({...r.data, id:r.id}));
+  db.appointments = (a.data||[]).map(r=>({...r.data, id:r.id}));
+  db.sessions = (sess.data||[]).map(r=>({...r.data, id:r.id}));
+  db.goals = {};
+  (g.data||[]).forEach(r=>{
+    if(r.period_key==='finance_pl') financeData=r.data;
+    else if(r.period_key==='community_data') communityData=r.data||{members:[]};
+    else if(r.period_key==='finance_goals') financeGoals=r.data||{};
+    else db.goals[r.period_key]=r.data;
+  });
+  showLoading(false);
+}
+
+async function init(){
+  // Handle magic link / password reset tokens in URL hash
+  if(window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery') || window.location.hash.includes('type=magiclink')){
+    const { data, error } = await sb.auth.getSessionFromUrl();
+    if(data?.session){
+      history.replaceState(null,'',window.location.pathname);
+      showApp(data.session.user.email);
+      sb.auth.onAuthStateChange((_,session)=>{ if(!session) showLogin(); });
+      return;
+    }
+  }
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){
+    showApp(session.user.email);
+  }
+  sb.auth.onAuthStateChange((_,session)=>{
+    if(session) showApp(session.user.email);
+    else showLogin();
+  });
+}
+
+async function showApp(email){
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('sidebar-user-email').textContent=email||'';
+  await loadAll();
+  document.getElementById('main-app').style.display='flex';
+  renderDashboard();
+  document.getElementById('sales-month-label').textContent=monthLabel(currentSalesMonth);
+  document.getElementById('goal-year-label').textContent=currentGoalYear+'年';
+}
+
+function showLogin(){
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('login-overlay').style.display='flex';
+  document.getElementById('login-error').textContent='';
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const password=document.getElementById('login-password').value;
+  const btn=document.getElementById('login-btn');
+  const errEl=document.getElementById('login-error');
+  if(!email||!password){errEl.textContent='メールとパスワードを入力してください';return;}
+  btn.disabled=true; btn.textContent='ログイン中...'; errEl.textContent='';
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error){
+    errEl.textContent=error.message==='Invalid login credentials'?'メールアドレスまたはパスワードが間違っています':error.message;
+    btn.disabled=false; btn.textContent='ログイン';
+  }
+}
+
+async function doLogout(){
+  if(!confirm('ログアウトしますか？'))return;
+  await sb.auth.signOut();
+}
+
+let currentSalesMonth = new Date().toISOString().slice(0,7);
+let currentGoalYear = new Date().getFullYear();
+let goalMode = 'calendar'; // 'calendar' | 'fiscal'
+
+function setGoalMode(mode){
+  goalMode = mode;
+  document.getElementById('mode-btn-calendar').classList.toggle('active', mode==='calendar');
+  document.getElementById('mode-btn-fiscal').classList.toggle('active', mode==='fiscal');
+  // fiscal年: currentGoalYear = 開始年（例: 2025 → 9/2025〜8/2026）
+  // カレンダー年に戻るとき: 現在の会計年度の開始年をそのまま使う
+  renderGoals();
+}
+
+// 会計期のキー (fiscal year key)
+function fyKey(startYear){ return 'FY'+startYear; }
+
+// 会計期の12ヶ月リスト [{year, month}]
+function fiscalMonths(startYear){
+  const months = [];
+  for(let i=0;i<12;i++){
+    const d = new Date(startYear, 8+i); // 8 = Sep (0-indexed)
+    months.push({ year: d.getFullYear(), month: d.getMonth()+1 });
+  }
+  return months;
+}
+let editingId = null;
+
+function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function fmt(n) { return Number(n||0).toLocaleString('ja-JP'); }
+function fmtY(n) { return '¥'+fmt(n); }
+function today() { return new Date().toISOString().slice(0,10); }
+function monthLabel(ym) { const [y,m]=ym.split('-'); return y+'年'+Number(m)+'月'; }
+function ym(y,m) { return y+'-'+String(m).padStart(2,'0'); }
+
+const SERVICES = ['フロントコーチング','長期1on1コーチング','ビジネスコーチング','リトリートプログラム'];
+const SVC_BADGE = { 'フロントコーチング':'badge-purple','長期1on1コーチング':'badge-blue','ビジネスコーチング':'badge-teal','リトリートプログラム':'badge-green' };
+const SVC_COLOR = { 'フロントコーチング':'#7c3aed','長期1on1コーチング':'#2563eb','ビジネスコーチング':'#0d9488','リトリートプログラム':'#059669' };
+const STATUS_BADGE = { '見込み':'badge-blue','再アポ':'badge-yellow','契約':'badge-green','失注':'badge-red' };
+const MONTHS_JP = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+// Inflow options
+const INFLOW_OPTS = ['SNS','紹介','イベント','その他'];
+
+function inflowDisplay(inflow, inflowDetail) {
+  if (!inflow) return '';
+  if (inflowDetail) return inflow + '（' + inflowDetail + '）';
+  return inflow;
+}
+
+// ===== NAVIGATION =====
+function showPage(name, btn) {
+  document.querySelectorAll('[id^="page-"]').forEach(el => el.style.display='none');
+  document.getElementById('page-'+name).style.display='';
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const renders = {dashboard:renderDashboard, customers:renderCustomers, sales:renderSales, appointments:renderAppointments, goals:renderGoals, finance:renderFinance, community:renderCommunity, sessions:renderSessions};
+  if (renders[name]) renders[name]();
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const now = new Date();
+  const thisYM = now.toISOString().slice(0,7);
+  document.getElementById('dashboard-subtitle').textContent = monthLabel(thisYM);
+  document.getElementById('current-month-label').textContent = monthLabel(thisYM);
+
+  const ms = db.sales.filter(s=>s.date&&s.date.startsWith(thisYM)&&s.date>=SALES_CUTOFF);
+  const coachingM = ms.reduce((a,b)=>a+Number(b.amount||0),0);
+  const commM = getCommunityRevenue(thisYM);
+  const totalM = coachingM + commM;
+  const fyStartYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const ys = db.sales.filter(s=>{const ym=s.date?.slice(0,7); return ym>=`${fyStartYear}-09`&&ym<=`${fyStartYear+1}-08`&&(s.date||'')>=SALES_CUTOFF;});
+  const coachingY = ys.reduce((a,b)=>a+Number(b.amount||0),0);
+  const commY = (() => { let t=0; const fyMonths=[]; let fy=fyStartYear,fm=9; while(true){const ym=`${fy}-${String(fm).padStart(2,'0')}`; if(ym>thisYM)break; fyMonths.push(ym); if(ym===`${fyStartYear+1}-08`)break; fm++;if(fm>12){fm=1;fy++;}} fyMonths.forEach(ym=>t+=getCommunityRevenue(ym)); return t; })();
+  const totalY = coachingY + commY;
+  const active = db.customers.filter(c=>c.status==='アクティブ').length;
+  const mAppts = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)).length;
+  const goal = db.goals[thisYM]||{};
+  const mGoal = Number(goal.totalSales||0);
+  const ach = mGoal>0 ? Math.min(Math.round(totalM/mGoal*100),100) : null;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card stat-card-1">
+      <div class="stat-label">今月売上</div>
+      <div class="stat-value">${fmtY(totalM)}</div>
+      ${ach!==null?`<div class="stat-progress"><div class="stat-progress-bar" style="width:${ach}%"></div></div><div class="stat-sub">目標達成率 ${ach}%${commM>0?' (ラボ含む)':''}</div>`:`<div class="stat-sub">${commM>0?'ラボ '+fmtY(commM)+' 含む':'目標未設定'}</div>`}
+    </div>
+    <div class="stat-card stat-card-2"><div class="stat-label">年間売上（FY${fyStartYear+1}）</div><div class="stat-value">${fmtY(totalY)}</div><div class="stat-sub">コーチング${fmtY(coachingY)} ＋ ラボ${fmtY(commY)}</div></div>
+    <div class="stat-card stat-card-3"><div class="stat-label">アクティブ顧客</div><div class="stat-value">${active}</div><div class="stat-sub">合計 ${db.customers.length}名登録</div></div>
+    <div class="stat-card stat-card-4"><div class="stat-label">今月アポ数</div><div class="stat-value">${mAppts}</div><div class="stat-sub">累計 ${db.appointments.length}件</div></div>
+  `;
+
+  // Goal progress
+  const gDiv = document.getElementById('goal-progress');
+  if (!goal.totalSales&&!goal.appointments&&!SERVICES.some(s=>goal[svcKey(s)])) {
+    gDiv.innerHTML = `<div class="empty" style="padding:20px"><p>目標が設定されていません</p><button class="btn btn-sm btn-primary" style="margin-top:10px" onclick="showPage('goals',document.querySelectorAll('.nav-item')[4])">目標を設定する</button></div>`;
+  } else {
+    const items = [
+      {label:'月間売上合計', cur:totalM, tgt:goal.totalSales, color:'var(--accent)', isYen:true},
+      ...SERVICES.map(s=>({label:s, cur:ms.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0), tgt:goal[svcKey(s)], color:SVC_COLOR[s], isYen:true})),
+      {label:'アポイント数', cur:mAppts, tgt:goal.appointments, color:'var(--purple)', isYen:false},
+    ].filter(i=>i.tgt);
+    gDiv.innerHTML = items.map(i=>{
+      const pct=Math.min(Math.round(Number(i.cur)/Number(i.tgt)*100),100);
+      return `<div style="margin-bottom:12px">
+        <div class="progress-label">
+          <span style="font-size:12px;color:var(--text2)">${i.label}</span>
+          <span style="color:${pct>=100?'var(--success)':'var(--text2)'}">${i.isYen?fmtY(i.cur):i.cur+'件'} / ${i.isYen?fmtY(i.tgt):i.tgt+'件'} (${pct}%)</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${i.color}"></div></div>
+      </div>`;
+    }).join('') || '<p class="text-muted text-xs">目標項目がありません</p>';
+  }
+
+  // Service chart
+  const svcT = SERVICES.map(s=>({s, short:s==='フロントコーチング'?'フロント':s==='長期1on1コーチング'?'長期1on1':s==='ビジネスコーチング'?'BIZ':'リトリート', amt:ms.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0), color:SVC_COLOR[s]}));
+  const mx=Math.max(...svcT.map(s=>s.amt),1);
+  document.getElementById('service-chart').innerHTML=`<div class="bar-chart">${svcT.map(s=>`<div class="bar-group"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">${fmtY(s.amt)}</div><div class="bar" style="height:${Math.max(s.amt/mx*70,3)}px;background:${s.color}30;border:1px solid ${s.color}60;flex:none;width:100%"></div><div class="bar-label">${s.short}</div></div>`).join('')}</div>`;
+
+  // Recent appts
+  const ra=[...db.appointments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  document.getElementById('recent-appointments').innerHTML = ra.length===0
+    ? '<div class="empty" style="padding:20px"><p>アポイントがありません</p></div>'
+    : `<div class="table-wrap"><table><thead><tr><th>氏名</th><th>日時</th><th>ステータス</th><th>次回アクション</th></tr></thead><tbody>
+      ${ra.map(a=>`<tr><td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><span>${a.name||''}</span></div></td><td class="text-xs text-muted">${a.date||''}</td><td>${a.status?`<span class="badge ${STATUS_BADGE[a.status]||'badge-gray'}">${a.status}</span>`:''}</td><td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nextAction||''}</td></tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+// ===== CUSTOMERS =====
+function renderCustomers() {
+  const q=(document.getElementById('customer-search')?.value||'').toLowerCase();
+  const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q));
+  if(!list.length){
+    document.getElementById('customers-tbody').innerHTML=`<tr><td colspan="8"><div class="empty"><p>${q?'該当なし':'顧客がまだいません'}</p></div></td></tr>`;
+    return;
+  }
+  document.getElementById('customers-tbody').innerHTML=list.map(c=>{
+    const paid=db.sales.filter(s=>s.customerId===c.id&&(s.date||'')>=SALES_CUTOFF).reduce((a,b)=>a+Number(b.amount||0),0);
+    const statusColor = c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':'badge-gray';
+    return `<tr onclick="openCustomerDetail('${c.id}')" style="cursor:pointer">
+      <td><div class="flex items-center gap-2"><div class="avatar">${(c.name||'?')[0]}</div><span class="fw-500">${c.name||''}</span></div></td>
+      <td class="text-xs text-muted">${c.gender||''}</td>
+      <td>${(c.services||[]).map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="margin:1px;font-size:10px">${s}</span>`).join('')}</td>
+      <td class="text-xs text-muted">${c.contractStart||''} ${c.contractEnd?'〜 '+c.contractEnd:''}</td>
+      <td class="text-xs text-muted">${c.revenueDate||''}</td>
+      <td class="fw-500">${paid>0?fmtY(paid):'—'}</td>
+      <td><span class="badge ${statusColor}">${c.status||'契約中'}</span></td>
+      <td onclick="event.stopPropagation()"><div class="flex gap-2"><button class="btn btn-sm" onclick="editCustomer('${c.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">削除</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function deleteCustomer(id){
+  if(!confirm('削除しますか？'))return;
+  await sb.from('customers').delete().eq('id',id);
+  db.customers=db.customers.filter(c=>c.id!==id);
+  renderCustomers();
+}
+function editCustomer(id){ editingId=id; openModal('customer',db.customers.find(c=>c.id===id)); }
+
+function openCustomerDetail(id){
+  const c=db.customers.find(x=>x.id===id); if(!c)return;
+  const pays=db.sales.filter(s=>s.customerId===id).sort((a,b)=>b.date.localeCompare(a.date));
+  const total=pays.reduce((a,b)=>a+Number(b.amount||0),0);
+  showModal(`<div class="modal-header"><div class="flex items-center gap-3"><div class="avatar" style="width:40px;height:40px;font-size:16px">${(c.name||'?')[0]}</div><div><h3>${c.name||''}</h3><p class="text-xs text-muted">${c.gender||''}</p></div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-row mb-4">
+      <div>
+        <div class="info-row"><span class="info-label">性別</span><span>${c.gender||'—'}</span></div>
+        <div class="info-row"><span class="info-label">流入ルート</span><span>${inflowDisplay(c.inflow,c.inflowDetail)||'—'}</span></div>
+        <div class="info-row"><span class="info-label">契約開始</span><span>${c.contractStart||'—'}</span></div>
+        <div class="info-row"><span class="info-label">契約終了</span><span>${c.contractEnd||'—'}</span></div>
+        <div class="info-row"><span class="info-label">売上換算日</span><span>${c.revenueDate||'—'}</span></div>
+        <div class="info-row"><span class="info-label">ステータス</span><span class="badge ${c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':'badge-gray'}">${c.status||'契約中'}</span></div>
+      </div>
+      <div>
+        <div class="info-row"><span class="info-label">購入サービス</span><div>${(c.services||[]).map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="margin:1px">${s}</span>`).join('')||'—'}</div></div>
+        ${(c.services||[]).includes('長期1on1コーチング')&&c.longtermMonths?`<div class="info-row"><span class="info-label">長期1on1契約期間</span><span>${c.longtermMonths}ヶ月</span></div>`:''}
+        ${(c.services||[]).includes('ビジネスコーチング')&&c.bizMonths?`<div class="info-row"><span class="info-label">BIZ契約期間</span><span>${c.bizMonths}ヶ月</span></div>`:''}
+        <div class="info-row"><span class="info-label">契約金額</span><span class="fw-500" style="color:var(--accent)">${c.price?fmtY(c.price):'—'}</span></div>
+        <div class="info-row"><span class="info-label">合計支払</span><span class="fw-500">${fmtY(total)}</span></div>
+      </div>
+    </div>
+    ${c.goals?`<div class="form-group"><label>コーチング目標・課題</label><div style="background:var(--surface2);padding:10px;border-radius:var(--radius);font-size:13px;white-space:pre-wrap">${c.goals}</div></div>`:''}
+    ${c.notes?`<div class="form-group"><label>備考</label><div style="background:var(--surface2);padding:10px;border-radius:var(--radius);font-size:13px;white-space:pre-wrap">${c.notes}</div></div>`:''}
+    <div style="margin-top:16px"><div class="card-title" style="margin-bottom:10px">支払い・受講履歴</div>
+      ${pays.length===0?'<p class="text-muted text-xs">履歴なし</p>':`<table style="width:100%;font-size:12px"><thead><tr><th>日付</th><th>サービス</th><th>金額</th><th>メモ</th></tr></thead><tbody>${pays.map(p=>`<tr><td>${p.date}</td><td>${p.service}</td><td>${fmtY(p.amount)}</td><td class="text-muted">${p.memo||''}</td></tr>`).join('')}</tbody></table>`}
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn btn-primary" onclick="closeModal();editCustomer('${c.id}')">編集</button></div>`);
+}
+
+// ===== SALES =====
+function changeSalesMonth(d){
+  const [y,m]=currentSalesMonth.split('-').map(Number);
+  const dt=new Date(y,m-1+d,1);
+  currentSalesMonth=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+  renderSales();
+}
+function renderSales(){
+  document.getElementById('sales-month-label').textContent=monthLabel(currentSalesMonth);
+  const filtered=db.sales.filter(s=>s.date&&s.date.startsWith(currentSalesMonth)&&s.date>=SALES_CUTOFF).sort((a,b)=>b.date.localeCompare(a.date));
+  const coachingTotal=filtered.reduce((a,b)=>a+Number(b.amount||0),0);
+  const commTotal=getCommunityRevenue(currentSalesMonth);
+  const total=coachingTotal+commTotal;
+  const activeLaboCount=getActiveCommunityMembers(currentSalesMonth).length;
+  document.getElementById('sales-stats').innerHTML=
+    `<div class="stat-card stat-card-1"><div class="stat-label">月間合計</div><div class="stat-value">${fmtY(total)}</div><div class="stat-sub" style="font-size:10px">コーチング${fmtY(coachingTotal)} ＋ ラボ${fmtY(commTotal)}</div></div>`+
+    SERVICES.map(s=>`<div class="stat-card stat-card-plain"><div class="stat-label">${s}</div><div class="stat-value" style="font-size:18px">${fmtY(filtered.filter(f=>f.service===s).reduce((a,b)=>a+Number(b.amount||0),0))}</div></div>`).join('')+
+    (commTotal>0?`<div class="stat-card stat-card-plain"><div class="stat-label">紹介営業ラボ</div><div class="stat-value" style="font-size:18px">${fmtY(commTotal)}</div><div class="stat-sub" style="font-size:10px">${activeLaboCount}名 × ¥10,000</div></div>`:'');
+  if(!filtered.length){
+    document.getElementById('sales-tbody').innerHTML=`<tr><td colspan="6"><div class="empty"><p>この月の売上はありません</p></div></td></tr>`;
+    return;
+  }
+  document.getElementById('sales-tbody').innerHTML=filtered.map(s=>{
+    const cust=db.customers.find(c=>c.id===s.customerId);
+    const svcLabel = s.service==='その他' ? `その他${s.otherDetail?'（'+s.otherDetail+'）':''}` : (s.service||'');
+    const personLabel = s.service==='その他'&&s.otherPerson ? s.otherPerson : (cust?cust.name:(s.customerName||'—'));
+    return `<tr><td class="text-xs">${s.date}</td><td>${personLabel}</td><td><span class="badge ${SVC_BADGE[s.service]||'badge-gray'}">${svcLabel}</span></td><td class="fw-500">${fmtY(s.amount)}</td><td class="text-xs text-muted">${s.memo||''}</td><td><div class="flex gap-2"><button class="btn btn-sm" onclick="editSale('${s.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteSale('${s.id}')">削除</button></div></td></tr>`;
+  }).join('');
+}
+function editSale(id){ editingId=id; openModal('sale',db.sales.find(s=>s.id===id)); }
+async function deleteSale(id){ if(!confirm('削除しますか？'))return; await sb.from('sales').delete().eq('id',id); db.sales=db.sales.filter(s=>s.id!==id); renderSales(); }
+
+// ===== APPOINTMENTS =====
+function renderAppointments(){
+  const q=(document.getElementById('appt-search')?.value||'').toLowerCase();
+  const sf=document.getElementById('appt-status-filter')?.value||'';
+  const filtered=db.appointments.filter(a=>(!q||(a.name||'').toLowerCase().includes(q)||(a.business||'').toLowerCase().includes(q))&&(!sf||a.status===sf)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const cnts={'見込み':0,'再アポ':0,'契約':0,'失注':0};
+  db.appointments.forEach(a=>{if(cnts[a.status]!==undefined)cnts[a.status]++;});
+  document.getElementById('appt-stats').innerHTML=`
+    <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#4f46e5">見込み</div><div class="stat-value" style="color:var(--accent)">${cnts['見込み']}</div></div>
+    <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#92400e">再アポ</div><div class="stat-value" style="color:var(--warning)">${cnts['再アポ']}</div></div>
+    <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#065f46">契約</div><div class="stat-value" style="color:var(--success)">${cnts['契約']}</div></div>
+    <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#991b1b">失注</div><div class="stat-value" style="color:var(--danger)">${cnts['失注']}</div></div>`;
+  if(!filtered.length){
+    document.getElementById('appointments-tbody').innerHTML=`<tr><td colspan="7"><div class="empty"><p>アポイントがありません</p></div></td></tr>`;
+    return;
+  }
+  document.getElementById('appointments-tbody').innerHTML=filtered.map(a=>`<tr>
+    <td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><div><div class="fw-500">${a.name||''}</div><div class="text-xs text-muted">${a.title||''}</div></div></div></td>
+    <td class="text-xs text-muted" style="max-width:140px">${a.business||''}</td>
+    <td class="text-xs text-muted">${a.date||''}</td>
+    <td class="text-xs text-muted">${inflowDisplay(a.inflow,a.inflowDetail)}</td>
+    <td>
+      ${a.status?`<span class="badge ${STATUS_BADGE[a.status]||'badge-gray'}">${a.status}</span>`:''}
+      ${a.status==='契約'&&(a.contractServices||[]).length?`<div style="margin-top:3px">${a.contractServices.map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="font-size:10px;margin:1px">${s}</span>`).join('')}</div>`:''}
+    </td>
+    <td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nextAction||''}</td>
+    <td><div class="flex gap-2"><button class="btn btn-sm" onclick="editAppointment('${a.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteAppointment('${a.id}')">削除</button></div></td>
+  </tr>`).join('');
+}
+function editAppointment(id){ editingId=id; openModal('appointment',db.appointments.find(a=>a.id===id)); }
+async function deleteAppointment(id){ if(!confirm('削除しますか？'))return; await sb.from('appointments').delete().eq('id',id); db.appointments=db.appointments.filter(a=>a.id!==id); renderAppointments(); }
+
+// ===== GOALS (year grid) =====
+function changeGoalYear(d){ currentGoalYear+=d; renderGoals(); }
+
+function svcKey(s){ return s==='フロントコーチング'?'front':s==='長期1on1コーチング'?'longterm':s==='ビジネスコーチング'?'biz':s==='リトリートプログラム'?'retreat':s; }
+
+function renderGoals(){
+  const isFiscal = goalMode === 'fiscal';
+
+  // ラベル更新
+  document.getElementById('goal-year-label').textContent = isFiscal
+    ? currentGoalYear + '期'
+    : currentGoalYear + '年';
+  document.getElementById('goals-subtitle').textContent = isFiscal
+    ? currentGoalYear + '年9月 〜 ' + (currentGoalYear+1) + '年8月'
+    : currentGoalYear + '年 1月〜12月';
+
+  // 対象月リスト
+  const monthList = isFiscal
+    ? fiscalMonths(currentGoalYear)
+    : Array.from({length:12},(_,i)=>({year:currentGoalYear, month:i+1}));
+
+  // 年間集計キー
+  const periodKey = isFiscal ? fyKey(currentGoalYear) : String(currentGoalYear);
+  const periodGoal = db.goals[periodKey] || {};
+
+  // 期間全体の実績
+  const periodSales = monthList.reduce((total, {year, month}) => {
+    const k = ym(year, month);
+    return total + db.sales.filter(s=>s.date.startsWith(k)).reduce((a,b)=>a+Number(b.amount||0),0);
+  }, 0);
+
+  const periodLabel = isFiscal
+    ? currentGoalYear+'期（'+currentGoalYear+'/9〜'+(currentGoalYear+1)+'/8）'
+    : currentGoalYear+'年 年間';
+
+  let html = '';
+
+  // 年間目標カード
+  html += `<div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">${periodLabel} 目標</span>
+      <button class="btn btn-sm" onclick="openModal('yeargoal')">設定</button>
+    </div>
+    ${periodGoal.totalSales
+      ? (() => {
+          const pct = Math.min(Math.round(periodSales/periodGoal.totalSales*100),100);
+          return `<div><div class="progress-label"><span style="font-size:13px;font-weight:500">売上目標</span><span style="color:${pct>=100?'var(--success)':'var(--text2)'}">${fmtY(periodSales)} / ${fmtY(periodGoal.totalSales)} (${pct}%)</span></div><div class="progress-bar" style="height:10px"><div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,#6366f1,#8b5cf6)"></div></div></div>`;
+        })()
+      : '<p class="text-xs text-muted">目標未設定 — 右上の「設定」から入力してください</p>'}
+  </div>`;
+
+  // 月次グリッドラベル
+  html += `<div style="margin-bottom:12px;font-size:14px;font-weight:700;color:var(--text)">${periodLabel} 月次目標</div>
+  <div class="year-grid">`;
+
+  for(const {year, month} of monthList){
+    const key = ym(year, month);
+    const goal = db.goals[key] || {};
+    const mSales = db.sales.filter(s=>s.date.startsWith(key));
+    const actual = mSales.reduce((a,b)=>a+Number(b.amount||0),0);
+    const hasGoal = goal.totalSales || goal.appointments;
+    const pct = hasGoal && goal.totalSales ? Math.min(Math.round(actual/goal.totalSales*100),100) : null;
+    const monthName = isFiscal
+      ? MONTHS_JP[month-1] + (month<=12&&month>=9 ? '<span style="font-size:10px;color:var(--text3);margin-left:2px">\''+String(year).slice(2)+'</span>' : '<span style="font-size:10px;color:var(--text3);margin-left:2px">\''+String(year).slice(2)+'</span>')
+      : MONTHS_JP[month-1];
+
+    html += `<div class="month-goal-card ${hasGoal?'has-goal':''}" onclick="openModal('monthgoal','${key}')">
+      <div class="month-name">${monthName}</div>
+      ${hasGoal ? `
+        <div class="month-stat">${fmtY(actual)} / ${fmtY(goal.totalSales||0)}</div>
+        ${pct!==null?`<div class="month-pct" style="color:${pct>=100?'var(--success)':pct>=70?'var(--warning)':'var(--accent)'}">${pct}%</div>`:''}
+        ${goal.appointments?`<div class="month-stat" style="margin-top:2px">アポ: ${goal.appointments}件</div>`:''}
+      ` : `<div class="month-stat" style="color:var(--text3)">未設定</div>`}
+    </div>`;
+  }
+  html += `</div>`;
+
+  document.getElementById('goals-content').innerHTML = html;
+}
+
+// ===== MODALS =====
+function openModal(type, data){
+  editingId = (data && typeof data==='object') ? data.id||null : null;
+
+  if(type==='customer'){
+    const c=data||{};
+    const svcs=c.services||[];
+    const inf=c.inflow||'';
+    showModal(`<div class="modal-header"><h3>${editingId?'顧客を編集':'顧客を追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc(c.name||'')}" placeholder="山田 花子"></div>
+        <div class="form-group"><label>性別</label><select id="f-gender"><option value="">選択</option>${['女性','男性','その他'].map(g=>`<option ${c.gender===g?'selected':''}>${g}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-group"><label>購入サービス</label>
+        <div class="svc-checkboxes">
+          ${SERVICES.map(s=>`<div class="svc-checkbox-row">
+            <input type="checkbox" id="svc-${svcKey(s)}" ${svcs.includes(s)?'checked':''} onchange="toggleSvcDetail()">
+            <label for="svc-${svcKey(s)}">${s}</label>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div id="months-fields" style="display:none">
+        <div class="form-row">
+          <div id="longterm-months-wrap" style="display:none" class="form-group"><label>長期1on1 契約月数</label><input id="f-longterm-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
+          <div id="biz-months-wrap" style="display:none" class="form-group"><label>ビジネスコーチング 契約月数</label><input id="f-biz-months" type="number" min="1" value="${esc(c.bizMonths||'')}" placeholder="例: 3"></div>
+        </div>
+      </div>
+
+      <div class="form-group"><label>契約金額（円）</label><input id="f-price" type="number" value="${c.price||''}" placeholder="300000"></div>
+
+      <div class="form-row">
+        <div class="form-group"><label>契約開始日</label><input id="f-cstart" type="date" value="${c.contractStart||''}"></div>
+        <div class="form-group"><label>契約終了日</label><input id="f-cend" type="date" value="${c.contractEnd||''}"></div>
+      </div>
+      <div class="form-group"><label>売上換算日 <span style="font-size:11px;color:var(--text3)">（この日付で売上管理に自動反映）</span></label><input id="f-rdate" type="date" value="${c.revenueDate||''}"></div>
+
+      <div class="form-group"><label>流入ルート</label>
+        <select id="f-inflow" onchange="onInflowChange('f-inflow','f-inflow-detail','f-inflow-detail-wrap')">
+          <option value="">選択してください</option>
+          ${INFLOW_OPTS.map(i=>`<option value="${i}" ${inf===i?'selected':''}>${i}</option>`).join('')}
+        </select>
+      </div>
+      <div id="f-inflow-detail-wrap" style="display:${['SNS','紹介'].includes(inf)?'block':'none'}" class="form-group inflow-detail">
+        <label id="f-inflow-detail-label">${inf==='SNS'?'SNSの詳細（Instagram、X、YouTubeなど）':inf==='紹介'?'紹介者のお名前':'詳細'}</label>
+        <input id="f-inflow-detail" value="${esc(c.inflowDetail||'')}" placeholder="${inf==='SNS'?'Instagram':inf==='紹介'?'山田さん':''}">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label>ステータス</label>
+          <select id="f-status">${['契約中','休止中'].map(s=>`<option ${(c.status||'契約中')===s?'selected':''}>${s}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="form-group"><label>コーチング目標・課題</label><textarea id="f-goals">${esc(c.goals||'')}</textarea></div>
+      <div class="form-group"><label>備考</label><textarea id="f-notes" rows="2">${esc(c.notes||'')}</textarea></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+      <div class="form-group"><label>Google Sheets ID <span style="font-size:11px;font-weight:400;color:var(--text3)">（セッション管理 → Sheets連携用）</span></label><input id="f-spreadsheet-id" value="${esc(c.spreadsheetId||'')}" placeholder="スプレッドシートのID（URLの /d/〜/edit の間の文字列）"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveCustomer()">保存</button></div>`);
+    toggleSvcDetail();
+  }
+
+  else if(type==='sale'){
+    const s=data||{};
+    showModal(`<div class="modal-header"><h3>${editingId?'売上を編集':'売上を追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>日付 *</label><input id="f-date" type="date" value="${s.date||today()}"></div>
+        <div class="form-group"><label>金額 *</label><input id="f-amount" type="number" value="${s.amount||''}" placeholder="50000"></div>
+      </div>
+      <div class="form-group"><label>サービス *</label><select id="f-service" onchange="toggleSaleOther()"><option value="">選択してください</option>${SERVICES.map(sv=>`<option value="${sv}" ${s.service===sv?'selected':''}>${sv}</option>`).join('')}<option value="その他" ${s.service==='その他'?'selected':''}>その他</option></select></div>
+      <div id="f-other-wrap" style="display:${s.service==='その他'?'block':'none'}">
+        <div class="form-group"><label>内容の詳細 *</label><input id="f-other-detail" value="${esc(s.otherDetail||'')}" placeholder="例：コンサル、資料作成など"></div>
+        <div class="form-group"><label>お支払いされた方</label><input id="f-other-person" value="${esc(s.otherPerson||'')}" placeholder="例：山田様"></div>
+      </div>
+      <div class="form-group"><label>顧客</label><select id="f-customer"><option value="">選択してください</option>${db.customers.map(c=>`<option value="${c.id}" ${s.customerId===c.id?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>メモ</label><input id="f-memo" value="${esc(s.memo||'')}"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveSale()">保存</button></div>`);
+  }
+
+  else if(type==='appointment'){
+    const a=data||{};
+    const inf=a.inflow||'';
+    showModal(`<div class="modal-header"><h3>${editingId?'アポイントを編集':'アポイントを追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc(a.name||'')}"></div>
+        <div class="form-group"><label>役職</label><input id="f-title" value="${esc(a.title||'')}"></div>
+      </div>
+      <div class="form-group"><label>事業内容</label><input id="f-business" value="${esc(a.business||'')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>日時 *</label><input id="f-date" type="date" value="${a.date||today()}"></div>
+        <div class="form-group"><label>ステータス</label><select id="f-status" onchange="toggleContractServices()">${['見込み','再アポ','契約','失注'].map(s=>`<option ${(a.status||'見込み')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <div id="contract-services-wrap" style="display:${(a.status==='契約')?'block':'none'}">
+        <div class="form-group"><label>契約サービス</label>
+          <div class="svc-checkboxes">
+            ${SERVICES.map(s=>`<div class="svc-checkbox-row">
+              <input type="checkbox" id="csvc-${svcKey(s)}" ${(a.contractServices||[]).includes(s)?'checked':''} style="width:auto;flex-shrink:0">
+              <label for="csvc-${svcKey(s)}" style="margin-bottom:0;font-size:13px;color:var(--text);font-weight:400">${s}</label>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label>流入ルート</label>
+        <select id="f-inflow" onchange="onInflowChange('f-inflow','f-inflow-detail','f-inflow-detail-wrap')">
+          <option value="">選択してください</option>
+          ${INFLOW_OPTS.map(i=>`<option value="${i}" ${inf===i?'selected':''}>${i}</option>`).join('')}
+        </select>
+      </div>
+      <div id="f-inflow-detail-wrap" style="display:${['SNS','紹介'].includes(inf)?'block':'none'}" class="form-group inflow-detail">
+        <label id="f-inflow-detail-label">${inf==='SNS'?'SNSの詳細':inf==='紹介'?'紹介者のお名前':'詳細'}</label>
+        <input id="f-inflow-detail" value="${esc(a.inflowDetail||'')}" placeholder="${inf==='SNS'?'Instagram / X / YouTube など':inf==='紹介'?'山田さん':''}">
+      </div>
+      <div class="form-group"><label>次回アクション</label><input id="f-next" value="${esc(a.nextAction||'')}"></div>
+      <div class="form-group"><label>備考・メモ</label><textarea id="f-notes">${esc(a.notes||'')}</textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveAppointment()">保存</button></div>`);
+  }
+
+  else if(type==='monthgoal'){
+    const key = typeof data==='string' ? data : currentGoalYear+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+    const goal=db.goals[key]||{};
+    editingId=key;
+    showModal(`<div class="modal-header"><h3>${monthLabel(key)} 月次目標</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>月間売上合計目標（円）</label><input id="f-total" type="number" value="${goal.totalSales||''}"></div>
+      ${SERVICES.map(s=>`<div class="form-group"><label>${s} 売上目標（円）</label><input id="f-${svcKey(s)}" type="number" value="${goal[svcKey(s)]||''}"></div>`).join('')}
+      <div class="form-group"><label>アポイント数目標（件）</label><input id="f-appts" type="number" value="${goal.appointments||''}"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveMonthGoal('${key}')">保存</button></div>`);
+  }
+
+  else if(type==='yeargoal'){
+    const isFiscal = goalMode==='fiscal';
+    const pKey = isFiscal ? fyKey(currentGoalYear) : String(currentGoalYear);
+    const yg = db.goals[pKey]||{};
+    const title = isFiscal
+      ? currentGoalYear+'期（'+currentGoalYear+'/9〜'+(currentGoalYear+1)+'/8）目標'
+      : currentGoalYear+'年 年間目標';
+    showModal(`<div class="modal-header"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>売上目標（円）</label><input id="f-year-total" type="number" value="${yg.totalSales||''}"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveYearGoal()">保存</button></div>`);
+  }
+}
+
+function onInflowChange(selId, detailId, wrapId){
+  const val=document.getElementById(selId).value;
+  const wrap=document.getElementById(wrapId);
+  const lbl=document.getElementById(detailId+'-label')||document.querySelector('#'+wrapId+' label');
+  const inp=document.getElementById(detailId);
+  if(val==='SNS'){
+    wrap.style.display='block';
+    if(lbl)lbl.textContent='SNSの詳細（Instagram、X、YouTubeなど）';
+    if(inp)inp.placeholder='Instagram';
+  } else if(val==='紹介'){
+    wrap.style.display='block';
+    if(lbl)lbl.textContent='紹介者のお名前';
+    if(inp)inp.placeholder='山田さん';
+  } else if(val==='イベント'){
+    wrap.style.display='block';
+    if(lbl)lbl.textContent='イベント名・詳細';
+    if(inp)inp.placeholder='〇〇セミナー';
+  } else if(val==='その他'){
+    wrap.style.display='block';
+    if(lbl)lbl.textContent='詳細';
+    if(inp)inp.placeholder='';
+  } else {
+    wrap.style.display='none';
+  }
+}
+
+function toggleContractServices(){
+  const val=document.getElementById('f-status')?.value;
+  const wrap=document.getElementById('contract-services-wrap');
+  if(wrap) wrap.style.display=(val==='契約')?'block':'none';
+}
+
+function toggleSvcDetail(){
+  const lt=document.getElementById('svc-longterm')?.checked;
+  const biz=document.getElementById('svc-biz')?.checked;
+  const ltw=document.getElementById('longterm-months-wrap');
+  const bw=document.getElementById('biz-months-wrap');
+  const mf=document.getElementById('months-fields');
+  if(ltw)ltw.style.display=lt?'block':'none';
+  if(bw)bw.style.display=biz?'block':'none';
+  if(mf)mf.style.display=(lt||biz)?'block':'none';
+}
+
+function showModal(html){
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target.classList.contains('modal-overlay'))closeModal()"><div class="modal">${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modal-container').innerHTML=''; editingId=null; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ===== SAVES =====
+async function saveCustomer(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name)return alert('氏名を入力してください');
+  const services=SERVICES.filter(s=>document.getElementById('svc-'+svcKey(s))?.checked);
+  const inflow=document.getElementById('f-inflow').value;
+  const id=editingId||genId();
+  const revenueDate=document.getElementById('f-rdate').value;
+  const price=Number(document.getElementById('f-price').value)||null;
+  const obj={
+    id,
+    name,
+    gender:document.getElementById('f-gender').value,
+    services,
+    price,
+    longtermMonths:services.includes('長期1on1コーチング')?Number(document.getElementById('f-longterm-months')?.value)||null:null,
+    bizMonths:services.includes('ビジネスコーチング')?Number(document.getElementById('f-biz-months')?.value)||null:null,
+    contractStart:document.getElementById('f-cstart').value,
+    contractEnd:document.getElementById('f-cend').value,
+    revenueDate,
+    inflow,
+    inflowDetail:document.getElementById('f-inflow-detail')?.value||'',
+    status:document.getElementById('f-status').value||'契約中',
+    goals:document.getElementById('f-goals').value,
+    notes:document.getElementById('f-notes').value,
+    spreadsheetId:document.getElementById('f-spreadsheet-id')?.value.trim()||'',
+  };
+  const {error}=await sb.from('customers').upsert({id, data:obj});
+  if(error)return alert('保存失敗: '+error.message);
+  if(editingId) db.customers=db.customers.map(c=>c.id===editingId?obj:c);
+  else db.customers.push(obj);
+
+  // 売上換算日と金額があれば売上管理に自動反映
+  if(revenueDate && price){
+    const saleId='auto_'+id;
+    const saleObj={id:saleId, customerId:id, customerName:name,
+      date:revenueDate, amount:price,
+      service:services[0]||'その他', memo:'顧客管理から自動登録', autoGenerated:true};
+    await sb.from('sales').upsert({id:saleId, data:saleObj});
+    const idx=db.sales.findIndex(s=>s.id===saleId);
+    if(idx>=0) db.sales[idx]=saleObj; else db.sales.push(saleObj);
+  } else if(editingId){
+    // 売上換算日や金額が消えた場合は自動生成した売上も削除
+    const saleId='auto_'+id;
+    const existing=db.sales.find(s=>s.id===saleId&&s.autoGenerated);
+    if(existing){ await sb.from('sales').delete().eq('id',saleId); db.sales=db.sales.filter(s=>s.id!==saleId); }
+  }
+
+  closeModal(); renderCustomers(); renderSales();
+}
+
+function toggleSaleOther(){
+  const v=document.getElementById('f-service').value;
+  document.getElementById('f-other-wrap').style.display=v==='その他'?'block':'none';
+}
+
+async function saveSale(){
+  const date=document.getElementById('f-date').value;
+  const amount=document.getElementById('f-amount').value;
+  const service=document.getElementById('f-service').value;
+  if(!date||!amount||!service)return alert('日付・金額・サービスは必須です');
+  if(service==='その他'&&!document.getElementById('f-other-detail').value.trim())return alert('内容の詳細を入力してください');
+  const cid=document.getElementById('f-customer').value;
+  const cust=db.customers.find(c=>c.id===cid);
+  const id=editingId||genId();
+  const obj={id,date,amount:Number(amount),service,
+    otherDetail:service==='その他'?document.getElementById('f-other-detail').value:'',
+    otherPerson:service==='その他'?document.getElementById('f-other-person').value:'',
+    customerId:cid||null,customerName:cust?cust.name:'',memo:document.getElementById('f-memo').value};
+  const {error}=await sb.from('sales').upsert({id, data:obj});
+  if(error)return alert('保存失敗: '+error.message);
+  if(editingId) db.sales=db.sales.map(s=>s.id===editingId?obj:s);
+  else db.sales.push(obj);
+  closeModal(); renderSales();
+}
+
+async function saveAppointment(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name)return alert('氏名を入力してください');
+  const inflow=document.getElementById('f-inflow').value;
+  const id=editingId||genId();
+  const obj={
+    id,
+    name,
+    title:document.getElementById('f-title').value,
+    business:document.getElementById('f-business').value,
+    date:document.getElementById('f-date').value,
+    status:document.getElementById('f-status').value,
+    inflow,
+    inflowDetail:document.getElementById('f-inflow-detail')?.value||'',
+    contractServices:document.getElementById('f-status').value==='契約'?SERVICES.filter(s=>document.getElementById('csvc-'+svcKey(s))?.checked):[],
+    nextAction:document.getElementById('f-next').value,
+    notes:document.getElementById('f-notes').value,
+  };
+  const {error}=await sb.from('appointments').upsert({id, data:obj});
+  if(error)return alert('保存失敗: '+error.message);
+  if(editingId) db.appointments=db.appointments.map(a=>a.id===editingId?obj:a);
+  else db.appointments.push(obj);
+  closeModal(); renderAppointments();
+}
+
+async function saveMonthGoal(key){
+  const data={
+    totalSales:Number(document.getElementById('f-total').value)||0,
+    appointments:Number(document.getElementById('f-appts').value)||0,
+    ...Object.fromEntries(SERVICES.map(s=>[svcKey(s),Number(document.getElementById('f-'+svcKey(s))?.value)||0]))
+  };
+  const {error}=await sb.from('goals').upsert({period_key:key, data});
+  if(error)return alert('保存失敗: '+error.message);
+  db.goals[key]=data;
+  closeModal(); renderGoals();
+}
+
+async function saveYearGoal(){
+  const pKey = goalMode==='fiscal' ? fyKey(currentGoalYear) : String(currentGoalYear);
+  const data={totalSales:Number(document.getElementById('f-year-total').value)||0};
+  const {error}=await sb.from('goals').upsert({period_key:pKey, data});
+  if(error)return alert('保存失敗: '+error.message);
+  db.goals[pKey]=data;
+  closeModal(); renderGoals();
+}
+
+// ===== COMMUNITY =====
+let communityData = {members:[]};
+const COMMUNITY_FEE = 10000;
+const SALES_CUTOFF = '2026-07-01'; // これ以前の売上は集計から除外
+
+function getActiveCommunityMembers(ym) {
+  return (communityData.members||[]).filter(m=>{
+    if(m.status!=='active') return false;
+    if(m.joinDate && m.joinDate.slice(0,7) > ym) return false;
+    if(m.leaveDate && m.leaveDate.slice(0,7) < ym) return false;
+    return true;
+  });
+}
+function getCommunityRevenue(ym){ return getActiveCommunityMembers(ym).length * COMMUNITY_FEE; }
+
+function renderCommunity(){
+  const members = communityData.members||[];
+  const active = members.filter(m=>m.status==='active');
+  const monthlyRev = active.length * COMMUNITY_FEE;
+  const chk = v => v ? '✅' : '—';
+
+  // 会計年度（9〜8月）の各月ごとにアクティブ人数を算出して合算
+  const now = new Date();
+  const curYM = now.toISOString().slice(0,7);
+  const fyStartYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const fyMonths = [];
+  let fy=fyStartYear, fm=9;
+  while(true){
+    const ym=`${fy}-${String(fm).padStart(2,'0')}`;
+    fyMonths.push(ym);
+    if(ym===`${fyStartYear+1}-08`) break;
+    fm++; if(fm>12){fm=1;fy++;}
+  }
+  let annualRevActual=0, annualRevProjected=0;
+  fyMonths.forEach(ym=>{
+    const cnt = ym<=curYM ? getActiveCommunityMembers(ym).length : active.length;
+    if(ym<=curYM) annualRevActual += cnt*COMMUNITY_FEE;
+    else annualRevProjected += cnt*COMMUNITY_FEE;
+  });
+  const annualRevTotal = annualRevActual + annualRevProjected;
+  const passedMonths = fyMonths.filter(m=>m<=curYM).length;
+  const remainingMonths = fyMonths.length - passedMonths;
+  document.getElementById('community-content').innerHTML = `
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card stat-card-1"><div class="stat-label">アクティブ会員</div><div class="stat-value">${active.length}名</div><div class="stat-sub">合計 ${members.length}名登録</div></div>
+      <div class="stat-card stat-card-3"><div class="stat-label">今月売上（ラボ）</div><div class="stat-value">${fmtY(monthlyRev)}</div><div class="stat-sub">@¥10,000 × ${active.length}名</div></div>
+      <div class="stat-card stat-card-2"><div class="stat-label">年間売上予測（ラボ）</div><div class="stat-value">${fmtY(annualRevTotal)}</div><div class="stat-sub">実績${fmtY(annualRevActual)} ＋ 残${remainingMonths}ヶ月予測${fmtY(annualRevProjected)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">会員リスト</span></div>
+      ${members.length===0?'<div class="empty" style="padding:40px"><p>会員がまだいません。「会員を追加」から登録してください</p></div>':`
+      <div class="table-wrap"><table>
+        <thead><tr><th>No.</th><th>氏名</th><th>性別</th><th>契約書</th><th>決済</th><th>LINE</th><th>契約開始</th><th>職業</th><th>契約中</th><th>備考</th><th></th></tr></thead>
+        <tbody>${members.map((m,i)=>`<tr>
+          <td class="text-xs text-muted">${i+1}</td>
+          <td><div class="flex items-center gap-2"><div class="avatar">${(m.name||'?')[0]}</div><span class="fw-500">${m.name||''}</span></div></td>
+          <td style="text-align:center"><span class="badge ${m.gender==='女'?'badge-pink':'badge-blue'}" style="min-width:28px">${m.gender||'—'}</span></td>
+          <td style="text-align:center">${chk(m.hasContract)}</td>
+          <td style="text-align:center">${chk(m.hasPayment)}</td>
+          <td style="text-align:center">${chk(m.hasLine)}</td>
+          <td class="text-xs text-muted">${m.joinDate||''}</td>
+          <td class="text-xs">${m.occupation||''}</td>
+          <td style="text-align:center"><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status==='active'?'契約中':'—'}</span></td>
+          <td class="text-xs text-muted">${m.notes||''}</td>
+          <td><div class="flex gap-2"><button class="btn btn-sm" onclick="editCommunityMember('${m.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCommunityMember('${m.id}')">削除</button></div></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>`;
+}
+
+function openCommunityModal(id){
+  const m = id ? (communityData.members||[]).find(x=>x.id===id) : {};
+  editingId = id||null;
+  const chkd = (val) => val ? 'checked' : '';
+  showModal(`<div class="modal-header"><h3>${id?'会員を編集':'会員を追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-row">
+      <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc((m||{}).name||'')}"></div>
+      <div class="form-group"><label>性別</label>
+        <select id="f-gender">
+          <option value="" ${!(m||{}).gender?'selected':''}>—</option>
+          <option value="男" ${(m||{}).gender==='男'?'selected':''}>男</option>
+          <option value="女" ${(m||{}).gender==='女'?'selected':''}>女</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>契約開始</label><input id="f-join" type="month" value="${(m||{}).joinDate||''}"></div>
+      <div class="form-group"><label>職業</label><input id="f-occupation" value="${esc((m||{}).occupation||'')}"></div>
+    </div>
+    <div class="form-row" style="gap:20px;align-items:center;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-contract" type="checkbox" ${chkd((m||{}).hasContract)}> 契約書</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-payment" type="checkbox" ${chkd((m||{}).hasPayment)}> 決済</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-line" type="checkbox" ${chkd((m||{}).hasLine)}> LINE</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-active" type="checkbox" ${chkd((m||{}).status==='active'||!(m||{}).id)}> 契約中</label>
+    </div>
+    <div class="form-group" style="margin-top:12px"><label>退会日</label><input id="f-leave" type="month" value="${(m||{}).leaveDate||''}"></div>
+    <div class="form-group"><label>備考</label><textarea id="f-notes" rows="2">${esc((m||{}).notes||'')}</textarea></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveCommunityForm()">保存</button></div>`);
+}
+function editCommunityMember(id){ openCommunityModal(id); }
+
+async function saveCommunityForm(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name)return alert('氏名を入力してください');
+  const obj={
+    id:editingId||genId(), name,
+    gender:document.getElementById('f-gender').value,
+    joinDate:document.getElementById('f-join').value,
+    leaveDate:document.getElementById('f-leave').value,
+    occupation:document.getElementById('f-occupation').value,
+    hasContract:document.getElementById('f-contract').checked,
+    hasPayment:document.getElementById('f-payment').checked,
+    hasLine:document.getElementById('f-line').checked,
+    status:document.getElementById('f-active').checked?'active':'inactive',
+    notes:document.getElementById('f-notes').value
+  };
+  const members=communityData.members||[];
+  communityData.members = editingId ? members.map(m=>m.id===editingId?obj:m) : [...members,obj];
+  const {error}=await sb.from('goals').upsert({period_key:'community_data',data:communityData});
+  if(error)return alert('保存失敗: '+error.message);
+  closeModal(); renderCommunity();
+}
+
+async function deleteCommunityMember(id){
+  if(!confirm('削除しますか？'))return;
+  communityData.members=(communityData.members||[]).filter(m=>m.id!==id);
+  await sb.from('goals').upsert({period_key:'community_data',data:communityData});
+  renderCommunity();
+}
+
+// ===== FINANCE =====
+let financeData = null;
+let financeGoals = {};
+
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function loadFinanceCSV(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const bytes = new Uint8Array(e.target.result);
+    let text;
+    try { text = new TextDecoder('shift-jis').decode(bytes); }
+    catch(err) { text = new TextDecoder('utf-8').decode(bytes); }
+    const parsed = parseFreeeCSV(text);
+    if (!parsed) return alert('CSVの読み込みに失敗しました。freeeの損益計算書CSVか確認してください。');
+    showLoading(true);
+    const { error } = await sb.from('goals').upsert({ period_key: 'finance_pl', data: parsed });
+    showLoading(false);
+    if (error) return alert('保存失敗: ' + error.message);
+    financeData = parsed;
+    renderFinance();
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+function parseFreeeCSV(text) {
+  const lines = text.split('\n');
+  const rows = lines.map(parseCSVLine);
+  const headerRowIdx = rows.findIndex(r => r.some(c => /^\d{4}-\d{2}$/.test(c)));
+  if (headerRowIdx < 0) return null;
+  const headerRow = rows[headerRowIdx];
+  const startCol = headerRow.findIndex(c => /^\d{4}-\d{2}$/.test(c));
+  const months = headerRow.slice(startCol).filter(c => /^\d{4}-\d{2}$/.test(c));
+  const monthCount = months.length;
+  const getVals = row => row.slice(startCol, startCol + monthCount).map(v => Number((v||'0').replace(/,/g,'')) || 0);
+  // 全角スペース(U+3000)も除去して正規化
+  const norm = s => s.replace(/[\s　]/g,'');
+  const findRow = kw => {
+    const kn = norm(kw);
+    // 完全一致優先、なければ部分一致
+    const exact = rows.find(r => r[0] && norm(r[0]) === kn);
+    if (exact) return getVals(exact);
+    const partial = rows.find(r => r[0] && norm(r[0]).includes(kn) && norm(r[0]).length <= kn.length+4);
+    return partial ? getVals(partial) : null;
+  };
+  const revenue = findRow('売上高計') || findRow('売上高');
+  const sgaTotal = findRow('販売費及び一般管理費計');
+  const operatingProfit = findRow('営業利益(損)') || findRow('営業利益');
+  const netProfit = findRow('当期純利益(損)') || findRow('当期純利益');
+  const expKeys = ['家賃','給与手当','外注費','広告宣伝費','旅費交通費','接待交際費','通信費','消耗品費','賃借料','雑費','保険料','研修費','法定福利費','支払手数料'];
+  const expenseDetails = {};
+  expKeys.forEach(k => { const r = findRow(k); if (r) expenseDetails[k] = r; });
+  if (!revenue) return null;
+  return { months, revenue, sgaTotal: sgaTotal||months.map(()=>0), operatingProfit: operatingProfit||months.map(()=>0), netProfit: netProfit||months.map(()=>0), expenseDetails, updatedAt: new Date().toISOString() };
+}
+
+function linReg(data) {
+  const n = data.length; if (n < 2) return data[n-1]||0;
+  const xs = Array.from({length:n},(_,i)=>i);
+  const xm = xs.reduce((a,b)=>a+b)/n, ym = data.reduce((a,b)=>a+b)/n;
+  const num = xs.reduce((a,x,i)=>a+(x-xm)*(data[i]-ym),0);
+  const den = xs.reduce((a,x)=>a+(x-xm)**2,0);
+  return Math.max(0, Math.round(ym + (den?num/den:0)*n));
+}
+
+function generateFinanceInsights(fd, activeIdx) {
+  const { revenue, sgaTotal, operatingProfit, expenseDetails, months } = fd;
+  const insights = [];
+  const ar = activeIdx.map(i=>revenue[i]);
+  const ae = activeIdx.map(i=>sgaTotal[i]);
+  const ap = activeIdx.map(i=>operatingProfit[i]);
+  const totalRev = ar.reduce((a,b)=>a+b,0);
+  const totalProf = ap.reduce((a,b)=>a+b,0);
+  const margin = totalRev>0 ? Math.round(totalProf/totalRev*100) : 0;
+
+  // 赤字月
+  const lossMonths = activeIdx.filter(i=>operatingProfit[i]<0).map(i=>months[i].replace(/^\d{4}-/,'')+'月');
+  if (lossMonths.length>0) insights.push({ type:lossMonths.length>=3?'danger':'warn', title:`赤字月が${lossMonths.length}ヶ月あります（${lossMonths.join('・')}）`, body:'費用が売上を上回っています。費用の見直しか売上の強化が必要です。' });
+
+  // 利益率
+  if (margin<10) insights.push({ type:'warn', title:`平均利益率が${margin}%と低めです`, body:'コーチング業の目安は20〜30%以上。費用削減または売上アップを検討してください。' });
+  else if (margin>=20) insights.push({ type:'good', title:`平均利益率${margin}%は良好です`, body:'健全な収益構造です。このまま維持できるよう費用管理を続けましょう。' });
+  else insights.push({ type:'info', title:`平均利益率は${margin}%です`, body:'もう少し利益率を上げられると安定します。目標は20%以上。' });
+
+  // 最大費用
+  const expTotals = Object.entries(expenseDetails).map(([k,v])=>({k,t:v.reduce((a,b)=>a+b,0)})).filter(e=>e.t>0).sort((a,b)=>b.t-a.t);
+  if (expTotals.length>0) {
+    const top = expTotals[0];
+    const r = totalRev>0?Math.round(top.t/totalRev*100):0;
+    insights.push({ type:'info', title:`最大費用は「${top.k}」（${fmtY(top.t)}・売上比${r}%）`, body:'費用の中で最も大きい項目です。削減できるか定期的に見直しましょう。' });
+  }
+
+  // 売上トレンド
+  if (ar.length>=6) {
+    const r3=ar.slice(-3).reduce((a,b)=>a+b)/3, p3=ar.slice(-6,-3).reduce((a,b)=>a+b)/3;
+    const chg=p3>0?Math.round((r3-p3)/p3*100):0;
+    if (chg<-10) insights.push({ type:'warn', title:`直近3ヶ月の売上が前期比${Math.abs(chg)}%減少しています`, body:'新規顧客獲得の強化や既存顧客のリテンションを見直してください。' });
+    else if (chg>10) insights.push({ type:'good', title:`直近3ヶ月の売上が前期比${chg}%増加しています`, body:'売上の伸びが続いています。この調子を維持しましょう！' });
+  }
+
+  // 年間予測
+  const avgM = ar.filter(r=>r>0).length||1;
+  const avgP = ap.reduce((a,b)=>a+b,0)/ap.length;
+  insights.push({ type:'info', title:`年間利益予測：${fmtY(Math.round(avgP*12))}`, body:`現在の月平均売上${fmtY(Math.round(totalRev/avgM))}・月平均利益${fmtY(Math.round(avgP))}をもとに算出。` });
+
+  return insights;
+}
+
+async function saveFinanceGoals(){
+  const obj={annualRevenue:Number(document.getElementById('fg-rev').value)||0,annualExpense:Number(document.getElementById('fg-exp').value)||0};
+  const {error}=await sb.from('goals').upsert({period_key:'finance_goals',data:obj});
+  if(error)return alert('保存失敗: '+error.message);
+  financeGoals=obj; closeModal(); renderFinance();
+}
+
+function openFinanceGoalModal(){
+  showModal(`<div class="modal-header"><h3>財務目標を設定</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label>年間売上目標（円）</label><input id="fg-rev" type="number" value="${financeGoals.annualRevenue||''}" placeholder="例: 30000000"></div>
+    <div class="form-group"><label>年間費用上限（円）</label><input id="fg-exp" type="number" value="${financeGoals.annualExpense||''}" placeholder="例: 20000000"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveFinanceGoals()">保存</button></div>`);
+}
+
+function renderFinance() {
+  const fd = financeData;
+  const el = document.getElementById('finance-content');
+  if (!fd) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:16px">📊</div>
+      <h3 style="margin-bottom:8px;color:var(--text)">財務データがありません</h3>
+      <p class="text-muted" style="margin-bottom:20px">freeeから損益計算書のCSVをエクスポートしてアップロードしてください</p>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:16px;text-align:left;max-width:400px;margin:0 auto;font-size:13px">
+        <div style="font-weight:600;margin-bottom:8px">freeeでのCSV出力方法：</div>
+        <div>① freeeにログイン</div>
+        <div>② レポート → 損益計算書</div>
+        <div>③ 月次推移を選択・期間設定</div>
+        <div>④ エクスポート → CSV</div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const { months, revenue, sgaTotal, operatingProfit, expenseDetails, updatedAt } = fd;
+  const activeIdx = months.map((_,i)=>i).filter(i=>revenue[i]>0||sgaTotal[i]>0);
+  const totalRev = revenue.reduce((a,b)=>a+b,0);
+  const totalExp = sgaTotal.reduce((a,b)=>a+b,0);
+  const totalProf = operatingProfit.reduce((a,b)=>a+b,0);
+  const margin = totalRev>0?Math.round(totalProf/totalRev*100):0;
+
+  // Chart
+  const chartMax = Math.max(...activeIdx.map(i=>Math.max(revenue[i],sgaTotal[i])),1);
+  const chartH = 140;
+
+  // Expense breakdown
+  const expTotals = Object.entries(expenseDetails).map(([k,v])=>({k,t:v.reduce((a,b)=>a+b,0)})).filter(e=>e.t>0).sort((a,b)=>b.t-a.t);
+  const expMax = Math.max(...expTotals.map(e=>e.t),1);
+
+  // Forecast (linear regression)
+  const recIdx = activeIdx.slice(-6);
+  const nextRev = linReg(recIdx.map(i=>revenue[i]));
+  const nextExp = linReg(recIdx.map(i=>sgaTotal[i]));
+  const nextProf = nextRev - nextExp;
+
+  // Community revenue
+  const commRevByMonth = months.map(m=>getCommunityRevenue(m));
+  const totalCommRev = commRevByMonth.reduce((a,b)=>a+b,0);
+
+  // App sales comparison (current month)
+  const nowYM = new Date().toISOString().slice(0,7);
+  const appRevThisMonth = db.sales.filter(s=>s.date&&s.date.startsWith(nowYM)).reduce((a,b)=>a+Number(b.amount||0),0);
+  const freeeRevThisMonth = (() => { const idx=months.indexOf(nowYM); return idx>=0?revenue[idx]:null; })();
+
+  // Goals vs actual forecast table
+  const goalAnnRev = financeGoals.annualRevenue||0;
+  const goalAnnExp = financeGoals.annualExpense||0;
+  const goalAnnProf = goalAnnRev - goalAnnExp;
+  const elapsedMonths = activeIdx.length;
+  // Fiscal year: Sept-Aug → calculate total months and fiscal year label from CSV start
+  const fyStartYear = parseInt(months[0].slice(0,4));
+  const fyStartMon = parseInt(months[0].slice(5,7));
+  const fyEndYear = fyStartMon >= 9 ? fyStartYear + 1 : fyStartYear;
+  const fyTotalMonths = (fyEndYear - fyStartYear) * 12 + (8 - fyStartMon) + 1;
+  const fyLabel = `FY${fyEndYear}（${months[0]}〜${fyEndYear}-08）`;
+  const remainMonths = Math.max(0, fyTotalMonths - elapsedMonths);
+  // Projected full-year based on trend
+  const projAnnRev = totalRev + nextRev * remainMonths;
+  const projAnnExp = totalExp + nextExp * remainMonths;
+  const projAnnProf = projAnnRev - projAnnExp;
+
+  const insights = generateFinanceInsights(fd, activeIdx);
+  const insightBg = { danger:'var(--danger-light)', warn:'var(--warning-light)', good:'var(--success-light)', info:'var(--accent-light)' };
+  const insightIcon = { danger:'🚨', warn:'⚠️', good:'✅', info:'💡' };
+
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:16px">最終更新: ${new Date(updatedAt).toLocaleString('ja-JP')} ／ 期間: ${months[0]}〜${months[months.length-1]}</div>
+
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card stat-card-1"><div class="stat-label">累計売上</div><div class="stat-value">${fmtY(totalRev)}</div><div class="stat-sub">${months[0]}〜${months[months.length-1]}</div></div>
+      <div class="stat-card stat-card-4"><div class="stat-label">累計費用</div><div class="stat-value">${fmtY(totalExp)}</div><div class="stat-sub">売上比 ${totalRev>0?Math.round(totalExp/totalRev*100):0}%</div></div>
+      <div class="stat-card ${totalProf>=0?'stat-card-3':'stat-card-plain'}"><div class="stat-label">累計利益</div><div class="stat-value" style="${totalProf<0?'color:var(--danger)':''}">${fmtY(totalProf)}</div><div class="stat-sub">利益率 ${margin}%</div></div>
+      <div class="stat-card stat-card-2"><div class="stat-label">ラボ累計売上</div><div class="stat-value">${fmtY(totalCommRev)}</div><div class="stat-sub">${(communityData.members||[]).filter(m=>m.status==='active').length}名 × ¥10,000</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">月次推移（売上・費用）</span></div>
+        <div style="overflow-x:auto">
+          <div class="finance-bar-wrap" style="min-width:${activeIdx.length*52}px">
+            ${activeIdx.map(i=>{
+              const rH=Math.round(revenue[i]/chartMax*chartH);
+              const eH=Math.round(sgaTotal[i]/chartMax*chartH);
+              const mLabel=months[i].replace(/^\d{4}-/,'')+'月';
+              const prof=operatingProfit[i];
+              const profMan=Math.abs(Math.round(prof/10000));
+              return `<div class="finance-bar-group" style="min-width:44px;align-items:center">
+                <div class="finance-bar-cols">
+                  <div class="finance-bar" style="width:16px;height:${rH}px;background:#6366f1" title="売上: ${fmtY(revenue[i])}"></div>
+                  <div class="finance-bar" style="width:16px;height:${eH}px;background:#f59e0b" title="費用: ${fmtY(sgaTotal[i])}"></div>
+                </div>
+                <div style="font-size:9px;margin-top:3px;color:${prof>=0?'var(--success)':'var(--danger)'};text-align:center">${prof>=0?'+':'-'}${profMan}万</div>
+                <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">${mLabel}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="finance-legend">
+          <span><span class="finance-dot" style="background:#6366f1"></span>売上</span>
+          <span><span class="finance-dot" style="background:#f59e0b"></span>費用</span>
+          <span style="font-size:10px;color:var(--text3)">棒の上＝利益（万円）</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">費用内訳（累計）</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${expTotals.length===0 ? '<div class="text-muted" style="padding:20px;text-align:center">CSVを再アップロードすると費用データが表示されます</div>' :
+          expTotals.slice(0,8).map(e=>{
+            const pct=Math.round(e.t/expMax*100);
+            const ratio=totalExp>0?Math.round(e.t/totalExp*100):0;
+            return `<div>
+              <div class="progress-label">
+                <span style="font-size:12px">${e.k}</span>
+                <span style="font-size:11px;color:var(--text2)">${fmtY(e.t)} (${ratio}%)</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:#f59e0b88;border:1px solid #f59e0b"></div></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">財務目標 vs 実績・予測 <span style="font-size:11px;font-weight:400;color:var(--text3)">${fyLabel}</span></span>
+        <button class="btn btn-sm btn-primary" onclick="openFinanceGoalModal()">目標を設定</button>
+      </div>
+      ${goalAnnRev===0 ? `<div class="text-muted" style="padding:12px">「目標を設定」ボタンから年間目標を入力すると、実績との比較と年末予測が表示されます。</div>` : `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="text-align:left;padding:8px 12px;color:var(--text2);font-weight:600">項目</th>
+              <th style="text-align:right;padding:8px 12px;color:var(--text2);font-weight:600">年間目標</th>
+              <th style="text-align:right;padding:8px 12px;color:var(--text2);font-weight:600">実績（累計）</th>
+              <th style="text-align:right;padding:8px 12px;color:var(--text2);font-weight:600">年間予測</th>
+              <th style="text-align:right;padding:8px 12px;color:var(--text2);font-weight:600">目標達成率</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[
+              {label:'売上', goal:goalAnnRev, actual:totalRev, proj:Math.round(projAnnRev)},
+              {label:'費用', goal:goalAnnExp, actual:totalExp, proj:Math.round(projAnnExp), invert:true},
+              {label:'利益', goal:goalAnnProf, actual:totalProf, proj:Math.round(projAnnProf)},
+            ].map(row=>{
+              const rate = row.goal>0?Math.round(row.proj/row.goal*100):null;
+              const ok = row.invert ? (rate!==null&&rate<=100) : (rate!==null&&rate>=80);
+              const color = rate===null?'var(--text2)':ok?'var(--success)':rate<50?'var(--danger)':'var(--warning)';
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:10px 12px;font-weight:600">${row.label}</td>
+                <td style="padding:10px 12px;text-align:right">${fmtY(row.goal)}</td>
+                <td style="padding:10px 12px;text-align:right">${fmtY(row.actual)}</td>
+                <td style="padding:10px 12px;text-align:right;color:${row.proj<0?'var(--danger)':'var(--text)'}">${fmtY(row.proj)}</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:${color}">${rate!==null?rate+'%':'—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:8px 12px;font-size:11px;color:var(--text3)">※ 年間予測＝実績累計 ＋ 直近6ヶ月のトレンドによる残${remainMonths}ヶ月予測</div>
+      `}
+    </div>
+
+    ${freeeRevThisMonth!==null ? `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><span class="card-title">今月の売上照合（${nowYM}）</span></div>
+      <div class="stats-grid">
+        <div class="stat-card stat-card-plain"><div class="stat-label">このアプリの売上</div><div class="stat-value" style="font-size:20px">${fmtY(appRevThisMonth)}</div></div>
+        <div class="stat-card stat-card-plain"><div class="stat-label">freeeの売上</div><div class="stat-value" style="font-size:20px">${fmtY(freeeRevThisMonth)}</div></div>
+        <div class="stat-card stat-card-plain"><div class="stat-label">差額</div><div class="stat-value" style="font-size:20px;color:${Math.abs(appRevThisMonth-freeeRevThisMonth)<1000?'var(--success)':'var(--warning)'}">${fmtY(Math.abs(appRevThisMonth-freeeRevThisMonth))}</div><div class="stat-sub">${Math.abs(appRevThisMonth-freeeRevThisMonth)<1000?'一致しています':'確認が必要かも'}</div></div>
+      </div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">財務アドバイス</span></div>
+      ${insights.map(i=>`
+        <div class="insight-card" style="background:${insightBg[i.type]||insightBg.info}">
+          <div class="insight-icon">${insightIcon[i.type]||'💡'}</div>
+          <div><div class="insight-title">${i.title}</div><div class="insight-body">${i.body}</div></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div class="card-header">
+        <span class="card-title">AIコンサル（Claude分析）</span>
+        <button class="btn btn-sm btn-primary" onclick="runAIConsult()">AIコンサルを生成</button>
+      </div>
+      <div id="ai-consult-key-wrap" style="padding:12px;display:${localStorage.getItem('anthropic_api_key')?'none':'block'}">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Anthropic APIキーを入力してください（ブラウザにのみ保存されます）</div>
+        <div style="display:flex;gap:8px">
+          <input id="ai-api-key-input" type="password" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px">
+          <button class="btn btn-primary" onclick="saveApiKey()">保存</button>
+        </div>
+      </div>
+      <div id="ai-consult-result" style="padding:${localStorage.getItem('anthropic_api_key')?'0':'12px'}">
+        ${localStorage.getItem('ai_consult_cache') ? localStorage.getItem('ai_consult_cache') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">「AIコンサルを生成」ボタンを押すと、財務データを分析してアドバイスを生成します</div>'}
+      </div>
+    </div>
+  `;
+}
+
+// ===== AI CONSULT =====
+function saveApiKey(){
+  const key = document.getElementById('ai-api-key-input')?.value?.trim();
+  if(!key || !key.startsWith('sk-ant-')){ alert('正しいAPIキーを入力してください（sk-ant- で始まる文字列）'); return; }
+  localStorage.setItem('anthropic_api_key', key);
+  document.getElementById('ai-consult-key-wrap').style.display = 'none';
+  alert('APIキーを保存しました');
+}
+
+async function runAIConsult(){
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if(!apiKey){ alert('先にAPIキーを入力・保存してください'); return; }
+  if(!financeData){ alert('財務データがありません。先にCSVをアップロードしてください'); return; }
+
+  const resultEl = document.getElementById('ai-consult-result');
+  resultEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text3)">分析中... しばらくお待ちください</div>';
+
+  const { months, revenue, sgaTotal, operatingProfit, expenseDetails } = financeData;
+  const activeIdx = months.map((_,i)=>i).filter(i=>revenue[i]>0||sgaTotal[i]>0);
+  const totalRev = revenue.reduce((a,b)=>a+b,0);
+  const totalExp = sgaTotal.reduce((a,b)=>a+b,0);
+  const totalProf = operatingProfit.reduce((a,b)=>a+b,0);
+  const expTotals = Object.entries(expenseDetails).map(([k,v])=>({k,t:v.reduce((a,b)=>a+b,0)})).filter(e=>e.t>0).sort((a,b)=>b.t-a.t);
+
+  const monthlyData = activeIdx.map(i=>({
+    month: months[i],
+    revenue: revenue[i],
+    expense: sgaTotal[i],
+    profit: operatingProfit[i]
+  }));
+
+  const recIdx = activeIdx.slice(-3);
+  const nextRev = linReg(recIdx.map(i=>revenue[i]));
+  const nextExp = linReg(recIdx.map(i=>sgaTotal[i]));
+
+  const prompt = `あなたはコーチングビジネス専門の財務コンサルタントです。以下の財務データを分析して、具体的なアドバイスをください。
+
+【会社情報】
+- 株式会社Youmore（コーチングビジネス）
+- 決算期：9月〜8月末
+
+【月次データ】
+${monthlyData.map(m=>`${m.month}：売上${Math.round(m.revenue/10000)}万円、費用${Math.round(m.expense/10000)}万円、利益${Math.round(m.profit/10000)}万円`).join('\n')}
+
+【累計サマリー】
+- 累計売上：${Math.round(totalRev/10000)}万円
+- 累計費用：${Math.round(totalExp/10000)}万円
+- 累計利益：${Math.round(totalProf/10000)}万円
+- 利益率：${totalRev>0?Math.round(totalProf/totalRev*100):0}%
+
+【費用内訳（累計上位）】
+${expTotals.slice(0,8).map(e=>`- ${e.k}：${Math.round(e.t/10000)}万円`).join('\n')}
+
+【来月予測（トレンドベース）】
+- 売上予測：${Math.round(nextRev/10000)}万円
+- 費用予測：${Math.round(nextExp/10000)}万円
+- 利益予測：${Math.round((nextRev-nextExp)/10000)}万円
+
+以下の4つの観点で日本語でアドバイスをください。HTMLで回答してください（<h4>タグで見出し、<p>で本文、重要な数字は<strong>で強調）：
+
+1. 🚨 使い過ぎている経費（具体的な費用項目名と金額を示して削減提案）
+2. 📈 売上の推移分析（トレンドとリスク・チャンスの指摘）
+3. 💰 キャッシュフロー予測（今後3ヶ月の見通し）
+4. 🎯 最低限必要な月次売上（固定費・生活費をカバーする損益分岐点）`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if(!res.ok){
+      const err = await res.json();
+      throw new Error(err.error?.message || res.statusText);
+    }
+
+    const data = await res.json();
+    const html = data.content[0].text;
+    const wrapped = `<div style="padding:16px;line-height:1.8;font-size:13px">${html}<div style="margin-top:12px;font-size:11px;color:var(--text3)">生成日時: ${new Date().toLocaleString('ja-JP')}</div></div>`;
+    resultEl.innerHTML = wrapped;
+    localStorage.setItem('ai_consult_cache', wrapped);
+  } catch(e) {
+    resultEl.innerHTML = `<div style="padding:16px;color:var(--danger)">エラーが発生しました：${e.message}</div>`;
+  }
+}
+
+// ===== SESSIONS =====
+const COACHING_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyL9e2vEkl6cfBYCaESKAeHhZIr97jXrzF9OAMRURBKENK1Enq0FzeOOdN9fdE1SvwD/exec';
+
+function renderSessions(){
+  const filter = document.getElementById('session-client-filter')?.value || '';
+  const sessions = filter ? db.sessions.filter(s=>s.clientId===filter) : db.sessions;
+  const sel = document.getElementById('session-client-filter');
+  if(sel){
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">全クライアント</option>' +
+      db.customers.map(c=>`<option value="${c.id}" ${prev===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+    if(prev) sel.value = prev;
+  }
+  const statsEl = document.getElementById('session-stats');
+  if(statsEl){
+    const clientSet = new Set(sessions.map(s=>s.clientId));
+    statsEl.innerHTML = `
+      <div class="stat-card stat-card-1"><div class="stat-label">総セッション数</div><div class="stat-value">${sessions.length}</div></div>
+      <div class="stat-card stat-card-2"><div class="stat-label">今月のセッション</div><div class="stat-value">${sessions.filter(s=>s.date&&s.date.startsWith(new Date().toISOString().slice(0,7))).length}</div></div>
+      <div class="stat-card stat-card-3"><div class="stat-label">対象クライアント</div><div class="stat-value">${clientSet.size}</div></div>
+    `;
+  }
+  const tbody = document.getElementById('sessions-tbody');
+  if(!tbody) return;
+  if(!sessions.length){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">セッション記録がありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s=>{
+    const client = db.customers.find(c=>c.id===s.clientId);
+    return `<tr>
+      <td style="font-weight:600">${esc(client?.name||'不明')}</td>
+      <td style="white-space:nowrap">${s.date||'-'}</td>
+      <td><div class="session-row-summary">${esc(s.summary||'')}</div></td>
+      <td>${client?.spreadsheetId
+        ? `<button class="sheets-btn" style="padding:5px 10px;font-size:12px" onclick="sendToSheets('${s.id}')">送信</button>`
+        : '<span style="color:var(--text3);font-size:12px">未設定</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="openSessionDetail('${s.id}')">詳細</button>
+        <button class="btn btn-sm" onclick="openSessionModal('${s.id}')" style="margin-left:4px">編集</button>
+        <button class="btn btn-sm" onclick="deleteSession('${s.id}')" style="margin-left:4px;color:var(--danger)">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openSessionModal(id){
+  editingId = id || null;
+  const s = id ? db.sessions.find(x=>x.id===id) : {};
+  if(!s) return;
+  showModal(`
+    <div class="modal-header"><h3>${id?'セッションを編集':'セッションを追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>クライアント *</label>
+          <select id="sf-client">
+            <option value="">選択してください</option>
+            ${db.customers.map(c=>`<option value="${c.id}" ${(s.clientId===c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group"><label>日付 *</label><input id="sf-date" type="date" value="${s.date||today()}"></div>
+      </div>
+      <div class="form-group"><label>セッションサマリー</label><textarea id="sf-summary" rows="4" placeholder="今回のセッションの要点...">${esc(s.summary||'')}</textarea></div>
+      <div class="form-group"><label>インサイト・気づき</label><textarea id="sf-insights" rows="3" placeholder="クライアントの気づきや変化...">${esc(s.insights||'')}</textarea></div>
+      <div class="form-group"><label>アクションプラン</label><textarea id="sf-actions" rows="3" placeholder="次回までの行動①②③...">${esc(s.actions||'')}</textarea></div>
+      <div class="form-group"><label>AIアドバイス</label><textarea id="sf-ai_advice" rows="3" placeholder="AIからのメッセージ...">${esc(s.ai_advice||'')}</textarea></div>
+      <div class="form-group"><label>コーチメモ</label><textarea id="sf-coach_notes" rows="2" placeholder="コーチ用メモ（非公開）...">${esc(s.coach_notes||'')}</textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveSession()">保存</button></div>
+  `);
+}
+
+async function saveSession(){
+  const clientId = document.getElementById('sf-client').value;
+  const date = document.getElementById('sf-date').value;
+  if(!clientId) return alert('クライアントを選択してください');
+  if(!date) return alert('日付を入力してください');
+  const id = editingId || genId();
+  const obj = {
+    id, clientId, date,
+    summary:     document.getElementById('sf-summary').value,
+    insights:    document.getElementById('sf-insights').value,
+    actions:     document.getElementById('sf-actions').value,
+    ai_advice:   document.getElementById('sf-ai_advice').value,
+    coach_notes: document.getElementById('sf-coach_notes').value,
+  };
+  const {error} = await sb.from('sessions').upsert({id, data:obj});
+  if(error) return alert('保存失敗: ' + error.message);
+  if(editingId) db.sessions = db.sessions.map(s=>s.id===editingId?obj:s);
+  else db.sessions.unshift(obj);
+  closeModal(); renderSessions();
+}
+
+async function deleteSession(id){
+  if(!confirm('このセッション記録を削除しますか？')) return;
+  const {error} = await sb.from('sessions').delete().eq('id', id);
+  if(error) return alert('削除失敗: ' + error.message);
+  db.sessions = db.sessions.filter(s=>s.id!==id);
+  renderSessions();
+}
+
+function openSessionDetail(id){
+  const s = db.sessions.find(x=>x.id===id);
+  if(!s) return;
+  const client = db.customers.find(c=>c.id===s.clientId);
+  const canSend = !!client?.spreadsheetId;
+  showModal(`
+    <div class="modal-header">
+      <div>
+        <h3>${esc(client?.name||'不明')} セッション詳細</h3>
+        <p style="font-size:12px;color:var(--text3);margin-top:2px">${s.date||'-'}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${canSend ? `<button class="sheets-btn" onclick="sendToSheets('${s.id}')">📊 Sheetsへ送信</button>` : ''}
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      ${s.summary ? `<div class="session-detail-section"><div class="session-label">セッションサマリー</div><div class="session-content-area full">${esc(s.summary)}</div></div>` : ''}
+      ${s.insights ? `<div class="session-detail-section"><div class="session-label">インサイト・気づき</div><div class="session-content-area full">${esc(s.insights)}</div></div>` : ''}
+      ${s.actions ? `<div class="session-detail-section"><div class="session-label">アクションプラン</div><div class="session-content-area full">${esc(s.actions)}</div></div>` : ''}
+      ${s.ai_advice ? `<div class="session-detail-section"><div class="session-label">AIアドバイス</div><div class="session-content-area full">${esc(s.ai_advice)}</div></div>` : ''}
+      ${s.coach_notes ? `<div class="session-detail-section"><div class="session-label">コーチメモ</div><div class="session-content-area full">${esc(s.coach_notes)}</div></div>` : ''}
+      ${!canSend ? '<p style="margin-top:12px;font-size:12px;color:var(--text3)">※ Sheets送信にはクライアント設定でGoogle Sheets IDを入力してください</p>' : ''}
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn btn-primary" onclick="closeModal();openSessionModal('${s.id}')">編集</button></div>
+  `);
+}
+
+async function sendToSheets(sessionId){
+  const s = db.sessions.find(x=>x.id===sessionId);
+  if(!s) return;
+  const client = db.customers.find(c=>c.id===s.clientId);
+  if(!client?.spreadsheetId) return alert('このクライアントにGoogle Sheets IDが設定されていません。\nクライアント設定から追加してください。');
+  const payload = {
+    spreadsheet_id: client.spreadsheetId,
+    date: s.date ? s.date.replace(/-/g,'/').replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1年$2月$3日') : '',
+    summary: s.summary||'',
+    actions: s.actions||'',
+    ai_advice: s.ai_advice||'',
+  };
+  const btn = event?.target;
+  if(btn){ btn.disabled=true; btn.textContent='送信中…'; }
+  try {
+    const res = await fetch(COACHING_WEBHOOK, { method:'POST', body:JSON.stringify(payload) });
+    const json = await res.json();
+    if(json.status==='success') alert('✅ Google Sheetsへの送信が完了しました！');
+    else throw new Error(json.message||'Unknown error');
+  } catch(e) {
+    alert('❌ 送信失敗: ' + e.message);
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='📊 Sheetsへ送信'; }
+  }
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
