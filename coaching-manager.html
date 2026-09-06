@@ -276,6 +276,43 @@
     .year-grid { grid-template-columns: repeat(3, 1fr); }
     .content { padding: 20px 16px; }
   }
+
+  /* ── Google Calendar ── */
+  .cal-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .cal-count { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; text-align: center; }
+  .cal-count-label { font-size: 11px; color: var(--text2); }
+  .cal-count-value { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; line-height: 1.2; }
+  .cal-scroll { max-height: 320px; overflow-y: auto; padding-right: 4px; }
+  .cal-day { margin-bottom: 14px; }
+  .cal-day:last-child { margin-bottom: 0; }
+  .cal-day-head { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--text2); padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .cal-day.is-today .cal-day-head { color: var(--accent); }
+  .cal-day-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 99px; background: var(--accent-light); color: var(--accent); }
+  .cal-day-count { margin-left: auto; color: var(--text3); font-weight: 500; }
+  .cal-ev { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 8px; }
+  .cal-ev:hover { background: var(--surface2); }
+  .cal-ev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cal-ev-time { font-size: 11px; color: var(--text2); width: 86px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .cal-ev-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-ev-cal { font-size: 10px; color: var(--text3); margin-left: auto; flex-shrink: 0; padding-left: 10px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-ev.is-declined .cal-ev-title { text-decoration: line-through; color: var(--text3); }
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); }
+  .cal-legend-item { display: flex; align-items: center; gap: 6px; }
+  .calm-summary { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+  .calm-summary-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .calm-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .calm-row-name { font-size: 12px; width: 212px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+  .calm-row-bar { flex: 1; height: 8px; background: #e9ecef; border-radius: 99px; overflow: hidden; }
+  .calm-row-fill { display: block; height: 100%; border-radius: 99px; transition: width 0.4s cubic-bezier(.4,0,.2,1); }
+  .calm-row-count { font-size: 12px; width: 68px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--text2); }
+  .calm-kw { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .calm-kw-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+  .calm-kw input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: inherit; outline: none; background: var(--surface); color: var(--text); }
+  .calm-kw input:focus { border-color: var(--accent); }
+  .calm-kw-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .calm-kw-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 13px; border-radius: 99px; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 600; }
+  .calm-kw-chip b { font-size: 15px; }
+  .calm-kw-chip.is-zero { background: var(--surface2); color: var(--text3); }
 </style>
 </head>
 <body>
@@ -358,6 +395,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         <span>セッション管理</span>
       </button>
+      <button class="nav-item" onclick="showPage('installments', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <span>分割決済</span>
+      </button>
+      <button class="nav-item" onclick="showPage('settings', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>設定</span>
+      </button>
     </nav>
     <div class="sidebar-footer">
       <button class="btn btn-sm" onclick="doLogout()">
@@ -374,7 +419,33 @@
         <h2>ダッシュボード</h2>
         <p id="dashboard-subtitle"></p>
       </div>
+      <div id="cal-notifications"></div>
       <div class="stats-grid" id="stats-grid"></div>
+      <div class="card" id="calendar-card" style="margin-bottom:24px">
+        <div class="card-header">
+          <span class="card-title">Googleカレンダー</span>
+          <div class="flex gap-2 items-center">
+            <span class="text-xs text-muted" id="cal-updated"></span>
+            <button class="btn btn-sm" onclick="loadCalendar(true)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              更新
+            </button>
+            <button class="btn btn-sm" onclick="openCalSettings()">設定</button>
+          </div>
+        </div>
+        <div id="calendar-body"></div>
+      </div>
+      <div class="card" id="calmonth-card" style="margin-bottom:24px">
+        <div class="card-header">
+          <span class="card-title">月別の予定分析</span>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-sm" onclick="changeCalMonth(-1)">◀</button>
+            <span id="calmonth-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
+            <button class="btn btn-sm" onclick="changeCalMonth(1)">▶</button>
+          </div>
+        </div>
+        <div id="calmonth-body"></div>
+      </div>
       <div class="grid-2">
         <div class="card">
           <div class="card-header">
@@ -415,7 +486,7 @@
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>顧客名</th><th>性別</th><th>サービス</th><th>契約期間</th><th>売上換算日</th><th>合計支払</th><th>ステータス</th><th></th></tr></thead>
+            <thead><tr><th>顧客名</th><th>性別</th><th>サービス</th><th>契約期間</th><th>売上換算日</th><th>合計支払</th><th>ステータス</th><th style="text-align:center">請求書</th><th></th></tr></thead>
             <tbody id="customers-tbody"></tbody>
           </table>
         </div>
@@ -432,6 +503,7 @@
             <span id="sales-month-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
             <button class="btn btn-sm" onclick="changeSalesMonth(1)">▶</button>
           </div>
+          <button class="btn" id="card-filter-btn" onclick="toggleCardFilter()" style="font-size:12px">💳 カード決済のみ</button>
           <button class="btn btn-primary" onclick="openModal('sale')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             売上追加
@@ -505,7 +577,11 @@
     <div id="page-community" class="content" style="display:none">
       <div class="page-header flex items-center">
         <div><h2>紹介営業ラボ</h2><p>コミュニティ会員管理・月次売上自動計算</p></div>
-        <div class="ml-auto">
+        <div class="ml-auto flex gap-2">
+          <div class="tab-switch-group" style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <button id="lab-tab-tokyo" class="tab-switch-btn active" onclick="switchLabTab('tokyo')" style="padding:6px 16px;border:none;cursor:pointer;font-size:14px;background:var(--primary);color:#fff">東京</button>
+            <button id="lab-tab-osaka" class="tab-switch-btn" onclick="switchLabTab('osaka')" style="padding:6px 16px;border:none;cursor:pointer;font-size:14px;background:var(--bg-card);color:var(--text)">大阪</button>
+          </div>
           <button class="btn btn-primary" onclick="openCommunityModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             会員を追加
@@ -523,6 +599,13 @@
           <select id="session-client-filter" onchange="renderSessions()" style="width:160px">
             <option value="">全クライアント</option>
           </select>
+          <button class="btn" onclick="refreshSessionsFromDB()" id="refresh-sessions-btn" title="Supabaseから最新データを取得">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            更新
+          </button>
+          <button class="btn" onclick="openTranscriptModal()" style="background:var(--accent);color:#fff">
+            🎙️ 議事録から作成
+          </button>
           <button class="btn btn-primary" onclick="openSessionModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             セッション追加
@@ -536,6 +619,51 @@
             <thead><tr><th>クライアント</th><th>日付</th><th>サマリー</th><th>Sheets</th><th></th></tr></thead>
             <tbody id="sessions-tbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Installments -->
+    <div id="page-installments" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>分割決済者</h2><p>毎月振込クライアントの残高管理</p></div>
+        <div class="ml-auto">
+          <button class="btn btn-primary" onclick="openInstallmentModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            クライアント追加
+          </button>
+        </div>
+      </div>
+      <div id="installments-content"></div>
+    </div>
+
+    <!-- Settings -->
+    <div id="page-settings" class="content" style="display:none">
+      <div class="page-header flex items-center">
+        <div><h2>設定</h2><p>連携設定・アポイントチェックリストの編集</p></div>
+        <div class="ml-auto">
+          <button class="btn btn-primary" onclick="saveChecklistSettings()">保存</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">アポ → スプレッドシート自動同期</span></div>
+        <div style="padding:0 0 12px">
+          <p class="text-xs text-muted">Apps Scriptの <code style="background:var(--bg);padding:1px 5px;border-radius:4px">setupAppoSyncTrigger</code> を一度だけ実行してください。以後5分ごとに自動でスプシに反映されます。</p>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">カレンダー色集計 → 目標数値スプシ同期</span></div>
+        <div style="padding:0 0 12px">
+          <p class="text-xs text-muted">カレンダーの色別件数（バナナ・フラミンゴ・バジル）をSupabaseに保存します。Apps Scriptが毎時間読み込んで目標数値スプシに反映します。</p>
+          <button class="btn btn-primary" style="margin-top:8px" onclick="syncCalendarStatsToSupabase()">今すぐ同期する</button>
+          <span id="cal-sync-status" style="font-size:12px;color:var(--text3);margin-left:8px"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div id="checklist-editor"></div>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="btn" onclick="addChecklistSection()">＋ セクション追加</button>
+          <button class="btn" style="color:var(--text3)" onclick="resetChecklist()">デフォルトに戻す</button>
         </div>
       </div>
     </div>
@@ -568,6 +696,18 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let db = { customers:[], sales:[], appointments:[], goals:{}, sessions:[] };
 
+const DEFAULT_APPO_CHECKLIST = [
+  { section: 'マインド', items: ['ステイト', '売らずに、買いたくなる話だけをする。相手が1番欲しがっているものを解説・心の声の代弁→実績', '契約するイメージ・サービスが口コミで広がっているイメージ', '論理マンモード・コンサル要素で営業して、分岐点を与える'] },
+  { section: '出会い', items: ['握手'] },
+  { section: 'タイムマシン', items: ['相手の価値観と強み（秘訣を聞く）言語化', '共通点', '相手の事業フェーズを把握する', '褒める'] },
+  { section: 'ストテリ', items: ['共通点意識', '同じレールの先感意識（相手の今の現状への共感）', 'タイの話してる時みたいに', '尊敬と親近感を獲得できているか'] },
+  { section: '理想', items: ['理想のワクワク・バランスホイール', '「それってどうしてなんですか？」', 'その人が今何にお金を使いたいのかを聞いて、そこに紹介FEEをお支払いする'] },
+  { section: '課題', items: ['「理想が100点なら今何点？」「残りは何？」「現状の課題は？」', '事業目標、人生目標、ぶっちゃけ今どうなんですか？相手の課題に協業を当てる', 'ただ聞くだけじゃなく、"違和感"を拾う。', '報酬形態まで聞く', '悩みへの共感「それはきついですね〜」'] },
+  { section: '気づきのストテリ', items: ['問いを挟みながら', '「問題解決」ではなく、「停滞の正体の特定」トラウマや要因の特定まではいかない。２段先の１段先まで。', '根本的な課題が繰り返されていることに気づきを与える「結局これか」', '価値観破壊', 'この人は変わらない痛みを気づかせたか・完璧主義とかのビジネスにおけるネガティブを言う', 'プライドを燻る「売れる営業マンって、、、」', 'もっといける感覚', '成果・実績', '解決した先', '1人では戻る', '想い'] },
+  { section: 'ラスト', items: ['紹介依頼', 'GIVE'] },
+];
+let appoChecklist = JSON.parse(JSON.stringify(DEFAULT_APPO_CHECKLIST));
+
 function showLoading(v){ document.getElementById('loading-overlay').style.display=v?'flex':'none'; }
 
 async function loadAll(){
@@ -586,8 +726,11 @@ async function loadAll(){
   db.goals = {};
   (g.data||[]).forEach(r=>{
     if(r.period_key==='finance_pl') financeData=r.data;
-    else if(r.period_key==='community_data') communityData=r.data||{members:[]};
+    else if(r.period_key==='community_data') communityData=migrateOldCommunityData(r.data);
     else if(r.period_key==='finance_goals') financeGoals=r.data||{};
+    else if(r.period_key==='bank_balances') bankBalances=r.data||{accounts:[],history:[]};
+    else if(r.period_key==='installments_data') installmentsData=r.data||[];
+    else if(r.period_key==='appo_checklist') appoChecklist=r.data||JSON.parse(JSON.stringify(DEFAULT_APPO_CHECKLIST));
     else db.goals[r.period_key]=r.data;
   });
   showLoading(false);
@@ -622,6 +765,8 @@ async function showApp(email){
   renderDashboard();
   document.getElementById('sales-month-label').textContent=monthLabel(currentSalesMonth);
   document.getElementById('goal-year-label').textContent=currentGoalYear+'年';
+  checkBankBalanceReminder();
+  startCalendarAutoRefresh();
 }
 
 function showLogin(){
@@ -704,7 +849,7 @@ function showPage(name, btn) {
   document.getElementById('page-'+name).style.display='';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  const renders = {dashboard:renderDashboard, customers:renderCustomers, sales:renderSales, appointments:renderAppointments, goals:renderGoals, finance:renderFinance, community:renderCommunity, sessions:renderSessions};
+  const renders = {dashboard:renderDashboard, customers:renderCustomers, sales:renderSales, appointments:renderAppointments, goals:renderGoals, finance:renderFinance, community:renderCommunity, sessions:renderSessions, installments:renderInstallments, settings:renderSettings};
   if (renders[name]) renders[name]();
 }
 
@@ -724,20 +869,21 @@ function renderDashboard() {
   const coachingY = ys.reduce((a,b)=>a+Number(b.amount||0),0);
   const commY = (() => { let t=0; const fyMonths=[]; let fy=fyStartYear,fm=9; while(true){const ym=`${fy}-${String(fm).padStart(2,'0')}`; if(ym>thisYM)break; fyMonths.push(ym); if(ym===`${fyStartYear+1}-08`)break; fm++;if(fm>12){fm=1;fy++;}} fyMonths.forEach(ym=>t+=getCommunityRevenue(ym)); return t; })();
   const totalY = coachingY + commY;
-  const active = db.customers.filter(c=>c.status==='アクティブ').length;
+  const active = db.customers.filter(c=>c.status==='契約中').length;
   const mAppts = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)).length;
   const goal = db.goals[thisYM]||{};
   const mGoal = Number(goal.totalSales||0);
   const ach = mGoal>0 ? Math.min(Math.round(totalM/mGoal*100),100) : null;
 
+  const period = fyStartYear - 2024 + 1;
   document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card stat-card-2"><div class="stat-label">第${period}期 売上</div><div class="stat-value">${fmtY(totalY)}</div><div class="stat-sub">コーチング${fmtY(coachingY)} ＋ ラボ${fmtY(commY)}</div></div>
     <div class="stat-card stat-card-1">
       <div class="stat-label">今月売上</div>
       <div class="stat-value">${fmtY(totalM)}</div>
       ${ach!==null?`<div class="stat-progress"><div class="stat-progress-bar" style="width:${ach}%"></div></div><div class="stat-sub">目標達成率 ${ach}%${commM>0?' (ラボ含む)':''}</div>`:`<div class="stat-sub">${commM>0?'ラボ '+fmtY(commM)+' 含む':'目標未設定'}</div>`}
     </div>
-    <div class="stat-card stat-card-2"><div class="stat-label">年間売上（FY${fyStartYear+1}）</div><div class="stat-value">${fmtY(totalY)}</div><div class="stat-sub">コーチング${fmtY(coachingY)} ＋ ラボ${fmtY(commY)}</div></div>
-    <div class="stat-card stat-card-3"><div class="stat-label">アクティブ顧客</div><div class="stat-value">${active}</div><div class="stat-sub">合計 ${db.customers.length}名登録</div></div>
+    <div class="stat-card stat-card-3"><div class="stat-label">契約中クライアント</div><div class="stat-value">${active}</div><div class="stat-sub">合計 ${db.customers.length}名登録</div></div>
     <div class="stat-card stat-card-4"><div class="stat-label">今月アポ数</div><div class="stat-value">${mAppts}</div><div class="stat-sub">累計 ${db.appointments.length}件</div></div>
   `;
 
@@ -775,14 +921,547 @@ function renderDashboard() {
     : `<div class="table-wrap"><table><thead><tr><th>氏名</th><th>日時</th><th>ステータス</th><th>次回アクション</th></tr></thead><tbody>
       ${ra.map(a=>`<tr><td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><span>${a.name||''}</span></div></td><td class="text-xs text-muted">${a.date||''}</td><td>${a.status?`<span class="badge ${STATUS_BADGE[a.status]||'badge-gray'}">${a.status}</span>`:''}</td><td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nextAction||''}</td></tr>`).join('')}
       </tbody></table></div>`;
+
+  loadCalendar();
+  loadCalMonth();
+  checkCalendarNotifications();
 }
+
+// ===== GOOGLE CALENDAR =====
+// Apps Script (calendar_api.gs) が返すJSONを読み込んでダッシュボードに表示する。
+// 接続情報はこのブラウザの localStorage にのみ保存する。
+const CAL_CFG_KEY = 'gcal_config';
+const CAL_REFRESH_MS = 5 * 60 * 1000;
+let calData = null;
+let dismissedNotifications = new Set();
+let calTimer = null;
+let calError = null;
+
+function getCalConfig(){
+  try { const c = JSON.parse(localStorage.getItem(CAL_CFG_KEY)); return (c && c.url) ? c : null; }
+  catch(e){ return null; }
+}
+
+async function syncCalendarStatsToSupabase(){
+  const status = document.getElementById('cal-sync-status');
+  const cfg = getCalConfig();
+  if(!cfg){ if(status) status.textContent = 'カレンダー未連携'; return; }
+  if(status) status.textContent = '同期中...';
+
+  const now = new Date();
+  const fyStart = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+  const months = [];
+  for(let i = 0; i < 12; i++){
+    let y = fyStart, m = 9 + i;
+    if(m > 12){ m -= 12; y++; }
+    months.push(`${y}-${String(m).padStart(2,'0')}`);
+  }
+
+  let saved = 0;
+  for(const ym of months){
+    try {
+      const u = new URL(cfg.url);
+      u.searchParams.set('month', ym);
+      if(cfg.token) u.searchParams.set('token', cfg.token);
+      const res = await fetch(u.toString());
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(!Array.isArray(data.events)) continue;
+
+      const counts = { flamingo: 0, banana: 0, basil: 0 };
+      data.events.forEach(e => {
+        if(e.colorKey === 'c4') counts.flamingo++;
+        else if(e.colorKey === 'c5') counts.banana++;
+        else if(e.colorKey === 'c10') counts.basil++;
+      });
+
+      await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
+      saved++;
+    } catch(e) { console.error('cal sync error', ym, e); }
+  }
+  if(status) status.textContent = `✅ ${saved}ヶ月分を同期しました`;
+}
+
+/** fetch の失敗理由をユーザーに分かる言葉にする */
+function calErrorMessage(err){
+  const msg = String((err && err.message) || err);
+  if(msg === 'Failed to fetch' || msg.indexOf('NetworkError') !== -1){
+    return 'URLに接続できませんでした。デプロイの「アクセスできるユーザー」が「全員」になっているか、スクリプトを編集した後に再デプロイしたかを確認してください';
+  }
+  return msg;
+}
+
+function calSafeColor(c){ return /^#[0-9a-fA-F]{3,8}$/.test(String(c||'')) ? c : 'var(--accent)'; }
+
+function calDayLabel(key){
+  const p = String(key).split('-');
+  const dow = ['日','月','火','水','木','金','土'][new Date(Date.UTC(+p[0], +p[1]-1, +p[2])).getUTCDay()];
+  return Number(p[1]) + '月' + Number(p[2]) + '日(' + dow + ')';
+}
+
+function calStatCardHTML(){
+  if(!calData){
+    if(!getCalConfig()) return '<div class="stat-label">今日の予定</div><div class="stat-value">—</div><div class="stat-sub" style="color:var(--text3)">カレンダー未連携</div>';
+    if(calError) return '<div class="stat-label">今日の予定</div><div class="stat-value" style="color:var(--danger)">!</div><div class="stat-sub" style="color:var(--danger)">取得エラー</div>';
+    return '<div class="stat-label">今日の予定</div><div class="stat-value">…</div><div class="stat-sub" style="color:var(--text3)">読み込み中</div>';
+  }
+  const c = calData.counts;
+  return '<div class="stat-label">今日の予定</div>'
+    + '<div class="stat-value">' + c.today + '<span style="font-size:14px;font-weight:600"> 件</span></div>'
+    + '<div class="stat-sub" style="color:var(--text2)">今週 ' + c.thisWeek + '件 ／ ' + calData.rangeDays + '日間 ' + c.range + '件</div>';
+}
+
+function updateCalStatCard(){
+  const el = document.getElementById('stat-cal');
+  if(el) el.innerHTML = calStatCardHTML();
+}
+
+function calSetupHTML(){
+  return '<div class="empty" style="padding:28px">'
+    + '<p>Googleカレンダーがまだ連携されていません</p>'
+    + '<p class="text-xs" style="color:var(--text3);margin-top:6px">calendar_api.gs を Apps Script に配置してウェブアプリとして公開すると、予定と件数がここに表示されます</p>'
+    + '<button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="openCalSettings()">連携を設定する</button></div>';
+}
+
+async function loadCalendar(force){
+  const body = document.getElementById('calendar-body');
+  if(!body) return;
+  const cfg = getCalConfig();
+  if(!cfg){ calData = null; calError = null; body.innerHTML = calSetupHTML(); updateCalStatCard(); return; }
+  if(calData && !force){ renderCalendar(); return; }
+
+  if(!calData) body.innerHTML = '<div class="empty" style="padding:28px"><p>カレンダーを読み込み中...</p></div>';
+  try {
+    const u = new URL(cfg.url);
+    u.searchParams.set('days', String(cfg.days || 14));
+    if(cfg.token) u.searchParams.set('token', cfg.token);
+    const res = await fetch(u.toString(), { method:'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error === 'unauthorized' ? 'トークンが一致しません' : data.error);
+    if(!Array.isArray(data.events)) throw new Error('想定外のレスポンス形式です');
+    data.fetchedAt = Date.now();
+    calData = data;
+    calError = null;
+    renderCalendar();
+  } catch(err){
+    const msg = calErrorMessage(err);
+    calError = msg;
+    body.innerHTML = '<div class="empty" style="padding:28px"><p>カレンダーを取得できませんでした</p>'
+      + '<p class="text-xs" style="color:var(--text3);margin-top:6px">' + esc(msg) + '</p>'
+      + '<button class="btn btn-sm" style="margin-top:12px" onclick="openCalSettings()">設定を確認</button></div>';
+    updateCalStatCard();
+  }
+}
+
+function renderCalendar(){
+  updateCalStatCard();
+  const body = document.getElementById('calendar-body');
+  if(!body || !calData) return;
+  const cfg = getCalConfig() || {};
+  const c = calData.counts;
+
+  const upd = document.getElementById('cal-updated');
+  if(upd) upd.textContent = '最終更新 ' + new Date(calData.fetchedAt).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+
+  const countsHTML = '<div class="cal-counts">' + [
+      ['今日', c.today], ['明日', c.tomorrow], ['今週', c.thisWeek], [calData.rangeDays + '日間', c.range]
+    ].map(function(pair, i){
+      return '<div class="cal-count"><div class="cal-count-label">' + esc(pair[0]) + '</div>'
+        + '<div class="cal-count-value"' + (i === 0 ? ' style="color:var(--accent)"' : '') + '>' + pair[1]
+        + '<span style="font-size:11px;font-weight:600;color:var(--text3)"> 件</span></div></div>';
+    }).join('') + '</div>';
+
+  const events = calData.events.filter(function(e){ return cfg.showDeclined || !e.declined; });
+  const groups = {};
+  events.forEach(function(e){ (groups[e.date] = groups[e.date] || []).push(e); });
+  const dates = Object.keys(groups).sort();
+  const todayKey = calData.rangeStart;
+
+  const listHTML = dates.length === 0
+    ? '<div class="empty" style="padding:24px"><p>この期間に予定はありません</p></div>'
+    : '<div class="cal-scroll">' + dates.map(function(d){
+        const isToday = d === todayKey;
+        const rows = groups[d].map(function(e){
+          const time = e.allDay ? '終日' : (e.startTime + '–' + e.endTime);
+          return '<div class="cal-ev' + (e.declined ? ' is-declined' : '') + '" title="' + esc(e.title + (e.location ? ' @ ' + e.location : '')) + '">'
+            + '<span class="cal-ev-dot" style="background:' + calSafeColor(e.color) + '"></span>'
+            + '<span class="cal-ev-time">' + esc(time) + '</span>'
+            + '<span class="cal-ev-title">' + esc(e.title) + '</span>'
+            + '<span class="cal-ev-cal">' + esc(e.calendar) + '</span></div>';
+        }).join('');
+        return '<div class="cal-day' + (isToday ? ' is-today' : '') + '">'
+          + '<div class="cal-day-head"><span>' + calDayLabel(d) + '</span>'
+          + (isToday ? '<span class="cal-day-tag">今日</span>' : '')
+          + '<span class="cal-day-count">' + groups[d].length + '件</span></div>'
+          + rows + '</div>';
+      }).join('') + '</div>';
+
+  const cals = Object.keys(calData.byCalendar || {}).sort(function(a,b){ return calData.byCalendar[b] - calData.byCalendar[a]; });
+  const colorOf = {};
+  calData.events.forEach(function(e){ if(!colorOf[e.calendar]) colorOf[e.calendar] = e.color; });
+  const legendHTML = cals.length === 0 ? '' : '<div class="cal-legend">' + cals.map(function(n){
+      return '<span class="cal-legend-item"><span class="cal-ev-dot" style="background:' + calSafeColor(colorOf[n]) + '"></span>'
+        + esc(n) + ' <span style="color:var(--text3)">' + calData.byCalendar[n] + '件</span></span>';
+    }).join('') + (c.declined ? '<span class="cal-legend-item" style="color:var(--text3)">辞退 ' + c.declined + '件は件数から除外</span>' : '') + '</div>';
+
+  body.innerHTML = countsHTML + listHTML + legendHTML;
+  checkCalendarNotifications();
+}
+
+function checkCalendarNotifications(){
+  if(!calData || !calData.events) return;
+  const COACHING_KEYWORDS = ['コーチング','セッション','1on1','1 on 1'];
+  const today = new Date().toISOString().slice(0,10);
+  const events = calData.events.filter(e=>!e.declined && e.date <= today);
+
+  const notifications = [];
+
+  events.forEach(e=>{
+    const isCoaching = COACHING_KEYWORDS.some(k=>e.title.includes(k));
+    const notifId = `${e.date}_${e.title}`;
+    if(dismissedNotifications.has(notifId)) return;
+
+    if(isCoaching){
+      // セッション未登録チェック
+      const matchedClient = db.customers.find(c=>{
+        const n=c.name||''; return n && e.title.includes(n);
+      });
+      if(!matchedClient) return; // 顧客リストにない人は対象外
+      const hasSession = db.sessions.some(s=>s.date===e.date && (s.clientName===matchedClient.name||s.clientId===matchedClient.id));
+      if(!hasSession){
+        notifications.push({id:notifId, date:e.date, title:e.title, type:'session', clientName:matchedClient.name});
+      }
+    } else {
+      // アポイント未登録チェック
+      const hasAppo = db.appointments.some(a=>a.date===e.date && e.title.includes(a.name||''));
+      if(!hasAppo){
+        // 顧客名やよくある単語のみのイベントはスキップ（人名が含まれていそうなものだけ）
+        const isLikelyAppo = db.customers.some(c=>{const n=c.name||''; return n&&e.title.includes(n);}) ||
+                              e.title.includes('アポ') || e.title.includes('面談') || e.title.includes('打ち合わせ');
+        if(isLikelyAppo){
+          notifications.push({id:notifId, date:e.date, title:e.title, type:'appointment'});
+        }
+      }
+    }
+  });
+
+  renderCalendarNotifications(notifications);
+}
+
+function renderCalendarNotifications(notifications){
+  const el = document.getElementById('cal-notifications');
+  if(!el) return;
+  if(notifications.length===0){ el.innerHTML=''; return; }
+  el.innerHTML = `<div style="margin-bottom:16px">
+    <div style="font-weight:600;margin-bottom:8px;color:var(--text)">⚠️ 未登録の予定があります（${notifications.length}件）</div>
+    ${notifications.map(n=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid ${n.type==='session'?'var(--accent)':'var(--orange)'};border-radius:8px;margin-bottom:6px">
+        <span style="font-size:18px">${n.type==='session'?'📋':'📅'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${esc(n.title)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${n.date} ／ ${n.type==='session'?'セッション未登録':'アポイント未登録'}</div>
+        </div>
+        <button class="btn btn-sm" onclick="dismissNotification('${esc(n.id).replace(/'/g,"\\'")}')">完了</button>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function dismissNotification(id){
+  dismissedNotifications.add(id);
+  checkCalendarNotifications();
+}
+
+function openCalSettings(){
+  const cfg = getCalConfig() || {};
+  showModal('<div class="modal-header"><h3>Googleカレンダー連携</h3><button class="modal-close" onclick="closeModal()">✕</button></div>'
+    + '<div class="modal-body">'
+    + '<p class="text-xs text-muted" style="margin-bottom:16px">Apps Script（calendar_api.gs）をウェブアプリとして公開し、そのURLとトークンを入力してください。入力値はこのブラウザにのみ保存されます。</p>'
+    + '<div class="form-group"><label>ウェブアプリURL</label><input id="cal-f-url" value="' + esc(cfg.url || '') + '" placeholder="https://script.google.com/macros/s/..../exec"></div>'
+    + '<div class="form-group"><label>トークン（スクリプトの CAL_TOKEN と同じ値）</label><input id="cal-f-token" type="password" value="' + esc(cfg.token || '') + '" placeholder="••••••••"></div>'
+    + '<div class="form-row">'
+    + '<div class="form-group"><label>表示期間</label><select id="cal-f-days">'
+    + [7,14,30,60].map(function(d){ return '<option value="' + d + '"' + (Number(cfg.days || 14) === d ? ' selected' : '') + '>' + d + '日間</option>'; }).join('')
+    + '</select></div>'
+    + '<div class="form-group"><label>辞退した予定</label><select id="cal-f-declined">'
+    + '<option value="0"' + (cfg.showDeclined ? '' : ' selected') + '>非表示</option>'
+    + '<option value="1"' + (cfg.showDeclined ? ' selected' : '') + '>表示する</option>'
+    + '</select></div>'
+    + '</div></div>'
+    + '<div class="modal-footer">'
+    + (cfg.url ? '<button class="btn" style="margin-right:auto;color:var(--danger)" onclick="clearCalConfig()">連携を解除</button>' : '')
+    + '<button class="btn" onclick="closeModal()">キャンセル</button>'
+    + '<button class="btn btn-primary" onclick="saveCalSettings()">保存して読み込む</button></div>');
+}
+
+function saveCalSettings(){
+  const url = (document.getElementById('cal-f-url').value || '').trim();
+  const token = (document.getElementById('cal-f-token').value || '').trim();
+  const days = Number(document.getElementById('cal-f-days').value) || 14;
+  const showDeclined = document.getElementById('cal-f-declined').value === '1';
+
+  let parsed;
+  try { parsed = new URL(url); } catch(e){ alert('URLの形式が正しくありません'); return; }
+  if(parsed.protocol !== 'https:' || parsed.hostname !== 'script.google.com'){
+    alert('Apps Script のウェブアプリURL（https://script.google.com/macros/s/.../exec）を入力してください'); return;
+  }
+  if(!/\/(exec|dev)$/.test(parsed.pathname)){
+    alert('URLは /exec で終わる必要があります。「デプロイ」→「デプロイを管理」からウェブアプリURLをコピーしてください'); return;
+  }
+  if(!token){ alert('トークンを入力してください'); return; }
+
+  localStorage.setItem(CAL_CFG_KEY, JSON.stringify({url:url, token:token, days:days, showDeclined:showDeclined}));
+  closeModal();
+  calData = null;
+  calMonthData = null;
+  loadCalendar(true);
+  loadCalMonth(true);
+  startCalendarAutoRefresh();
+}
+
+function clearCalConfig(){
+  if(!confirm('カレンダー連携を解除しますか？（Apps Script 側の設定は残ります）')) return;
+  localStorage.removeItem(CAL_CFG_KEY);
+  calData = null;
+  calMonthData = null;
+  closeModal();
+  loadCalendar();
+  loadCalMonth();
+}
+
+function startCalendarAutoRefresh(){
+  if(calTimer) clearInterval(calTimer);
+  calTimer = setInterval(function(){
+    if(!getCalConfig()) return;
+    loadCalendar(true);
+    if(calMonth === calCurrentMonthKey()) loadCalMonth(true);
+  }, CAL_REFRESH_MS);
+}
+
+// タブに戻ってきたとき、5分以上古ければ再取得する
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  if(!getCalConfig()) return;
+  if(!calData || Date.now() - calData.fetchedAt > CAL_REFRESH_MS) loadCalendar(true);
+});
+
+// ===== カレンダー: 月別の予定分析 =====
+// 月単位で「色別に何件か」を集計し、キーワードごとの件数も出す。
+// 月データは1回取得したらキーワード検索はすべてブラウザ側で行う。
+let calMonth = null;        // 'YYYY-MM'
+let calMonthData = null;
+let calMonthError = null;
+
+// 月別分析での色の表示順。ここに並べた色が常に先頭に、この順で出る。
+// key はイベントの colorKey（'c' + カラーID）。'peacock' はピーコックと既定色をまとめた特別枠。
+const CAL_COLOR_ORDER = [
+  { key:'c4',  label:'EPアポ',      name:'フラミンゴ',   color:'#e67c73' },
+  { key:'c5',  label:'フロントアポ', name:'バナナ',      color:'#f6bf26' },
+  { key:'c10', label:'その他アポ',   name:'バジル',      color:'#0b8043' },
+  { key:'c9',  label:'コーチング',   name:'ブルーベリー', color:'#3f51b5' }
+];
+
+/** 色別一覧に出さない色。ピーコックと、色を設定していない予定（カレンダーの既定色）は載せない */
+function calIsHiddenColor(key){
+  return key === 'c7' || String(key).indexOf('cal:') === 0;
+}
+
+/** 行やリストに出す表示名。固定枠の色には区分名を添える */
+function calGroupLabel(key, name){
+  const fixed = CAL_COLOR_ORDER.filter(function(o){ return o.key === key; })[0];
+  return fixed ? (name + '（' + fixed.label + '）') : name;
+}
+
+function calCurrentMonthKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function changeCalMonth(delta){
+  const p = (calMonth || calCurrentMonthKey()).split('-');
+  let y = Number(p[0]), m = Number(p[1]) + delta;
+  while(m < 1){ m += 12; y--; }
+  while(m > 12){ m -= 12; y++; }
+  calMonth = y + '-' + String(m).padStart(2, '0');
+  loadCalMonth(true);
+}
+
+async function loadCalMonth(force){
+  const body = document.getElementById('calmonth-body');
+  if(!body) return;
+  if(!calMonth) calMonth = calCurrentMonthKey();
+  const label = document.getElementById('calmonth-label');
+  if(label) label.textContent = monthLabel(calMonth);
+
+  const cfg = getCalConfig();
+  if(!cfg){
+    calMonthData = null; calMonthError = null;
+    body.innerHTML = '<div class="empty" style="padding:24px"><p class="text-xs">カレンダーを連携すると、月ごとの色別件数とキーワード集計が表示されます</p></div>';
+    return;
+  }
+  if(calMonthData && calMonthData.month === calMonth && !force){ renderCalMonth(); return; }
+
+  body.innerHTML = '<div class="empty" style="padding:24px"><p>' + esc(monthLabel(calMonth)) + 'を読み込み中...</p></div>';
+  try {
+    const u = new URL(cfg.url);
+    u.searchParams.set('month', calMonth);
+    if(cfg.token) u.searchParams.set('token', cfg.token);
+    const res = await fetch(u.toString(), { method:'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error === 'unauthorized' ? 'トークンが一致しません' : data.error);
+    if(!Array.isArray(data.events)) throw new Error('想定外のレスポンス形式です');
+    calMonthData = data;
+    calMonthError = null;
+    renderCalMonth();
+  } catch(err){
+    calMonthError = calErrorMessage(err);
+    calMonthData = null;
+    body.innerHTML = '<div class="empty" style="padding:24px"><p>' + esc(monthLabel(calMonth)) + 'を取得できませんでした</p>'
+      + '<p class="text-xs" style="color:var(--text3);margin-top:6px">' + esc(calMonthError) + '</p></div>';
+  }
+}
+
+/** 「, 」「、」区切りでキーワードを分割する */
+function calParseKeywords(raw){
+  return String(raw || '').split(/[,、]/).map(function(k){ return k.trim(); }).filter(function(k){ return k.length > 0; });
+}
+
+function calMonthEvents(){
+  if(!calMonthData) return [];
+  const cfg = getCalConfig() || {};
+  return calMonthData.events.filter(function(e){ return cfg.showDeclined || !e.declined; });
+}
+
+function calEventMatches(ev, kw){
+  const hay = (ev.title + ' ' + (ev.location || '') + ' ' + ev.calendar).toLowerCase();
+  return hay.indexOf(kw.toLowerCase()) !== -1;
+}
+
+function renderCalMonth(){
+  const body = document.getElementById('calmonth-body');
+  if(!body || !calMonthData) return;
+  const cfg = getCalConfig() || {};
+  const events = calMonthEvents();
+
+  // 色別の件数（showDeclined の設定に合わせてブラウザ側で数え直す）
+  const map = {};
+  // 固定枠は予定が0件の月でも行を出す
+  CAL_COLOR_ORDER.forEach(function(o){
+    map[o.key] = { key:o.key, name:o.name, color:o.color, count:0 };
+  });
+  events.forEach(function(e){
+    if(!map[e.colorKey]) map[e.colorKey] = { key:e.colorKey, name:e.colorName, color:e.color, count:0 };
+    map[e.colorKey].count++;
+  });
+
+  // 固定枠を定義順に、それ以外は件数の多い順に並べる
+  const orderIdx = {};
+  CAL_COLOR_ORDER.forEach(function(o, i){ orderIdx[o.key] = i; });
+  const allRows = Object.keys(map).map(function(k){ return map[k]; });
+  const hiddenCount = allRows.filter(function(r){ return calIsHiddenColor(r.key); })
+    .reduce(function(a, r){ return a + r.count; }, 0);
+  const colors = allRows.filter(function(r){ return !calIsHiddenColor(r.key); })
+    .sort(function(a, b){
+      const ai = (orderIdx[a.key] === undefined) ? 999 : orderIdx[a.key];
+      const bi = (orderIdx[b.key] === undefined) ? 999 : orderIdx[b.key];
+      if(ai !== bi) return ai - bi;
+      return b.count - a.count || a.name.localeCompare(b.name);
+    });
+  const max = Math.max.apply(null, colors.map(function(c){ return c.count; }).concat([1]));
+
+  // 最も予定が多い日（辞退の表示設定に合わせてブラウザ側で数え直す）
+  const perDay = {};
+  events.forEach(function(e){ perDay[e.date] = (perDay[e.date] || 0) + 1; });
+  const busiest = Object.keys(perDay).sort(function(a,b){ return perDay[b] - perDay[a] || a.localeCompare(b); })[0];
+  const showBusiest = busiest && perDay[busiest] >= 2;
+
+  const summary = '<div class="calm-summary">'
+    + '<span class="calm-summary-value">' + events.length + '</span>'
+    + '<span class="text-xs text-muted">件の予定</span>'
+    + (showBusiest ? '<span class="text-xs" style="color:var(--text3);margin-left:auto">最多は ' + calDayLabel(busiest) + ' の ' + perDay[busiest] + '件</span>' : '')
+    + '</div>';
+
+  const colorRows = events.length === 0
+    ? '<p class="text-xs text-muted">この月に予定はありません</p>'
+    : colors.map(function(c){
+        return '<div class="calm-row">'
+          + '<span class="calm-row-name"><span class="cal-ev-dot" style="background:' + calSafeColor(c.color) + '"></span>' + esc(calGroupLabel(c.key, c.name)) + '</span>'
+          + '<span class="calm-row-bar"><span class="calm-row-fill" style="width:' + (c.count === 0 ? 0 : Math.max(c.count / max * 100, 3)) + '%;background:' + calSafeColor(c.color) + '"></span></span>'
+          + '<span class="calm-row-count">' + c.count + '件</span></div>';
+      }).join('');
+
+  const hiddenNote = hiddenCount > 0
+    ? '<p class="text-xs" style="color:var(--text3);margin-top:12px">ピーコック・既定色の ' + hiddenCount + '件は一覧に表示していません</p>'
+    : '';
+
+  const kwSection = '<div class="calm-kw">'
+    + '<div class="calm-kw-label">キーワードで件数を数える</div>'
+    + '<input id="calmonth-kw" value="' + esc(cfg.keywords || '') + '" oninput="onCalKeyword()" placeholder="コーチング, 商談, 面談（カンマ区切りで複数指定できます）">'
+    + '<div id="calmonth-kw-result"></div></div>';
+
+  body.innerHTML = summary + colorRows + hiddenNote + kwSection;
+  renderCalKeywordResult();
+}
+
+function onCalKeyword(){
+  const el = document.getElementById('calmonth-kw');
+  if(!el) return;
+  const cfg = getCalConfig();
+  if(cfg){ cfg.keywords = el.value; localStorage.setItem(CAL_CFG_KEY, JSON.stringify(cfg)); }
+  renderCalKeywordResult();
+}
+
+function renderCalKeywordResult(){
+  const out = document.getElementById('calmonth-kw-result');
+  const input = document.getElementById('calmonth-kw');
+  if(!out || !input) return;
+
+  const keywords = calParseKeywords(input.value);
+  if(keywords.length === 0){ out.innerHTML = ''; return; }
+
+  const events = calMonthEvents();
+  const chips = keywords.map(function(kw){
+    const n = events.filter(function(e){ return calEventMatches(e, kw); }).length;
+    return '<span class="calm-kw-chip' + (n === 0 ? ' is-zero' : '') + '">' + esc(kw) + ' <b>' + n + '</b>件</span>';
+  }).join('');
+
+  const matched = events.filter(function(e){
+    return keywords.some(function(kw){ return calEventMatches(e, kw); });
+  });
+
+  const groups = {};
+  matched.forEach(function(e){ (groups[e.date] = groups[e.date] || []).push(e); });
+  const dates = Object.keys(groups).sort();
+
+  const list = matched.length === 0 ? '' : '<div class="cal-scroll" style="margin-top:14px">' + dates.map(function(d){
+      const rows = groups[d].map(function(e){
+        const time = e.allDay ? '終日' : (e.startTime + '–' + e.endTime);
+        return '<div class="cal-ev' + (e.declined ? ' is-declined' : '') + '">'
+          + '<span class="cal-ev-dot" style="background:' + calSafeColor(e.color) + '"></span>'
+          + '<span class="cal-ev-time">' + esc(time) + '</span>'
+          + '<span class="cal-ev-title">' + esc(e.title) + '</span>'
+          + '<span class="cal-ev-cal">' + esc(calGroupLabel(e.colorKey, e.colorName)) + '</span></div>';
+      }).join('');
+      return '<div class="cal-day"><div class="cal-day-head"><span>' + calDayLabel(d) + '</span>'
+        + '<span class="cal-day-count">' + groups[d].length + '件</span></div>' + rows + '</div>';
+    }).join('') + '</div>';
+
+  out.innerHTML = '<div class="calm-kw-chips">' + chips + '</div>' + list;
+}
+
 
 // ===== CUSTOMERS =====
 function renderCustomers() {
   const q=(document.getElementById('customer-search')?.value||'').toLowerCase();
-  const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q));
+  const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q)).sort((a,b)=>{
+    const da=a.contractStart||a.revenueDate||a.createdAt||'';
+    const db2=b.contractStart||b.revenueDate||b.createdAt||'';
+    return db2.localeCompare(da);
+  });
   if(!list.length){
-    document.getElementById('customers-tbody').innerHTML=`<tr><td colspan="8"><div class="empty"><p>${q?'該当なし':'顧客がまだいません'}</p></div></td></tr>`;
+    document.getElementById('customers-tbody').innerHTML=`<tr><td colspan="9"><div class="empty"><p>${q?'該当なし':'顧客がまだいません'}</p></div></td></tr>`;
     return;
   }
   document.getElementById('customers-tbody').innerHTML=list.map(c=>{
@@ -796,6 +1475,7 @@ function renderCustomers() {
       <td class="text-xs text-muted">${c.revenueDate||''}</td>
       <td class="fw-500">${paid>0?fmtY(paid):'—'}</td>
       <td><span class="badge ${statusColor}">${c.status||'契約中'}</span></td>
+      <td style="text-align:center">${c.hasInvoice?'✅':'—'}</td>
       <td onclick="event.stopPropagation()"><div class="flex gap-2"><button class="btn btn-sm" onclick="editCustomer('${c.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">削除</button></div></td>
     </tr>`;
   }).join('');
@@ -848,9 +1528,19 @@ function changeSalesMonth(d){
   currentSalesMonth=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
   renderSales();
 }
+let cardFilterOn = false;
+function toggleCardFilter(){
+  cardFilterOn = !cardFilterOn;
+  const btn = document.getElementById('card-filter-btn');
+  if(btn) btn.style.background = cardFilterOn ? 'var(--accent)' : '';
+  if(btn) btn.style.color = cardFilterOn ? '#fff' : '';
+  renderSales();
+}
+
 function renderSales(){
   document.getElementById('sales-month-label').textContent=monthLabel(currentSalesMonth);
-  const filtered=db.sales.filter(s=>s.date&&s.date.startsWith(currentSalesMonth)&&s.date>=SALES_CUTOFF).sort((a,b)=>b.date.localeCompare(a.date));
+  let filtered=db.sales.filter(s=>s.date&&s.date.startsWith(currentSalesMonth)&&s.date>=SALES_CUTOFF).sort((a,b)=>b.date.localeCompare(a.date));
+  if(cardFilterOn) filtered=filtered.filter(s=>s.isCard);
   const coachingTotal=filtered.reduce((a,b)=>a+Number(b.amount||0),0);
   const commTotal=getCommunityRevenue(currentSalesMonth);
   const total=coachingTotal+commTotal;
@@ -867,7 +1557,8 @@ function renderSales(){
     const cust=db.customers.find(c=>c.id===s.customerId);
     const svcLabel = s.service==='その他' ? `その他${s.otherDetail?'（'+s.otherDetail+'）':''}` : (s.service||'');
     const personLabel = s.service==='その他'&&s.otherPerson ? s.otherPerson : (cust?cust.name:(s.customerName||'—'));
-    return `<tr><td class="text-xs">${s.date}</td><td>${personLabel}</td><td><span class="badge ${SVC_BADGE[s.service]||'badge-gray'}">${svcLabel}</span></td><td class="fw-500">${fmtY(s.amount)}</td><td class="text-xs text-muted">${s.memo||''}</td><td><div class="flex gap-2"><button class="btn btn-sm" onclick="editSale('${s.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteSale('${s.id}')">削除</button></div></td></tr>`;
+    const cardBadge = s.isCard ? `<span style="font-size:11px;background:#e8f4fd;color:#1a7abf;border-radius:4px;padding:1px 6px;margin-left:4px">💳</span>` : '';
+    return `<tr><td class="text-xs">${s.date}</td><td>${personLabel}${cardBadge}</td><td><span class="badge ${SVC_BADGE[s.service]||'badge-gray'}">${svcLabel}</span></td><td class="fw-500">${fmtY(s.amount)}</td><td class="text-xs text-muted">${s.memo||''}</td><td><div class="flex gap-2"><button class="btn btn-sm" onclick="editSale('${s.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteSale('${s.id}')">削除</button></div></td></tr>`;
   }).join('');
 }
 function editSale(id){ editingId=id; openModal('sale',db.sales.find(s=>s.id===id)); }
@@ -1038,6 +1729,12 @@ function openModal(type, data){
         <div class="form-group"><label>ステータス</label>
           <select id="f-status">${['契約中','休止中'].map(s=>`<option ${(c.status||'契約中')===s?'selected':''}>${s}</option>`).join('')}</select>
         </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="f-has-invoice" ${c.hasInvoice?'checked':''} style="width:auto">
+            請求書
+          </label>
+        </div>
       </div>
       <div class="form-group"><label>コーチング目標・課題</label><textarea id="f-goals">${esc(c.goals||'')}</textarea></div>
       <div class="form-group"><label>備考</label><textarea id="f-notes" rows="2">${esc(c.notes||'')}</textarea></div>
@@ -1063,6 +1760,10 @@ function openModal(type, data){
       </div>
       <div class="form-group"><label>顧客</label><select id="f-customer"><option value="">選択してください</option>${db.customers.map(c=>`<option value="${c.id}" ${s.customerId===c.id?'selected':''}>${c.name}</option>`).join('')}</select></div>
       <div class="form-group"><label>メモ</label><input id="f-memo" value="${esc(s.memo||'')}"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="f-is-card" ${s.isCard?'checked':''} style="width:auto">
+        <label for="f-is-card" style="margin:0;font-weight:500">💳 カード決済</label>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveSale()">保存</button></div>`);
   }
@@ -1079,17 +1780,43 @@ function openModal(type, data){
       <div class="form-group"><label>事業内容</label><input id="f-business" value="${esc(a.business||'')}"></div>
       <div class="form-row">
         <div class="form-group"><label>日時 *</label><input id="f-date" type="date" value="${a.date||today()}"></div>
-        <div class="form-group"><label>ステータス</label><select id="f-status" onchange="toggleContractServices()">${['見込み','再アポ','契約','失注'].map(s=>`<option ${(a.status||'見込み')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="form-group"><label>ステータス</label><select id="f-status" onchange="toggleContractServices()">${['見込み','再アポ','契約','失注','何もなし'].map(s=>`<option ${(a.status||'見込み')===s?'selected':''}>${s}</option>`).join('')}</select></div>
       </div>
       <div id="contract-services-wrap" style="display:${(a.status==='契約')?'block':'none'}">
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:10px">── 契約詳細（顧客管理・売上管理に自動反映）──</div>
         <div class="form-group"><label>契約サービス</label>
           <div class="svc-checkboxes">
             ${SERVICES.map(s=>`<div class="svc-checkbox-row">
-              <input type="checkbox" id="csvc-${svcKey(s)}" ${(a.contractServices||[]).includes(s)?'checked':''} style="width:auto;flex-shrink:0">
+              <input type="checkbox" id="csvc-${svcKey(s)}" ${(a.contractServices||[]).includes(s)?'checked':''} style="width:auto;flex-shrink:0" onchange="toggleApptContractDates()">
               <label for="csvc-${svcKey(s)}" style="margin-bottom:0;font-size:13px;color:var(--text);font-weight:400">${s}</label>
             </div>`).join('')}
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label>性別</label><select id="f-cgender"><option value="">選択</option>${['女性','男性','その他'].map(g=>`<option ${(a.contractGender||'')=== g?'selected':''}>${g}</option>`).join('')}</select></div>
+          <div class="form-group"><label>契約金額（円）</label><input id="f-cprice" type="number" value="${a.contractPrice||''}" placeholder="300000"></div>
+        </div>
+        <div class="form-group" style="display:flex;gap:20px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="f-cis-card" ${a.contractIsCard?'checked':''} style="width:auto">
+            カード決済
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="f-has-invoice" ${a.hasInvoice?'checked':''} style="width:auto">
+            請求書
+          </label>
+        </div>
+        <div id="appt-contract-dates-wrap" style="display:none">
+          <div class="form-row">
+            <div class="form-group"><label>契約開始日</label><input id="f-ccstart" type="date" value="${a.contractStart||''}"></div>
+            <div class="form-group"><label>契約終了日</label><input id="f-ccend" type="date" value="${a.contractEnd||''}"></div>
+          </div>
+        </div>
+        <div class="form-group"><label>売上換算日 <span style="font-size:11px;color:var(--text3)">（この日付で売上管理に自動反映）</span></label><input id="f-crdate" type="date" value="${a.contractRevenueDate||''}"></div>
+        <div class="form-group"><label>コーチング目標・課題</label><textarea id="f-cgoals">${esc(a.contractGoals||'')}</textarea></div>
+        <div class="form-group"><label>Google Sheets ID <span style="font-size:11px;color:var(--text3)">（セッション管理→Sheets連携用）</span></label><input id="f-cspreadsheet" value="${esc(a.contractSpreadsheetId||'')}" placeholder="スプレッドシートのID"></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
       </div>
       <div class="form-group"><label>流入ルート</label>
         <select id="f-inflow" onchange="onInflowChange('f-inflow','f-inflow-detail','f-inflow-detail-wrap')">
@@ -1102,7 +1829,24 @@ function openModal(type, data){
         <input id="f-inflow-detail" value="${esc(a.inflowDetail||'')}" placeholder="${inf==='SNS'?'Instagram / X / YouTube など':inf==='紹介'?'山田さん':''}">
       </div>
       <div class="form-group"><label>次回アクション</label><input id="f-next" value="${esc(a.nextAction||'')}"></div>
-      <div class="form-group"><label>備考・メモ</label><textarea id="f-notes">${esc(a.notes||'')}</textarea></div>
+      <div class="form-group"><label>備考・メモ</label><textarea id="f-notes" rows="10" style="min-height:240px">${esc(a.notes||'')}</textarea></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">アポチェックリスト</div>
+      <div id="appo-checklist-wrap">
+        ${appoChecklist.map((sec,si)=>`
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">【${sec.section}】</div>
+            ${sec.items.map((item,ii)=>{
+              const key=`cl_${si}_${ii}`;
+              const checked=(a.checklist||{})[key]?'checked':'';
+              return `<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;cursor:pointer;font-size:12px;color:var(--text)">
+                <input type="checkbox" id="${key}" ${checked} style="width:auto;flex-shrink:0;margin-top:2px">
+                <span>${esc(item)}</span>
+              </label>`;
+            }).join('')}
+          </div>
+        `).join('')}
+      </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveAppointment()">保存</button></div>`);
   }
@@ -1111,13 +1855,38 @@ function openModal(type, data){
     const key = typeof data==='string' ? data : currentGoalYear+'-'+String(new Date().getMonth()+1).padStart(2,'0');
     const goal=db.goals[key]||{};
     editingId=key;
+    const svcRows = SERVICES.map(s=>{
+      const k=svcKey(s); const sv=goal[k]||{};
+      return `<tr>
+        <td style="padding:6px 4px;font-size:13px">${s}</td>
+        <td><input id="f-${k}-price" type="number" placeholder="単価" value="${sv.price||''}" oninput="calcGoalTotal()" style="width:100px"></td>
+        <td><input id="f-${k}-count" type="number" placeholder="件数" value="${sv.count||''}" oninput="calcGoalTotal()" style="width:70px"></td>
+        <td id="f-${k}-subtotal" style="text-align:right;font-size:13px;font-weight:600;min-width:80px">${sv.price&&sv.count?'¥'+(sv.price*sv.count).toLocaleString():'-'}</td>
+      </tr>`;
+    }).join('');
+    const labData=goal.lab||{};
     showModal(`<div class="modal-header"><h3>${monthLabel(key)} 月次目標</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="form-group"><label>月間売上合計目標（円）</label><input id="f-total" type="number" value="${goal.totalSales||''}"></div>
-      ${SERVICES.map(s=>`<div class="form-group"><label>${s} 売上目標（円）</label><input id="f-${svcKey(s)}" type="number" value="${goal[svcKey(s)]||''}"></div>`).join('')}
-      <div class="form-group"><label>アポイント数目標（件）</label><input id="f-appts" type="number" value="${goal.appointments||''}"></div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:11px;color:var(--text3)"><th style="text-align:left;padding:4px">サービス</th><th>単価（円）</th><th>件数</th><th style="text-align:right">小計</th></tr></thead>
+        <tbody>
+          ${svcRows}
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:6px 4px;font-size:13px">ラボ</td>
+            <td style="font-size:12px;color:var(--text3);padding:6px 4px">¥10,000固定</td>
+            <td><input id="f-lab-count" type="number" placeholder="追加数" value="${labData.count||''}" oninput="calcGoalTotal()" style="width:70px"></td>
+            <td id="f-lab-subtotal" style="text-align:right;font-size:13px;font-weight:600">${labData.count?'¥'+(10000*labData.count).toLocaleString():'-'}</td>
+          </tr>
+        </tbody>
+        <tfoot><tr style="border-top:2px solid var(--border)">
+          <td colspan="3" style="padding:8px 4px;font-weight:700">合計</td>
+          <td id="f-grand-total" style="text-align:right;font-weight:700;font-size:15px;color:var(--accent)">-</td>
+        </tr></tfoot>
+      </table>
+      <div class="form-group" style="margin-top:16px"><label>アポイント数目標（件）</label><input id="f-appts" type="number" value="${goal.appointments||''}"></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveMonthGoal('${key}')">保存</button></div>`);
+    calcGoalTotal();
   }
 
   else if(type==='yeargoal'){
@@ -1165,6 +1934,14 @@ function toggleContractServices(){
   const val=document.getElementById('f-status')?.value;
   const wrap=document.getElementById('contract-services-wrap');
   if(wrap) wrap.style.display=(val==='契約')?'block':'none';
+  toggleApptContractDates();
+}
+
+function toggleApptContractDates(){
+  const needsDates=['長期1on1コーチング','ビジネスコーチング'];
+  const show=needsDates.some(s=>document.getElementById('csvc-'+svcKey(s))?.checked);
+  const wrap=document.getElementById('appt-contract-dates-wrap');
+  if(wrap) wrap.style.display=show?'block':'none';
 }
 
 function toggleSvcDetail(){
@@ -1207,9 +1984,11 @@ async function saveCustomer(){
     inflow,
     inflowDetail:document.getElementById('f-inflow-detail')?.value||'',
     status:document.getElementById('f-status').value||'契約中',
+    hasInvoice:document.getElementById('f-has-invoice')?.checked||false,
     goals:document.getElementById('f-goals').value,
     notes:document.getElementById('f-notes').value,
     spreadsheetId:document.getElementById('f-spreadsheet-id')?.value.trim()||'',
+    createdAt:editingId?(db.customers.find(c=>c.id===editingId)?.createdAt||new Date().toISOString()):new Date().toISOString(),
   };
   const {error}=await sb.from('customers').upsert({id, data:obj});
   if(error)return alert('保存失敗: '+error.message);
@@ -1252,7 +2031,8 @@ async function saveSale(){
   const obj={id,date,amount:Number(amount),service,
     otherDetail:service==='その他'?document.getElementById('f-other-detail').value:'',
     otherPerson:service==='その他'?document.getElementById('f-other-person').value:'',
-    customerId:cid||null,customerName:cust?cust.name:'',memo:document.getElementById('f-memo').value};
+    customerId:cid||null,customerName:cust?cust.name:'',memo:document.getElementById('f-memo').value,
+    isCard:document.getElementById('f-is-card')?.checked||false};
   const {error}=await sb.from('sales').upsert({id, data:obj});
   if(error)return alert('保存失敗: '+error.message);
   if(editingId) db.sales=db.sales.map(s=>s.id===editingId?obj:s);
@@ -1264,32 +2044,124 @@ async function saveAppointment(){
   const name=document.getElementById('f-name').value.trim();
   if(!name)return alert('氏名を入力してください');
   const inflow=document.getElementById('f-inflow').value;
+  const status=document.getElementById('f-status').value;
   const id=editingId||genId();
+  const isContract=status==='契約';
+  const contractServices=isContract?SERVICES.filter(s=>document.getElementById('csvc-'+svcKey(s))?.checked):[];
+  const contractPrice=isContract?Number(document.getElementById('f-cprice')?.value)||null:null;
+  const contractRevenueDate=isContract?document.getElementById('f-crdate')?.value||'':'';
+  const contractStart=isContract?document.getElementById('f-ccstart')?.value||'':'';
+  const contractEnd=isContract?document.getElementById('f-ccend')?.value||'':'';
   const obj={
     id,
     name,
     title:document.getElementById('f-title').value,
     business:document.getElementById('f-business').value,
     date:document.getElementById('f-date').value,
-    status:document.getElementById('f-status').value,
+    status,
     inflow,
     inflowDetail:document.getElementById('f-inflow-detail')?.value||'',
-    contractServices:document.getElementById('f-status').value==='契約'?SERVICES.filter(s=>document.getElementById('csvc-'+svcKey(s))?.checked):[],
+    contractServices,
+    contractPrice,
+    contractGender:isContract?document.getElementById('f-cgender')?.value||'':'',
+    contractIsCard:isContract?document.getElementById('f-cis-card')?.checked||false:false,
+    hasInvoice:isContract?document.getElementById('f-has-invoice')?.checked||false:false,
+    contractStart,
+    contractEnd,
+    contractRevenueDate,
+    contractGoals:isContract?document.getElementById('f-cgoals')?.value||'':'',
+    contractSpreadsheetId:isContract?document.getElementById('f-cspreadsheet')?.value.trim()||'':'',
     nextAction:document.getElementById('f-next').value,
     notes:document.getElementById('f-notes').value,
+    checklist:Object.fromEntries(appoChecklist.flatMap((sec,si)=>sec.items.map((_,ii)=>{const k=`cl_${si}_${ii}`;return[k,document.getElementById(k)?.checked||false];})))
   };
   const {error}=await sb.from('appointments').upsert({id, data:obj});
   if(error)return alert('保存失敗: '+error.message);
   if(editingId) db.appointments=db.appointments.map(a=>a.id===editingId?obj:a);
   else db.appointments.push(obj);
-  closeModal(); renderAppointments();
+
+  // 契約の場合、顧客管理・売上管理に自動反映
+  if(isContract){
+    // 既存顧客を名前で検索（重複防止）
+    const existingCust=db.customers.find(c=>c.name===name);
+    const custId=existingCust?existingCust.id:'cust_appt_'+id;
+    const custObj={
+      id:custId, name,
+      gender:obj.contractGender,
+      services:contractServices,
+      price:contractPrice,
+      contractStart,
+      contractEnd,
+      revenueDate:contractRevenueDate,
+      inflow,
+      inflowDetail:obj.inflowDetail,
+      status:'契約中',
+      goals:obj.contractGoals,
+      notes:obj.notes,
+      spreadsheetId:obj.contractSpreadsheetId,
+      hasInvoice:obj.hasInvoice,
+    };
+    const {error:ce}=await sb.from('customers').upsert({id:custId, data:custObj});
+    if(ce) alert('顧客登録失敗: '+ce.message);
+    else {
+      const ci=db.customers.findIndex(c=>c.id===custId);
+      if(ci>=0) db.customers[ci]=custObj; else db.customers.push(custObj);
+    }
+
+    // 売上換算日と金額があれば売上管理にも自動反映
+    if(contractRevenueDate && contractPrice){
+      const saleId='auto_appt_'+id;
+      const saleObj={id:saleId, customerId:custId, customerName:name,
+        date:contractRevenueDate, amount:contractPrice,
+        service:contractServices[0]||'その他',
+        memo:'アポイントから自動登録', autoGenerated:true,
+        isCard:obj.contractIsCard};
+      const {error:se}=await sb.from('sales').upsert({id:saleId, data:saleObj});
+      if(!se){
+        const si=db.sales.findIndex(s=>s.id===saleId);
+        if(si>=0) db.sales[si]=saleObj; else db.sales.push(saleObj);
+      }
+    }
+  }
+
+  postAppointmentToSheet(obj);
+  closeModal(); renderAppointments(); renderCustomers(); renderSales();
+}
+
+function calcGoalTotal(){
+  let total = 0;
+  SERVICES.forEach(s=>{
+    const k=svcKey(s);
+    const price=Number(document.getElementById('f-'+k+'-price')?.value)||0;
+    const count=Number(document.getElementById('f-'+k+'-count')?.value)||0;
+    const sub=price*count;
+    total+=sub;
+    const el=document.getElementById('f-'+k+'-subtotal');
+    if(el) el.textContent=sub>0?'¥'+sub.toLocaleString():'-';
+  });
+  const labCount=Number(document.getElementById('f-lab-count')?.value)||0;
+  const labSub=labCount*10000;
+  total+=labSub;
+  const labEl=document.getElementById('f-lab-subtotal');
+  if(labEl) labEl.textContent=labSub>0?'¥'+labSub.toLocaleString():'-';
+  const grandEl=document.getElementById('f-grand-total');
+  if(grandEl) grandEl.textContent=total>0?'¥'+total.toLocaleString():'-';
 }
 
 async function saveMonthGoal(key){
+  const svcData=Object.fromEntries(SERVICES.map(s=>{
+    const k=svcKey(s);
+    const price=Number(document.getElementById('f-'+k+'-price')?.value)||0;
+    const count=Number(document.getElementById('f-'+k+'-count')?.value)||0;
+    return [k,{price,count,total:price*count}];
+  }));
+  const labCount=Number(document.getElementById('f-lab-count')?.value)||0;
+  const totalSales=SERVICES.reduce((a,s)=>a+(svcData[svcKey(s)].total||0),0)+labCount*10000;
   const data={
-    totalSales:Number(document.getElementById('f-total').value)||0,
+    ...svcData,
+    lab:{count:labCount,total:labCount*10000},
+    totalSales,
     appointments:Number(document.getElementById('f-appts').value)||0,
-    ...Object.fromEntries(SERVICES.map(s=>[svcKey(s),Number(document.getElementById('f-'+svcKey(s))?.value)||0]))
   };
   const {error}=await sb.from('goals').upsert({period_key:key, data});
   if(error)return alert('保存失敗: '+error.message);
@@ -1307,27 +2179,69 @@ async function saveYearGoal(){
 }
 
 // ===== COMMUNITY =====
-let communityData = {members:[]};
+let communityData = {tokyo:{members:[]}, osaka:{members:[]}};
 const COMMUNITY_FEE = 10000;
-const SALES_CUTOFF = '2026-07-01'; // これ以前の売上は集計から除外
+const OSAKA_REFERRAL_FEE = 3000;
+const OSAKA_REFERRAL_MONTHS = 12;
+const SALES_CUTOFF = '2026-07-01';
+let currentLabTab = 'tokyo';
 
-function getActiveCommunityMembers(ym) {
-  return (communityData.members||[]).filter(m=>{
+function migrateOldCommunityData(data){
+  if(!data) return {tokyo:{members:[]}, osaka:{members:[]}};
+  if(Array.isArray(data.members)) return {tokyo:{members:data.members}, osaka:{members:[]}};
+  return {tokyo:data.tokyo||{members:[]}, osaka:data.osaka||{members:[]}};
+}
+
+function getLabMembers(location){ return (communityData[location]||{members:[]}).members||[]; }
+
+function getActiveMembersForLocation(location, ym){
+  return getLabMembers(location).filter(m=>{
     if(m.status!=='active') return false;
     if(m.joinDate && m.joinDate.slice(0,7) > ym) return false;
     if(m.leaveDate && m.leaveDate.slice(0,7) < ym) return false;
     return true;
   });
 }
-function getCommunityRevenue(ym){ return getActiveCommunityMembers(ym).length * COMMUNITY_FEE; }
+
+function getRevenueMembersForLocation(location, ym){
+  return getActiveMembersForLocation(location, ym).filter(m=>m.hasPayment);
+}
+
+function getActiveCommunityMembers(ym){
+  return [...getRevenueMembersForLocation('tokyo', ym), ...getRevenueMembersForLocation('osaka', ym)];
+}
+
+function getOsakaFeeForMonth(ym){
+  return getRevenueMembersForLocation('osaka', ym).filter(m=>{
+    if(!m.hasFee || !m.joinDate) return false;
+    const join = m.joinDate.slice(0,7);
+    const [jy,jm] = join.split('-').map(Number);
+    const [y,mo] = ym.split('-').map(Number);
+    const diff = (y - jy)*12 + (mo - jm);
+    return diff >= 0 && diff < OSAKA_REFERRAL_MONTHS;
+  }).length * OSAKA_REFERRAL_FEE;
+}
+
+function getCommunityRevenue(ym){
+  const gross = getActiveCommunityMembers(ym).length * COMMUNITY_FEE;
+  const fee = getOsakaFeeForMonth(ym);
+  return gross - fee;
+}
+
+function switchLabTab(tab){
+  currentLabTab = tab;
+  document.getElementById('lab-tab-tokyo').style.background = tab==='tokyo'?'var(--primary)':'var(--bg-card)';
+  document.getElementById('lab-tab-tokyo').style.color = tab==='tokyo'?'#fff':'var(--text)';
+  document.getElementById('lab-tab-osaka').style.background = tab==='osaka'?'var(--primary)':'var(--bg-card)';
+  document.getElementById('lab-tab-osaka').style.color = tab==='osaka'?'#fff':'var(--text)';
+  renderCommunity();
+}
 
 function renderCommunity(){
-  const members = communityData.members||[];
+  const loc = currentLabTab;
+  const members = getLabMembers(loc);
   const active = members.filter(m=>m.status==='active');
-  const monthlyRev = active.length * COMMUNITY_FEE;
   const chk = v => v ? '✅' : '—';
-
-  // 会計年度（9〜8月）の各月ごとにアクティブ人数を算出して合算
   const now = new Date();
   const curYM = now.toISOString().slice(0,7);
   const fyStartYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
@@ -1339,48 +2253,88 @@ function renderCommunity(){
     if(ym===`${fyStartYear+1}-08`) break;
     fm++; if(fm>12){fm=1;fy++;}
   }
-  let annualRevActual=0, annualRevProjected=0;
+
+  // 今月の紹介FEE（大阪のみ）
+  const curFee = loc==='osaka' ? getOsakaFeeForMonth(curYM) : 0;
+  const curRevenueCount = getRevenueMembersForLocation(loc, curYM).length;
+  const curActiveCount = getActiveMembersForLocation(loc, curYM).length;
+  const curGross = curRevenueCount * COMMUNITY_FEE;
+  const curNet = curGross - curFee;
+
+  // 年間集計
+  const activeRevenue = active.filter(m=>m.countRevenue).length;
+  let annualGrossActual=0, annualGrossProjected=0, annualFeeActual=0;
   fyMonths.forEach(ym=>{
-    const cnt = ym<=curYM ? getActiveCommunityMembers(ym).length : active.length;
-    if(ym<=curYM) annualRevActual += cnt*COMMUNITY_FEE;
-    else annualRevProjected += cnt*COMMUNITY_FEE;
+    const cnt = ym<=curYM ? getRevenueMembersForLocation(loc, ym).length : activeRevenue;
+    const fee = (loc==='osaka' && ym<=curYM) ? getOsakaFeeForMonth(ym) : 0;
+    if(ym<=curYM){ annualGrossActual+=cnt*COMMUNITY_FEE; annualFeeActual+=fee; }
+    else annualGrossProjected+=cnt*COMMUNITY_FEE;
   });
-  const annualRevTotal = annualRevActual + annualRevProjected;
+  const annualNetActual = annualGrossActual - annualFeeActual;
+  const annualTotal = annualNetActual + annualGrossProjected;
   const passedMonths = fyMonths.filter(m=>m<=curYM).length;
   const remainingMonths = fyMonths.length - passedMonths;
+
+  const feeCol = loc==='osaka';
+  const activeFeeCount = loc==='osaka' ? (()=>{
+    const [y,mo]=curYM.split('-').map(Number);
+    return active.filter(m=>{
+      if(!m.hasFee||!m.joinDate) return false;
+      const [jy,jm]=m.joinDate.slice(0,7).split('-').map(Number);
+      const diff=(y-jy)*12+(mo-jm);
+      return diff>=0&&diff<OSAKA_REFERRAL_MONTHS;
+    }).length;
+  })() : 0;
+
   document.getElementById('community-content').innerHTML = `
     <div class="stats-grid" style="margin-bottom:20px">
-      <div class="stat-card stat-card-1"><div class="stat-label">アクティブ会員</div><div class="stat-value">${active.length}名</div><div class="stat-sub">合計 ${members.length}名登録</div></div>
-      <div class="stat-card stat-card-3"><div class="stat-label">今月売上（ラボ）</div><div class="stat-value">${fmtY(monthlyRev)}</div><div class="stat-sub">@¥10,000 × ${active.length}名</div></div>
-      <div class="stat-card stat-card-2"><div class="stat-label">年間売上予測（ラボ）</div><div class="stat-value">${fmtY(annualRevTotal)}</div><div class="stat-sub">実績${fmtY(annualRevActual)} ＋ 残${remainingMonths}ヶ月予測${fmtY(annualRevProjected)}</div></div>
+      <div class="stat-card stat-card-1"><div class="stat-label">アクティブ会員（${loc==='tokyo'?'東京':'大阪'}）</div><div class="stat-value">${active.length}名</div><div class="stat-sub">決済済 ${activeRevenue}名 ／ 未決済 ${active.length-activeRevenue}名</div></div>
+      <div class="stat-card stat-card-3"><div class="stat-label">今月売上（${loc==='tokyo'?'東京':'大阪'}）</div><div class="stat-value">${fmtY(curNet)}</div>
+        <div class="stat-sub">¥10,000 × ${curRevenueCount}名（未決済 ${curActiveCount-curRevenueCount}名は除外）${feeCol?` ／ 紹介FEE -${fmtY(curFee)}（${activeFeeCount}名）`:''}
+        </div></div>
+      <div class="stat-card stat-card-2"><div class="stat-label">年間売上予測</div><div class="stat-value">${fmtY(annualTotal)}</div><div class="stat-sub">実績${fmtY(annualNetActual)}${feeCol?`（FEE差引後）`:''} ＋ 残${remainingMonths}ヶ月予測${fmtY(annualGrossProjected)}</div></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">会員リスト</span></div>
+      <div class="card-header"><span class="card-title">会員リスト（${loc==='tokyo'?'東京':'大阪'}）</span></div>
       ${members.length===0?'<div class="empty" style="padding:40px"><p>会員がまだいません。「会員を追加」から登録してください</p></div>':`
       <div class="table-wrap"><table>
-        <thead><tr><th>No.</th><th>氏名</th><th>性別</th><th>契約書</th><th>決済</th><th>LINE</th><th>契約開始</th><th>職業</th><th>契約中</th><th>備考</th><th></th></tr></thead>
-        <tbody>${members.map((m,i)=>`<tr>
-          <td class="text-xs text-muted">${i+1}</td>
-          <td><div class="flex items-center gap-2"><div class="avatar">${(m.name||'?')[0]}</div><span class="fw-500">${m.name||''}</span></div></td>
-          <td style="text-align:center"><span class="badge ${m.gender==='女'?'badge-pink':'badge-blue'}" style="min-width:28px">${m.gender||'—'}</span></td>
-          <td style="text-align:center">${chk(m.hasContract)}</td>
-          <td style="text-align:center">${chk(m.hasPayment)}</td>
-          <td style="text-align:center">${chk(m.hasLine)}</td>
-          <td class="text-xs text-muted">${m.joinDate||''}</td>
-          <td class="text-xs">${m.occupation||''}</td>
-          <td style="text-align:center"><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status==='active'?'契約中':'—'}</span></td>
-          <td class="text-xs text-muted">${m.notes||''}</td>
-          <td><div class="flex gap-2"><button class="btn btn-sm" onclick="editCommunityMember('${m.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCommunityMember('${m.id}')">削除</button></div></td>
-        </tr>`).join('')}</tbody>
+        <thead><tr><th>No.</th><th>氏名</th><th>性別</th><th>紹介者</th>${feeCol?'<th>FEE</th>':''}<th>契約書</th><th>決済</th><th>LINE</th><th>契約開始</th><th>職業</th><th>契約中</th><th>備考</th><th></th></tr></thead>
+        <tbody>${members.map((m,i)=>{
+          const feeActive=(()=>{
+            if(!feeCol||!m.hasFee||!m.joinDate) return false;
+            const [y2,mo2]=curYM.split('-').map(Number);
+            const [jy,jm]=m.joinDate.slice(0,7).split('-').map(Number);
+            const diff=(y2-jy)*12+(mo2-jm);
+            return diff>=0&&diff<OSAKA_REFERRAL_MONTHS;
+          })();
+          return `<tr>
+            <td class="text-xs text-muted">${i+1}</td>
+            <td><div class="flex items-center gap-2"><div class="avatar">${(m.name||'?')[0]}</div><span class="fw-500">${m.name||''}</span></div></td>
+            <td style="text-align:center"><span class="badge ${m.gender==='女'?'badge-pink':'badge-blue'}" style="min-width:28px">${m.gender||'—'}</span></td>
+            <td class="text-xs">${esc(m.referrer||'')}</td>
+            ${feeCol?`<td style="text-align:center">${m.hasFee?(feeActive?'<span class="badge badge-green">有効</span>':'<span class="badge badge-gray">期限切</span>'):'—'}</td>`:''}
+            <td style="text-align:center">${chk(m.hasContract)}</td>
+            <td style="text-align:center">${chk(m.hasPayment)}</td>
+            <td style="text-align:center">${chk(m.hasLine)}</td>
+            <td class="text-xs text-muted">${m.joinDate||''}</td>
+            <td class="text-xs">${m.occupation||''}</td>
+            <td style="text-align:center"><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status==='active'?'契約中':'—'}</span></td>
+            <td class="text-xs text-muted">${m.notes||''}</td>
+            <td><div class="flex gap-2"><button class="btn btn-sm" onclick="editCommunityMember('${m.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCommunityMember('${m.id}')">削除</button></div></td>
+          </tr>`;
+        }).join('')}</tbody>
       </table></div>`}
     </div>`;
 }
 
 function openCommunityModal(id){
-  const m = id ? (communityData.members||[]).find(x=>x.id===id) : {};
+  const loc = currentLabTab;
+  const members = getLabMembers(loc);
+  const m = id ? members.find(x=>x.id===id) : {};
   editingId = id||null;
   const chkd = (val) => val ? 'checked' : '';
-  showModal(`<div class="modal-header"><h3>${id?'会員を編集':'会員を追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  const isOsaka = loc==='osaka';
+  showModal(`<div class="modal-header"><h3>${id?'会員を編集':'会員を追加'}（${isOsaka?'大阪':'東京'}）</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
   <div class="modal-body">
     <div class="form-row">
       <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc((m||{}).name||'')}"></div>
@@ -1396,7 +2350,9 @@ function openCommunityModal(id){
       <div class="form-group"><label>契約開始</label><input id="f-join" type="month" value="${(m||{}).joinDate||''}"></div>
       <div class="form-group"><label>職業</label><input id="f-occupation" value="${esc((m||{}).occupation||'')}"></div>
     </div>
-    <div class="form-row" style="gap:20px;align-items:center;flex-wrap:wrap">
+    <div class="form-group"><label>紹介者</label><input id="f-referrer" value="${esc((m||{}).referrer||'')}"></div>
+    ${isOsaka?`<div style="margin:8px 0"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-fee" type="checkbox" ${chkd((m||{}).hasFee)}> <span>FEE（紹介者に12ヶ月間 ¥3,000/月）</span></label></div>`:''}
+    <div class="form-row" style="gap:20px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-contract" type="checkbox" ${chkd((m||{}).hasContract)}> 契約書</label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-payment" type="checkbox" ${chkd((m||{}).hasPayment)}> 決済</label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="f-line" type="checkbox" ${chkd((m||{}).hasLine)}> LINE</label>
@@ -1410,30 +2366,35 @@ function openCommunityModal(id){
 function editCommunityMember(id){ openCommunityModal(id); }
 
 async function saveCommunityForm(){
+  const loc = currentLabTab;
   const name=document.getElementById('f-name').value.trim();
   if(!name)return alert('氏名を入力してください');
+  const isOsaka = loc==='osaka';
   const obj={
-    id:editingId||genId(), name,
+    id:editingId||genId(), name, location:loc,
     gender:document.getElementById('f-gender').value,
     joinDate:document.getElementById('f-join').value,
     leaveDate:document.getElementById('f-leave').value,
     occupation:document.getElementById('f-occupation').value,
+    referrer:document.getElementById('f-referrer')?.value||'',
+    hasFee:isOsaka?(document.getElementById('f-fee')?.checked||false):false,
     hasContract:document.getElementById('f-contract').checked,
     hasPayment:document.getElementById('f-payment').checked,
     hasLine:document.getElementById('f-line').checked,
     status:document.getElementById('f-active').checked?'active':'inactive',
     notes:document.getElementById('f-notes').value
   };
-  const members=communityData.members||[];
-  communityData.members = editingId ? members.map(m=>m.id===editingId?obj:m) : [...members,obj];
+  const members = getLabMembers(loc);
+  communityData[loc].members = editingId ? members.map(m=>m.id===editingId?obj:m) : [...members,obj];
   const {error}=await sb.from('goals').upsert({period_key:'community_data',data:communityData});
   if(error)return alert('保存失敗: '+error.message);
   closeModal(); renderCommunity();
 }
 
 async function deleteCommunityMember(id){
+  const loc = currentLabTab;
   if(!confirm('削除しますか？'))return;
-  communityData.members=(communityData.members||[]).filter(m=>m.id!==id);
+  communityData[loc].members = getLabMembers(loc).filter(m=>m.id!==id);
   await sb.from('goals').upsert({period_key:'community_data',data:communityData});
   renderCommunity();
 }
@@ -1441,6 +2402,7 @@ async function deleteCommunityMember(id){
 // ===== FINANCE =====
 let financeData = null;
 let financeGoals = {};
+let bankBalances = {accounts:[], history:[]};
 
 function parseCSVLine(line) {
   const result = []; let cur = ''; let inQ = false;
@@ -1644,14 +2606,34 @@ function renderFinance() {
   const insightBg = { danger:'var(--danger-light)', warn:'var(--warning-light)', good:'var(--success-light)', info:'var(--accent-light)' };
   const insightIcon = { danger:'🚨', warn:'⚠️', good:'✅', info:'💡' };
 
-  el.innerHTML = `
+  const latestBal = (bankBalances.history||[]).slice().sort((a,b)=>a.month<b.month?1:-1)[0];
+  const bankCard = `<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">口座残高</span>
+      <button class="btn btn-sm btn-primary" onclick="openBankBalanceModal()">残高を入力</button>
+    </div>
+    ${!latestBal||!latestBal.balances||latestBal.balances.length===0 ? `<div class="text-muted" style="padding:16px">口座が登録されていません。「残高を入力」から口座を追加してください。</div>` : `
+    <div style="padding:4px 0 8px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">最終更新: ${latestBal.month}　${latestBal.month!==nowYM?'<span style="color:var(--warning);font-weight:600">⚠️ 今月未入力</span>':''}</div>
+      <div class="stats-grid">
+        <div class="stat-card stat-card-1"><div class="stat-label">総残高</div><div class="stat-value">${fmtY(latestBal.total)}</div></div>
+        ${latestBal.balances.map(a=>`<div class="stat-card stat-card-plain"><div class="stat-label">${esc(a.name)}</div><div class="stat-value" style="font-size:18px">${fmtY(a.balance)}</div></div>`).join('')}
+      </div>
+      ${bankBalances.history&&bankBalances.history.length>1?`<div style="margin-top:12px;font-size:12px;color:var(--text2)">
+        <span style="font-weight:600">推移：</span>
+        ${bankBalances.history.slice(-6).map(h=>`${h.month}: ${fmtY(h.total)}`).join(' → ')}
+      </div>`:''}
+    </div>`}
+  </div>`;
+
+  el.innerHTML = bankCard + `
     <div style="font-size:11px;color:var(--text3);margin-bottom:16px">最終更新: ${new Date(updatedAt).toLocaleString('ja-JP')} ／ 期間: ${months[0]}〜${months[months.length-1]}</div>
 
     <div class="stats-grid" style="margin-bottom:20px">
       <div class="stat-card stat-card-1"><div class="stat-label">累計売上</div><div class="stat-value">${fmtY(totalRev)}</div><div class="stat-sub">${months[0]}〜${months[months.length-1]}</div></div>
       <div class="stat-card stat-card-4"><div class="stat-label">累計費用</div><div class="stat-value">${fmtY(totalExp)}</div><div class="stat-sub">売上比 ${totalRev>0?Math.round(totalExp/totalRev*100):0}%</div></div>
       <div class="stat-card ${totalProf>=0?'stat-card-3':'stat-card-plain'}"><div class="stat-label">累計利益</div><div class="stat-value" style="${totalProf<0?'color:var(--danger)':''}">${fmtY(totalProf)}</div><div class="stat-sub">利益率 ${margin}%</div></div>
-      <div class="stat-card stat-card-2"><div class="stat-label">ラボ累計売上</div><div class="stat-value">${fmtY(totalCommRev)}</div><div class="stat-sub">${(communityData.members||[]).filter(m=>m.status==='active').length}名 × ¥10,000</div></div>
+      <div class="stat-card stat-card-2"><div class="stat-label">ラボ累計売上</div><div class="stat-value">${fmtY(totalCommRev)}</div><div class="stat-sub">${[...getLabMembers('tokyo'),...getLabMembers('osaka')].filter(m=>m.status==='active').length}名 × ¥10,000</div></div>
     </div>
 
     <div class="grid-2" style="margin-bottom:20px">
@@ -1781,6 +2763,81 @@ function renderFinance() {
   `;
 }
 
+// ===== BANK BALANCES =====
+function checkBankBalanceReminder(){
+  if(!bankBalances.accounts || bankBalances.accounts.length===0) return;
+  const nowYM = new Date().toISOString().slice(0,7);
+  const lastEntry = (bankBalances.history||[]).slice(-1)[0];
+  if(lastEntry && lastEntry.month===nowYM) return;
+  setTimeout(()=>{
+    const modal = document.createElement('div');
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML=`<div style="background:var(--surface);border-radius:16px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:40px;margin-bottom:12px">🏦</div>
+      <h3 style="margin-bottom:8px;color:var(--text)">今月の口座残高を入力してください</h3>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:20px">${nowYM}の残高がまだ登録されていません</p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">後で</button>
+        <button class="btn btn-primary" onclick="this.closest('div[style*=fixed]').remove();showPage('finance',document.querySelector('[onclick*=finance]'));openBankBalanceModal()">入力する</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }, 1500);
+}
+
+function openBankBalanceModal(){
+  const nowYM = new Date().toISOString().slice(0,7);
+  const accounts = bankBalances.accounts||[];
+  showModal(`<div class="modal-header"><h3>口座残高を入力 (${nowYM})</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div id="bank-account-list">
+      ${accounts.length===0?'<div class="text-muted" style="text-align:center;padding:12px">口座が登録されていません</div>':
+      accounts.map((a,i)=>`<div class="form-row" style="align-items:center">
+        <div class="form-group" style="flex:1"><label>${esc(a.name)}</label><input type="number" id="bal-${i}" placeholder="0" style="width:100%"></div>
+      </div>`).join('')}
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">口座を追加・編集</div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><input id="new-bank-name" placeholder="口座名（例：三菱UFJ普通）"></div>
+      <button class="btn btn-sm btn-primary" onclick="addBankAccount()" style="margin-top:20px">追加</button>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveBankBalances()">保存</button></div>`);
+}
+
+function addBankAccount(){
+  const name = document.getElementById('new-bank-name')?.value?.trim();
+  if(!name) return;
+  if(!bankBalances.accounts) bankBalances.accounts=[];
+  bankBalances.accounts.push({name, id: Date.now().toString()});
+  document.getElementById('new-bank-name').value='';
+  const list = document.getElementById('bank-account-list');
+  const i = bankBalances.accounts.length-1;
+  const div = document.createElement('div');
+  div.className='form-row';
+  div.style.alignItems='center';
+  div.innerHTML=`<div class="form-group" style="flex:1"><label>${esc(name)}</label><input type="number" id="bal-${i}" placeholder="0" style="width:100%"></div>`;
+  list.appendChild(div);
+}
+
+async function saveBankBalances(){
+  const nowYM = new Date().toISOString().slice(0,7);
+  const accounts = bankBalances.accounts||[];
+  const balances = accounts.map((a,i)=>({...a, balance: Number(document.getElementById('bal-'+i)?.value||0)}));
+  const totalBalance = balances.reduce((s,a)=>s+a.balance,0);
+  if(!bankBalances.history) bankBalances.history=[];
+  const existing = bankBalances.history.findIndex(h=>h.month===nowYM);
+  const entry = {month:nowYM, balances, total:totalBalance};
+  if(existing>=0) bankBalances.history[existing]=entry;
+  else bankBalances.history.push(entry);
+  bankBalances.accounts = accounts;
+  const {error} = await sb.from('goals').upsert({period_key:'bank_balances', data:bankBalances});
+  if(error){ alert('保存に失敗しました'); return; }
+  closeModal();
+  renderFinance();
+}
+
 // ===== AI CONSULT =====
 function saveApiKey(){
   const key = document.getElementById('ai-api-key-input')?.value?.trim();
@@ -1816,6 +2873,17 @@ async function runAIConsult(){
   const nextRev = linReg(recIdx.map(i=>revenue[i]));
   const nextExp = linReg(recIdx.map(i=>sgaTotal[i]));
 
+  // Bank balance data
+  const latestBal = (bankBalances.history||[]).slice().sort((a,b)=>a.month<b.month?1:-1)[0];
+  const bankSection = latestBal ? `
+【口座残高（最新: ${latestBal.month}）】
+- 総残高：${Math.round(latestBal.total/10000)}万円
+${(latestBal.balances||[]).map(a=>`- ${a.name}：${Math.round(a.balance/10000)}万円`).join('\n')}
+${bankBalances.history&&bankBalances.history.length>1?`
+【口座残高推移】
+${bankBalances.history.slice(-6).map(h=>`- ${h.month}：${Math.round(h.total/10000)}万円`).join('\n')}
+`:''}` : '【口座残高】未登録';
+
   const prompt = `あなたはコーチングビジネス専門の財務コンサルタントです。以下の財務データを分析して、具体的なアドバイスをください。
 
 【会社情報】
@@ -1839,12 +2907,14 @@ ${expTotals.slice(0,8).map(e=>`- ${e.k}：${Math.round(e.t/10000)}万円`).join(
 - 費用予測：${Math.round(nextExp/10000)}万円
 - 利益予測：${Math.round((nextRev-nextExp)/10000)}万円
 
+${bankSection}
+
 以下の4つの観点で日本語でアドバイスをください。HTMLで回答してください（<h4>タグで見出し、<p>で本文、重要な数字は<strong>で強調）：
 
 1. 🚨 使い過ぎている経費（具体的な費用項目名と金額を示して削減提案）
 2. 📈 売上の推移分析（トレンドとリスク・チャンスの指摘）
-3. 💰 キャッシュフロー予測（今後3ヶ月の見通し）
-4. 🎯 最低限必要な月次売上（固定費・生活費をカバーする損益分岐点）`;
+3. 💰 キャッシュフロー予測（口座残高の推移と月次収支から今後3ヶ月の残高見通しを具体的な金額で）
+4. 🎯 最低限必要な月次売上（口座残高と固定費から計算した損益分岐点）`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1954,7 +3024,7 @@ async function saveSession(){
   const date = document.getElementById('sf-date').value;
   if(!clientId) return alert('クライアントを選択してください');
   if(!date) return alert('日付を入力してください');
-  const id = editingId || genId();
+  const id = editingId || crypto.randomUUID();
   const obj = {
     id, clientId, date,
     summary:     document.getElementById('sf-summary').value,
@@ -2006,6 +3076,163 @@ function openSessionDetail(id){
   `);
 }
 
+function openTranscriptModal(){
+  const clientOptions = db.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  showModal(`
+    <div class="modal-header">
+      <h3>🎙️ 議事録からセッション作成</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="form-label">クライアント</label>
+        <select id="tr-client" class="form-control">
+          <option value="">選択してください</option>
+          ${clientOptions}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">ボイス議事録を貼り付け</label>
+        <textarea id="tr-text" class="form-control" rows="10" placeholder="議事録のテキストをここに貼り付けてください..."></textarea>
+      </div>
+      <div id="tr-status" style="font-size:13px;color:var(--text3)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" id="tr-btn" onclick="processTranscript()">✨ AIで解析して保存</button>
+    </div>
+  `);
+}
+
+async function processTranscript(){
+  const clientId = document.getElementById('tr-client').value;
+  const text = document.getElementById('tr-text').value.trim();
+  const statusEl = document.getElementById('tr-status');
+  const btn = document.getElementById('tr-btn');
+
+  if(!clientId) return alert('クライアントを選択してください');
+  if(!text) return alert('議事録テキストを入力してください');
+
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if(!apiKey) return alert('Claude APIキーが設定されていません。財務コンサルページから設定してください。');
+
+  const client = db.customers.find(c=>c.id===clientId);
+  btn.disabled = true;
+  statusEl.textContent = '🤖 AIが議事録を解析中...';
+
+  const prompt = `あなたはプロのコーチングアシスタントです。以下のコーチングセッション議事録を解析して、JSON形式で返してください。
+
+議事録:
+${text}
+
+以下のJSON形式のみで返してください（説明文・前置き不要）:
+{
+  "date": "YYYY-MM-DD形式の日付（議事録から読み取る。不明なら今日の日付: ${new Date().toISOString().slice(0,10)}）",
+  "summary": "話した内容の詳細なサマリー。セッションで話したテーマ・背景・課題・議論の流れ・結論を網羅的に記載すること。500〜800文字程度で具体的に書く。",
+  "actions": "次回までのアクションプラン。議事録から読み取った具体的なTODOを番号付き箇条書きで記載。",
+  "ai_advice": "コーチとしてのアドバイス・提言。クライアントの状況を踏まえた具体的で実践的なアドバイスを300文字程度で記載。"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error?.message || '解析失敗');
+
+    let extracted;
+    const raw = json.content?.[0]?.text || '';
+    console.log('Claude raw response:', raw);
+    try {
+      const cleaned = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if(!match) throw new Error('no json: ' + cleaned.slice(0,200));
+      extracted = JSON.parse(match[0]);
+    } catch(e) {
+      throw new Error('解析失敗: ' + e.message + '\n\nAI応答先頭: ' + raw.slice(0,300));
+    }
+
+    statusEl.textContent = '💾 Supabaseに保存中...';
+
+    const id = crypto.randomUUID();
+    const obj = {
+      id,
+      clientId,
+      clientName: client?.name || '',
+      date: extracted.date || new Date().toISOString().slice(0,10),
+      summary: extracted.summary || '',
+      insights: '',
+      actions: extracted.actions || '',
+      ai_advice: extracted.ai_advice || '',
+      coach_notes: '',
+    };
+
+    const {error} = await sb.from('sessions').upsert({id, data: obj});
+    if(error) throw error;
+
+    db.sessions.unshift(obj);
+    renderSessions();
+
+    // Google Sheetsへも送信
+    if(client?.spreadsheetId){
+      statusEl.textContent = '📊 Google Sheetsへ送信中...';
+      try {
+        const dateFormatted = obj.date ? obj.date.replace(/-/g,'/').replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1年$2月$3日') : '';
+        const payload = {
+          spreadsheet_id: client.spreadsheetId,
+          date: dateFormatted,
+          summary: obj.summary,
+          actions: obj.actions,
+          ai_advice: obj.ai_advice,
+        };
+        const sheetsRes = await fetch(COACHING_WEBHOOK, { method:'POST', body:JSON.stringify(payload) });
+        const sheetsJson = await sheetsRes.json().catch(()=>({status:'unknown'}));
+        if(sheetsJson.status !== 'success') {
+          console.warn('Sheets応答:', sheetsJson);
+          alert('⚠️ アプリへの保存は成功しましたが、Google Sheetsへの送信に失敗しました。\n\nエラー: ' + (sheetsJson.message || JSON.stringify(sheetsJson)));
+        }
+      } catch(e) {
+        alert('⚠️ アプリへの保存は成功しましたが、Google Sheetsへの送信に失敗しました。\n\nエラー: ' + e.message);
+      }
+    } else {
+      alert('⚠️ アプリへの保存は成功しましたが、このクライアントにGoogle Sheets IDが設定されていません。');
+    }
+
+    closeModal();
+    alert('✅ セッションを保存しました！\nアプリとGoogle Sheetsの両方に反映されました。');
+  } catch(e) {
+    statusEl.textContent = '❌ エラー: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+async function refreshSessionsFromDB(){
+  const btn = document.getElementById('refresh-sessions-btn');
+  if(btn){ btn.disabled=true; btn.querySelector('svg').style.animation='spin 1s linear infinite'; }
+  try {
+    const {data,error} = await sb.from('sessions').select('id,data').order('created_at',{ascending:false});
+    if(error) throw error;
+    db.sessions = (data||[]).map(r=>({...r.data, id:r.id}));
+    renderSessions();
+    alert('✅ 最新データを取得しました');
+  } catch(e) {
+    alert('取得失敗: '+e.message);
+  } finally {
+    if(btn){ btn.disabled=false; btn.querySelector('svg').style.animation=''; }
+  }
+}
+
 async function sendToSheets(sessionId){
   const s = db.sessions.find(x=>x.id===sessionId);
   if(!s) return;
@@ -2030,6 +3257,229 @@ async function sendToSheets(sessionId){
   } finally {
     if(btn){ btn.disabled=false; btn.textContent='📊 Sheetsへ送信'; }
   }
+}
+
+// ===== INSTALLMENTS =====
+let installmentsData = [];
+
+// ===== SETTINGS =====
+function renderSettings(){
+  const urlInput = document.getElementById('setting-apo-sheet-url');
+  if(urlInput) urlInput.value = localStorage.getItem('apoSheetUrl')||'';
+  const el = document.getElementById('checklist-editor');
+  if(!el) return;
+  const btnStyle = 'background:none;border:none;cursor:pointer;padding:0 3px;font-size:13px;line-height:1;color:var(--text3)';
+  el.innerHTML = appoChecklist.map((sec,si)=>`
+    <div style="margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <button onclick="moveSection(${si},-1)" ${si===0?'disabled':''} style="${btnStyle};opacity:${si===0?0.3:1}">▲</button>
+          <button onclick="moveSection(${si},1)" ${si===appoChecklist.length-1?'disabled':''} style="${btnStyle};opacity:${si===appoChecklist.length-1?0.3:1}">▼</button>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent)">【</div>
+        <input value="${esc(sec.section)}" onchange="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
+        <div style="font-size:11px;font-weight:700;color:var(--accent)">】</div>
+        <button onclick="removeChecklistSection(${si})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:0 4px">×</button>
+      </div>
+      ${sec.items.map((item,ii)=>`
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
+          <div style="display:flex;flex-direction:column;gap:1px">
+            <button onclick="moveItem(${si},${ii},-1)" ${ii===0?'disabled':''} style="${btnStyle};opacity:${ii===0?0.3:1}">▲</button>
+            <button onclick="moveItem(${si},${ii},1)" ${ii===sec.items.length-1?'disabled':''} style="${btnStyle};opacity:${ii===sec.items.length-1?0.3:1}">▼</button>
+          </div>
+          <input value="${esc(item)}" onchange="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
+          <button onclick="removeChecklistItem(${si},${ii})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;flex-shrink:0">×</button>
+        </div>
+      `).join('')}
+      <button onclick="addChecklistItem(${si})" style="background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text3);cursor:pointer;width:100%;margin-top:4px">＋ 項目追加</button>
+    </div>
+  `).join('');
+}
+
+function moveSection(si, dir){
+  const ni = si + dir;
+  if(ni<0||ni>=appoChecklist.length) return;
+  [appoChecklist[si], appoChecklist[ni]] = [appoChecklist[ni], appoChecklist[si]];
+  renderSettings();
+}
+
+function moveItem(si, ii, dir){
+  const ni = ii + dir;
+  const items = appoChecklist[si].items;
+  if(ni<0||ni>=items.length) return;
+  [items[ii], items[ni]] = [items[ni], items[ii]];
+  renderSettings();
+}
+
+function addChecklistSection(){
+  appoChecklist.push({section:'新しいセクション', items:['']});
+  renderSettings();
+}
+
+function removeChecklistSection(si){
+  if(!confirm('このセクションを削除しますか？'))return;
+  appoChecklist.splice(si,1);
+  renderSettings();
+}
+
+function addChecklistItem(si){
+  appoChecklist[si].items.push('');
+  renderSettings();
+}
+
+function removeChecklistItem(si,ii){
+  appoChecklist[si].items.splice(ii,1);
+  renderSettings();
+}
+
+function saveApoSheetUrl(){
+  const url = (document.getElementById('setting-apo-sheet-url')?.value||'').trim();
+  localStorage.setItem('apoSheetUrl', url);
+  const st = document.getElementById('apo-sheet-url-status');
+  if(st){ st.textContent = url ? '✅ 保存しました' : 'URLを削除しました'; setTimeout(()=>{ if(st) st.textContent=''; }, 2500); }
+}
+
+async function postAppointmentToSheet(obj){
+  const url = localStorage.getItem('apoSheetUrl');
+  if(!url) return;
+  try {
+    await fetch(url, {
+      method:'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({
+        type:'appointment',
+        name: obj.name||'',
+        occupation: obj.business||'',
+        title: obj.title||'',
+        notes: obj.notes||'',
+        date: obj.date||'',
+        status: obj.status||'',
+        nextAction: obj.nextAction||''
+      })
+    });
+  } catch(e){ console.warn('スプシ連携エラー:', e.message); }
+}
+
+async function saveChecklistSettings(){
+  const {error}=await sb.from('goals').upsert({period_key:'appo_checklist', data:appoChecklist});
+  if(error) return alert('保存失敗: '+error.message);
+  alert('チェックリストを保存しました');
+}
+
+function resetChecklist(){
+  if(!confirm('デフォルトに戻しますか？'))return;
+  appoChecklist=JSON.parse(JSON.stringify(DEFAULT_APPO_CHECKLIST));
+  renderSettings();
+}
+
+function renderInstallments(){
+  const el = document.getElementById('installments-content');
+  if(!installmentsData.length){
+    el.innerHTML=`<div class="card"><div class="empty"><p>分割決済クライアントがいません</p></div></div>`;
+    return;
+  }
+  el.innerHTML = installmentsData.map((c,ci)=>{
+    const paid = (c.payments||[]).reduce((a,b)=>a+Number(b.amount||0),0);
+    const remaining = Number(c.totalAmount||0) - paid;
+    const pct = c.totalAmount ? Math.min(100, Math.round(paid/c.totalAmount*100)) : 0;
+    const payments = (c.payments||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+    return `<div class="card" style="margin-bottom:16px">
+      <div class="flex items-center" style="margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:700">${esc(c.clientName)}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${c.memo?esc(c.memo):''}</div>
+        </div>
+        <div class="ml-auto flex gap-2">
+          <button class="btn btn-sm" onclick="openPaymentModal(${ci})">入金記録</button>
+          <button class="btn btn-sm" onclick="editInstallment(${ci})">編集</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteInstallment(${ci})">削除</button>
+        </div>
+      </div>
+      <div class="stats-grid" style="margin-bottom:12px">
+        <div class="stat-card stat-card-1"><div class="stat-label">合計金額</div><div class="stat-value" style="font-size:18px">${fmtY(c.totalAmount)}</div></div>
+        <div class="stat-card stat-card-2"><div class="stat-label">入金済み</div><div class="stat-value" style="font-size:18px">${fmtY(paid)}</div></div>
+        <div class="stat-card" style="background:var(--surface2)"><div class="stat-label">残高</div><div class="stat-value" style="font-size:18px;color:${remaining>0?'var(--danger)':'var(--success)'}">${fmtY(remaining)}</div></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:6px;height:8px;margin-bottom:12px">
+        <div style="background:var(--accent);height:8px;border-radius:6px;width:${pct}%;transition:width .3s"></div>
+      </div>
+      ${payments.length ? `<table style="width:100%;font-size:13px"><thead><tr style="color:var(--text3)"><th style="text-align:left;padding:4px">日付</th><th style="text-align:right;padding:4px">入金額</th><th style="text-align:left;padding:4px">メモ</th><th></th></tr></thead><tbody>
+        ${payments.map((p,pi)=>`<tr><td style="padding:4px">${p.date}</td><td style="text-align:right;padding:4px;font-weight:600">${fmtY(p.amount)}</td><td style="padding:4px;color:var(--text3)">${esc(p.memo||'')}</td><td><button class="btn btn-sm btn-danger" onclick="deletePayment(${ci},${(c.payments||[]).findIndex(x=>x===c.payments[c.payments.length-1-pi])})">削除</button></td></tr>`).join('')}
+      </tbody></table>` : '<div style="font-size:13px;color:var(--text3)">入金記録なし</div>'}
+    </div>`;
+  }).join('');
+}
+
+function openInstallmentModal(editIdx=null){
+  const c = editIdx!==null ? installmentsData[editIdx] : {};
+  const title = editIdx!==null ? '分割決済を編集' : 'クライアント追加';
+  const custOpts = db.customers.map(cu=>`<option value="${esc(cu.name)}">`).join('');
+  showModal(`<div class="modal-header"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>クライアント名</label>
+        <input id="ins-client" list="ins-client-list" value="${esc(c.clientName||'')}" placeholder="名前を入力または選択">
+        <datalist id="ins-client-list">${custOpts}</datalist>
+      </div>
+      <div class="form-group"><label>合計金額（円）</label><input id="ins-total" type="number" value="${c.totalAmount||''}"></div>
+      <div class="form-group"><label>メモ（任意）</label><input id="ins-memo" value="${esc(c.memo||'')}"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveInstallment(${editIdx})">保存</button></div>`);
+}
+
+function editInstallment(idx){ openInstallmentModal(idx); }
+
+async function saveInstallment(editIdx){
+  const clientName = document.getElementById('ins-client').value;
+  const totalAmount = Number(document.getElementById('ins-total').value)||0;
+  const memo = document.getElementById('ins-memo').value;
+  if(!clientName||!totalAmount) return alert('クライアントと合計金額は必須です');
+  if(editIdx!==null){
+    installmentsData[editIdx] = {...installmentsData[editIdx], clientName, totalAmount, memo};
+  } else {
+    installmentsData.push({clientName, totalAmount, memo, payments:[]});
+  }
+  await saveInstallmentsData();
+  closeModal(); renderInstallments();
+}
+
+async function deleteInstallment(idx){
+  if(!confirm('削除しますか？')) return;
+  installmentsData.splice(idx,1);
+  await saveInstallmentsData();
+  renderInstallments();
+}
+
+function openPaymentModal(ci){
+  showModal(`<div class="modal-header"><h3>入金記録 — ${esc(installmentsData[ci].clientName)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>入金日</label><input id="pay-date" type="date" value="${today()}"></div>
+      <div class="form-group"><label>入金額（円）</label><input id="pay-amount" type="number"></div>
+      <div class="form-group"><label>メモ（任意）</label><input id="pay-memo"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="savePayment(${ci})">保存</button></div>`);
+}
+
+async function savePayment(ci){
+  const date = document.getElementById('pay-date').value;
+  const amount = Number(document.getElementById('pay-amount').value)||0;
+  const memo = document.getElementById('pay-memo').value;
+  if(!date||!amount) return alert('日付と入金額は必須です');
+  if(!installmentsData[ci].payments) installmentsData[ci].payments=[];
+  installmentsData[ci].payments.push({date, amount, memo});
+  await saveInstallmentsData();
+  closeModal(); renderInstallments();
+}
+
+async function deletePayment(ci, pi){
+  if(!confirm('この入金記録を削除しますか？')) return;
+  installmentsData[ci].payments.splice(pi,1);
+  await saveInstallmentsData();
+  renderInstallments();
+}
+
+async function saveInstallmentsData(){
+  const {error} = await sb.from('goals').upsert({period_key:'installments_data', data:installmentsData});
+  if(error) alert('保存失敗: '+error.message);
 }
 
 // Init
