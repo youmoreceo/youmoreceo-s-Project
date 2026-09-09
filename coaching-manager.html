@@ -530,6 +530,7 @@
             <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" placeholder="検索..." id="appt-search" oninput="renderAppointments()" style="width:160px">
           </div>
+          <input type="text" placeholder="地域で絞込..." id="appt-region-filter" oninput="renderAppointments()" style="width:120px">
           <select id="appt-status-filter" onchange="renderAppointments()" style="width:110px">
             <option value="">すべて</option>
             <option value="見込み">見込み</option>
@@ -547,7 +548,7 @@
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>氏名</th><th>事業内容・役職</th><th>日時</th><th>流入</th><th>ステータス</th><th>次回アクション</th><th></th></tr></thead>
+            <thead><tr><th>氏名</th><th>事業内容・役職</th><th>地域</th><th>日時</th><th>流入</th><th>ステータス</th><th>次回アクション</th><th></th></tr></thead>
             <tbody id="appointments-tbody"></tbody>
           </table>
         </div>
@@ -1568,7 +1569,8 @@ async function deleteSale(id){ if(!confirm('削除しますか？'))return; awai
 function renderAppointments(){
   const q=(document.getElementById('appt-search')?.value||'').toLowerCase();
   const sf=document.getElementById('appt-status-filter')?.value||'';
-  const filtered=db.appointments.filter(a=>(!q||(a.name||'').toLowerCase().includes(q)||(a.business||'').toLowerCase().includes(q))&&(!sf||a.status===sf)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const rf=(document.getElementById('appt-region-filter')?.value||'').toLowerCase();
+  const filtered=db.appointments.filter(a=>(!q||(a.name||'').toLowerCase().includes(q)||(a.business||'').toLowerCase().includes(q))&&(!sf||a.status===sf)&&(!rf||(a.region||'').toLowerCase().includes(rf))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const cnts={'見込み':0,'再アポ':0,'契約':0,'失注':0};
   db.appointments.forEach(a=>{if(cnts[a.status]!==undefined)cnts[a.status]++;});
   document.getElementById('appt-stats').innerHTML=`
@@ -1577,12 +1579,13 @@ function renderAppointments(){
     <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#065f46">契約</div><div class="stat-value" style="color:var(--success)">${cnts['契約']}</div></div>
     <div class="stat-card stat-card-plain"><div class="stat-label" style="color:#991b1b">失注</div><div class="stat-value" style="color:var(--danger)">${cnts['失注']}</div></div>`;
   if(!filtered.length){
-    document.getElementById('appointments-tbody').innerHTML=`<tr><td colspan="7"><div class="empty"><p>アポイントがありません</p></div></td></tr>`;
+    document.getElementById('appointments-tbody').innerHTML=`<tr><td colspan="8"><div class="empty"><p>アポイントがありません</p></div></td></tr>`;
     return;
   }
   document.getElementById('appointments-tbody').innerHTML=filtered.map(a=>`<tr>
     <td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><div><div class="fw-500">${a.name||''}</div><div class="text-xs text-muted">${a.title||''}</div></div></div></td>
     <td class="text-xs text-muted" style="max-width:140px">${a.business||''}</td>
+    <td class="text-xs text-muted">${a.region||''}</td>
     <td class="text-xs text-muted">${a.date||''}</td>
     <td class="text-xs text-muted">${inflowDisplay(a.inflow,a.inflowDetail)}</td>
     <td>
@@ -1777,7 +1780,10 @@ function openModal(type, data){
         <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc(a.name||'')}"></div>
         <div class="form-group"><label>役職</label><input id="f-title" value="${esc(a.title||'')}"></div>
       </div>
-      <div class="form-group"><label>事業内容</label><input id="f-business" value="${esc(a.business||'')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>事業内容</label><input id="f-business" value="${esc(a.business||'')}"></div>
+        <div class="form-group"><label>地域</label><input id="f-region" value="${esc(a.region||'')}" placeholder="例：東京、大阪、オンライン"></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>日時 *</label><input id="f-date" type="date" value="${a.date||today()}"></div>
         <div class="form-group"><label>ステータス</label><select id="f-status" onchange="toggleContractServices()">${['見込み','再アポ','契約','失注','何もなし'].map(s=>`<option ${(a.status||'見込み')===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -2057,6 +2063,7 @@ async function saveAppointment(){
     name,
     title:document.getElementById('f-title').value,
     business:document.getElementById('f-business').value,
+    region:document.getElementById('f-region')?.value||'',
     date:document.getElementById('f-date').value,
     status,
     inflow,
