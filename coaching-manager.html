@@ -466,6 +466,21 @@
         </div>
         <div id="recent-appointments"></div>
       </div>
+      <div class="card" id="empowerment-card">
+        <div class="card-header">
+          <span class="card-title">エンパワーメント記録</span>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-sm" id="emp-prev-btn" onclick="empNav(-1)">◀</button>
+            <span id="emp-period-label" style="font-size:14px;font-weight:500;min-width:110px;text-align:center"></span>
+            <button class="btn btn-sm" id="emp-next-btn" onclick="empNav(1)">▶</button>
+            <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:4px">
+              <button id="emp-tab-month" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px" onclick="setEmpView('month')">月</button>
+              <button id="emp-tab-year" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px;border-left:1px solid var(--border)" onclick="setEmpView('year')">年</button>
+            </div>
+          </div>
+        </div>
+        <div id="empowerment-body" style="padding:16px"></div>
+      </div>
     </div>
 
     <!-- Customers -->
@@ -926,6 +941,216 @@ function renderDashboard() {
   loadCalendar();
   loadCalMonth();
   checkCalendarNotifications();
+  renderEmpowerment();
+}
+
+// ===== EMPOWERMENT COUNTER =====
+let empViewMode = 'month'; // 'month' | 'year'
+const _empNow = new Date();
+let empYear = _empNow.getFullYear();
+let empMonth = _empNow.getMonth() + 1; // 1-12
+
+function setEmpView(mode) {
+  empViewMode = mode;
+  renderEmpowerment();
+}
+
+function empNav(d) {
+  if (empViewMode === 'month') {
+    empMonth += d;
+    if (empMonth > 12) { empMonth = 1; empYear++; }
+    if (empMonth < 1)  { empMonth = 12; empYear--; }
+  } else {
+    empYear += d;
+  }
+  renderEmpowerment();
+}
+
+function renderEmpowerment() {
+  const monthBtn = document.getElementById('emp-tab-month');
+  const yearBtn  = document.getElementById('emp-tab-year');
+  if (monthBtn) {
+    monthBtn.style.background = empViewMode === 'month' ? 'var(--accent)' : '';
+    monthBtn.style.color      = empViewMode === 'month' ? '#fff' : '';
+    yearBtn.style.background  = empViewMode === 'year'  ? 'var(--accent)' : '';
+    yearBtn.style.color       = empViewMode === 'year'  ? '#fff' : '';
+  }
+  const label = document.getElementById('emp-period-label');
+  const body  = document.getElementById('empowerment-body');
+  if (!body) return;
+
+  if (empViewMode === 'month') {
+    if (label) label.textContent = `${empYear}年${empMonth}月`;
+    body.innerHTML = renderEmpMonth(empYear, empMonth);
+  } else {
+    if (label) label.textContent = `${empYear}年`;
+    body.innerHTML = renderEmpYear(empYear);
+  }
+}
+
+function getEmpDays(year, month) {
+  const key = `emp_${year}-${String(month).padStart(2,'0')}`;
+  return db.goals[key] || {};
+}
+
+function renderEmpMonth(year, month) {
+  const days = getEmpDays(year, month);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDow = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  const totalEntered = Object.values(days).reduce((a,b) => a + Number(b), 0);
+  const enteredDays  = Object.keys(days).length;
+  const pastDays = (() => {
+    let n = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if (ds <= todayStr) n++;
+    }
+    return n;
+  })();
+  const unenteredPast = pastDays - enteredDays;
+
+  const maxCount = Math.max(...Object.values(days).map(Number), 1);
+
+  let html = `
+    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="background:var(--surface2);border-radius:10px;padding:10px 18px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">月間合計</div>
+        <div style="font-size:24px;font-weight:700;color:var(--accent)">${totalEntered}<span style="font-size:13px;font-weight:400;margin-left:2px">人</span></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:10px 18px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">記録日数</div>
+        <div style="font-size:24px;font-weight:700;color:var(--success)">${enteredDays}<span style="font-size:13px;font-weight:400;margin-left:2px">日</span></div>
+      </div>
+      ${unenteredPast > 0 ? `<div style="background:var(--surface2);border-radius:10px;padding:10px 18px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">未入力（過去）</div>
+        <div style="font-size:24px;font-weight:700;color:var(--warning)">${unenteredPast}<span style="font-size:13px;font-weight:400;margin-left:2px">日</span></div>
+      </div>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
+      ${['日','月','火','水','木','金','土'].map((d,i) => `<div style="text-align:center;font-size:10px;font-weight:600;color:${i===0?'#ef4444':i===6?'#3b82f6':'var(--text3)'};padding:2px">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
+
+  for (let i = 0; i < firstDow; i++) {
+    html += `<div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === todayStr;
+    const isFuture = ds > todayStr;
+    const count = days[String(d)];
+    const entered = count !== undefined && count !== null;
+    const num = entered ? Number(count) : null;
+
+    let bg, textColor, border;
+    if (isFuture) {
+      bg = 'transparent'; textColor = 'var(--text3)'; border = '1px dashed var(--border)';
+    } else if (!entered) {
+      bg = 'var(--surface2)'; textColor = 'var(--text3)'; border = '1px solid var(--border)';
+    } else if (num === 0) {
+      bg = 'var(--surface2)'; textColor = 'var(--text2)'; border = '1px solid var(--border)';
+    } else {
+      const intensity = Math.min(num / maxCount, 1);
+      const opacity = 0.2 + intensity * 0.75;
+      bg = `rgba(99,102,241,${opacity.toFixed(2)})`; textColor = opacity > 0.55 ? '#fff' : 'var(--text)'; border = 'none';
+    }
+
+    const dow = (firstDow + d - 1) % 7;
+    const dayColor = dow === 0 ? '#ef4444' : dow === 6 ? '#3b82f6' : 'inherit';
+
+    html += `<div onclick="openEmpInput('${ds}','${d}')" style="cursor:pointer;border-radius:8px;padding:4px 2px;text-align:center;background:${bg};border:${border};${isToday?'box-shadow:0 0 0 2px var(--accent);':''}transition:opacity 0.15s" title="${ds}">
+      <div style="font-size:10px;color:${dayColor};font-weight:${isToday?'700':'400'}">${d}</div>
+      <div style="font-size:12px;font-weight:600;color:${textColor};min-height:16px">${entered ? (num === 0 ? '0' : num) : (isFuture ? '' : '–')}</div>
+    </div>`;
+  }
+  html += `</div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text3)">各日をクリックして件数を入力。「–」は未入力、「0」は入力済み</div>`;
+  return html;
+}
+
+function renderEmpYear(year) {
+  let totalYear = 0;
+  let maxMonth = 1;
+  const monthTotals = [];
+  for (let m = 1; m <= 12; m++) {
+    const days = getEmpDays(year, m);
+    const total = Object.values(days).reduce((a,b) => a + Number(b), 0);
+    monthTotals.push(total);
+    totalYear += total;
+    if (total > monthTotals[maxMonth - 1]) maxMonth = m;
+  }
+  const maxVal = Math.max(...monthTotals, 1);
+
+  let html = `
+    <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="background:var(--surface2);border-radius:10px;padding:10px 18px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${year}年 合計</div>
+        <div style="font-size:24px;font-weight:700;color:var(--accent)">${totalYear}<span style="font-size:13px;font-weight:400;margin-left:2px">人</span></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">`;
+
+  const now = new Date();
+  for (let m = 1; m <= 12; m++) {
+    const total = monthTotals[m - 1];
+    const isCurrent = year === now.getFullYear() && m === now.getMonth() + 1;
+    const barH = Math.max(total / maxVal * 60, total > 0 ? 4 : 0);
+    html += `<div onclick="empGoMonth(${year},${m})" style="cursor:pointer;background:var(--surface2);border-radius:10px;padding:12px 10px;text-align:center;border:1px solid ${isCurrent?'var(--accent)':'var(--border)'};transition:border-color 0.15s">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${m}月</div>
+      <div style="height:64px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:6px">
+        <div style="width:32px;background:${total>0?'var(--accent)':'var(--border)'};border-radius:4px 4px 0 0;height:${barH}px;min-height:${total>0?'4px':'2px'}"></div>
+      </div>
+      <div style="font-size:18px;font-weight:700;color:${total>0?'var(--accent)':'var(--text3)'}">${total}</div>
+      <div style="font-size:10px;color:var(--text3)">人</div>
+    </div>`;
+  }
+  html += `</div><div style="margin-top:12px;font-size:11px;color:var(--text3)">月をクリックすると月別カレンダーに切り替えます</div>`;
+  return html;
+}
+
+function empGoMonth(year, month) {
+  empYear = year; empMonth = month; empViewMode = 'month';
+  renderEmpowerment();
+}
+
+function openEmpInput(dateStr, dayNum) {
+  const ym = dateStr.slice(0,7);
+  const key = `emp_${ym}`;
+  const days = db.goals[key] || {};
+  const current = days[String(dayNum)];
+  const label = `${empYear}年${empMonth}月${dayNum}日`;
+
+  showModal(`<div class="modal-header"><h3>エンパワーメント記録</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div style="font-size:14px;color:var(--text2);margin-bottom:16px">${label}</div>
+    <div class="form-group">
+      <label>エンパワーした人数</label>
+      <input id="emp-input-count" type="number" min="0" value="${current !== undefined ? current : ''}" placeholder="0" style="font-size:20px;text-align:center">
+    </div>
+    <div style="font-size:12px;color:var(--text3)">0人でも入力することで「記録済み」になります</div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal()">キャンセル</button>
+    <button class="btn btn-primary" onclick="saveEmpowerment('${ym}','${dayNum}')">保存</button>
+  </div>`);
+  setTimeout(()=>{ const el=document.getElementById('emp-input-count'); if(el){el.focus();el.select();} },100);
+}
+
+async function saveEmpowerment(ym, dayNum) {
+  const val = document.getElementById('emp-input-count')?.value;
+  if (val === '' || val === null || val === undefined) return closeModal();
+  const count = Math.max(0, Number(val));
+  const key = `emp_${ym}`;
+  const days = {...(db.goals[key] || {})};
+  days[String(dayNum)] = count;
+  db.goals[key] = days;
+  const {error} = await sb.from('goals').upsert({period_key: key, data: days});
+  if (error) { alert('保存失敗: ' + error.message); return; }
+  closeModal();
+  renderEmpowerment();
 }
 
 // ===== GOOGLE CALENDAR =====
