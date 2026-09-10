@@ -421,6 +421,21 @@
       </div>
       <div id="cal-notifications"></div>
       <div class="stats-grid" id="stats-grid"></div>
+      <div class="card" id="empowerment-card">
+        <div class="card-header">
+          <span class="card-title">エンパワーメント記録</span>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-sm" id="emp-prev-btn" onclick="empNav(-1)">◀</button>
+            <span id="emp-period-label" style="font-size:14px;font-weight:500;min-width:110px;text-align:center"></span>
+            <button class="btn btn-sm" id="emp-next-btn" onclick="empNav(1)">▶</button>
+            <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:4px">
+              <button id="emp-tab-month" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px" onclick="setEmpView('month')">月</button>
+              <button id="emp-tab-year" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px;border-left:1px solid var(--border)" onclick="setEmpView('year')">年</button>
+            </div>
+          </div>
+        </div>
+        <div id="empowerment-body" style="padding:16px"></div>
+      </div>
       <div class="card" id="calendar-card" style="margin-bottom:24px">
         <div class="card-header">
           <span class="card-title">Googleカレンダー</span>
@@ -465,21 +480,6 @@
           <button class="btn btn-sm" onclick="showPage('appointments', document.querySelectorAll('.nav-item')[3])">すべて見る</button>
         </div>
         <div id="recent-appointments"></div>
-      </div>
-      <div class="card" id="empowerment-card">
-        <div class="card-header">
-          <span class="card-title">エンパワーメント記録</span>
-          <div class="flex gap-2 items-center">
-            <button class="btn btn-sm" id="emp-prev-btn" onclick="empNav(-1)">◀</button>
-            <span id="emp-period-label" style="font-size:14px;font-weight:500;min-width:110px;text-align:center"></span>
-            <button class="btn btn-sm" id="emp-next-btn" onclick="empNav(1)">▶</button>
-            <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:4px">
-              <button id="emp-tab-month" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px" onclick="setEmpView('month')">月</button>
-              <button id="emp-tab-year" class="btn btn-sm" style="border-radius:0;border:none;padding:4px 10px;border-left:1px solid var(--border)" onclick="setEmpView('year')">年</button>
-            </div>
-          </div>
-        </div>
-        <div id="empowerment-body" style="padding:16px"></div>
       </div>
     </div>
 
