@@ -1684,7 +1684,7 @@ function renderCustomers() {
   const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q)).sort((a,b)=>{
     const da=a._created_at||a.createdAt||'';
     const db2=b._created_at||b.createdAt||'';
-    return da.localeCompare(db2);
+    return db2.localeCompare(da);
   });
   if(!list.length){
     document.getElementById('customers-tbody').innerHTML=`<tr><td colspan="9"><div class="empty"><p>${q?'該当なし':'顧客がまだいません'}</p></div></td></tr>`;
