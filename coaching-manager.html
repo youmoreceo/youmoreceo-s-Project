@@ -729,13 +729,13 @@ function showLoading(v){ document.getElementById('loading-overlay').style.displa
 async function loadAll(){
   showLoading(true);
   const [c,s,a,g,sess] = await Promise.all([
-    sb.from('customers').select('id,data').order('created_at'),
+    sb.from('customers').select('id,data,created_at').order('created_at'),
     sb.from('sales').select('id,data').order('created_at',{ascending:false}),
     sb.from('appointments').select('id,data').order('created_at',{ascending:false}),
     sb.from('goals').select('period_key,data'),
     sb.from('sessions').select('id,data').order('created_at',{ascending:false}),
   ]);
-  db.customers = (c.data||[]).map(r=>({...r.data, id:r.id}));
+  db.customers = (c.data||[]).map(r=>({...r.data, id:r.id, _created_at:r.created_at}));
   db.sales = (s.data||[]).map(r=>({...r.data, id:r.id}));
   db.appointments = (a.data||[]).map(r=>({...r.data, id:r.id}));
   db.sessions = (sess.data||[]).map(r=>({...r.data, id:r.id}));
@@ -1682,9 +1682,9 @@ function renderCalKeywordResult(){
 function renderCustomers() {
   const q=(document.getElementById('customer-search')?.value||'').toLowerCase();
   const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q)).sort((a,b)=>{
-    const da=a.contractStart||a.revenueDate||a.createdAt||'';
-    const db2=b.contractStart||b.revenueDate||b.createdAt||'';
-    return db2.localeCompare(da);
+    const da=a._created_at||a.createdAt||'';
+    const db2=b._created_at||b.createdAt||'';
+    return da.localeCompare(db2);
   });
   if(!list.length){
     document.getElementById('customers-tbody').innerHTML=`<tr><td colspan="9"><div class="empty"><p>${q?'該当なし':'顧客がまだいません'}</p></div></td></tr>`;
