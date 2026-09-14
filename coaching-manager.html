@@ -488,6 +488,10 @@
       <div class="page-header flex items-center">
         <div><h2>顧客管理</h2><p>顧客情報・契約・支払い履歴</p></div>
         <div class="ml-auto flex gap-2 items-center">
+          <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <button id="cust-tab-active" onclick="switchCustTab('active')" style="padding:6px 14px;border:none;cursor:pointer;font-size:13px;background:var(--accent);color:#fff">契約中</button>
+            <button id="cust-tab-inactive" onclick="switchCustTab('inactive')" style="padding:6px 14px;border:none;cursor:pointer;font-size:13px;background:var(--surface);color:var(--text);border-left:1px solid var(--border)">休止中・終了</button>
+          </div>
           <div class="search-wrap">
             <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" placeholder="顧客を検索..." id="customer-search" oninput="renderCustomers()" style="width:200px">
@@ -1679,9 +1683,27 @@ function renderCalKeywordResult(){
 
 
 // ===== CUSTOMERS =====
+let custTabMode = 'active';
+function switchCustTab(mode) {
+  custTabMode = mode;
+  const activeBtn   = document.getElementById('cust-tab-active');
+  const inactiveBtn = document.getElementById('cust-tab-inactive');
+  if (activeBtn) {
+    activeBtn.style.background   = mode === 'active'   ? 'var(--accent)' : 'var(--surface)';
+    activeBtn.style.color        = mode === 'active'   ? '#fff'          : 'var(--text)';
+    inactiveBtn.style.background = mode === 'inactive' ? 'var(--accent)' : 'var(--surface)';
+    inactiveBtn.style.color      = mode === 'inactive' ? '#fff'          : 'var(--text)';
+  }
+  renderCustomers();
+}
+
 function renderCustomers() {
   const q=(document.getElementById('customer-search')?.value||'').toLowerCase();
-  const list=db.customers.filter(c=>!q||(c.name||'').toLowerCase().includes(q)).sort((a,b)=>{
+  const activeStatuses = custTabMode === 'active' ? ['契約中'] : ['休止中','契約終了'];
+  const list=db.customers.filter(c=>{
+    const st = c.status||'契約中';
+    return (custTabMode==='active' ? st==='契約中' : (st==='休止中'||st==='契約終了')) && (!q||(c.name||'').toLowerCase().includes(q));
+  }).sort((a,b)=>{
     const da=a._created_at||a.createdAt||'';
     const db2=b._created_at||b.createdAt||'';
     return db2.localeCompare(da);
@@ -1692,7 +1714,7 @@ function renderCustomers() {
   }
   document.getElementById('customers-tbody').innerHTML=list.map(c=>{
     const paid=db.sales.filter(s=>s.customerId===c.id&&(s.date||'')>=SALES_CUTOFF).reduce((a,b)=>a+Number(b.amount||0),0);
-    const statusColor = c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':'badge-gray';
+    const statusColor = c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':c.status==='契約終了'?'badge-red':'badge-gray';
     return `<tr onclick="openCustomerDetail('${c.id}')" style="cursor:pointer">
       <td><div class="flex items-center gap-2"><div class="avatar">${(c.name||'?')[0]}</div><span class="fw-500">${c.name||''}</span></div></td>
       <td class="text-xs text-muted">${c.gender||''}</td>
@@ -1728,7 +1750,7 @@ function openCustomerDetail(id){
         <div class="info-row"><span class="info-label">契約開始</span><span>${c.contractStart||'—'}</span></div>
         <div class="info-row"><span class="info-label">契約終了</span><span>${c.contractEnd||'—'}</span></div>
         <div class="info-row"><span class="info-label">売上換算日</span><span>${c.revenueDate||'—'}</span></div>
-        <div class="info-row"><span class="info-label">ステータス</span><span class="badge ${c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':'badge-gray'}">${c.status||'契約中'}</span></div>
+        <div class="info-row"><span class="info-label">ステータス</span><span class="badge ${c.status==='契約中'?'badge-green':c.status==='休止中'?'badge-yellow':c.status==='契約終了'?'badge-red':'badge-gray'}">${c.status||'契約中'}</span></div>
       </div>
       <div>
         <div class="info-row"><span class="info-label">購入サービス</span><div>${(c.services||[]).map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="margin:1px">${s}</span>`).join('')||'—'}</div></div>
@@ -1955,7 +1977,7 @@ function openModal(type, data){
 
       <div class="form-row">
         <div class="form-group"><label>ステータス</label>
-          <select id="f-status">${['契約中','休止中'].map(s=>`<option ${(c.status||'契約中')===s?'selected':''}>${s}</option>`).join('')}</select>
+          <select id="f-status">${['契約中','休止中','契約終了'].map(s=>`<option ${(c.status||'契約中')===s?'selected':''}>${s}</option>`).join('')}</select>
         </div>
         <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
