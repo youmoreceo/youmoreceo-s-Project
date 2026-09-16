@@ -2245,8 +2245,9 @@ async function saveCustomer(){
   };
   const {error}=await sb.from('customers').upsert({id, data:obj});
   if(error)return alert('保存失敗: '+error.message);
-  if(editingId) db.customers=db.customers.map(c=>c.id===editingId?obj:c);
-  else db.customers.push(obj);
+  const _now=new Date().toISOString();
+  if(editingId) db.customers=db.customers.map(c=>c.id===editingId?{...obj,_created_at:c._created_at||_now}:c);
+  else db.customers.push({...obj,_created_at:_now});
 
   // 売上換算日と金額があれば売上管理に自動反映
   // 既存の自動生成売上（auto_appt_* も含む）を探して重複を防ぐ
@@ -2362,7 +2363,9 @@ async function saveAppointment(){
     if(ce) alert('顧客登録失敗: '+ce.message);
     else {
       const ci=db.customers.findIndex(c=>c.id===custId);
-      if(ci>=0) db.customers[ci]=custObj; else db.customers.push(custObj);
+      const now=new Date().toISOString();
+      if(ci>=0) db.customers[ci]={...custObj, _created_at:db.customers[ci]._created_at||now};
+      else db.customers.push({...custObj, _created_at:now});
     }
 
     // 売上換算日と金額があれば売上管理にも自動反映
