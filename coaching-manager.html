@@ -436,31 +436,6 @@
         </div>
         <div id="empowerment-body" style="padding:16px"></div>
       </div>
-      <div class="card" id="calendar-card" style="margin-bottom:24px">
-        <div class="card-header">
-          <span class="card-title">Googleカレンダー</span>
-          <div class="flex gap-2 items-center">
-            <span class="text-xs text-muted" id="cal-updated"></span>
-            <button class="btn btn-sm" onclick="loadCalendar(true)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              更新
-            </button>
-            <button class="btn btn-sm" onclick="openCalSettings()">設定</button>
-          </div>
-        </div>
-        <div id="calendar-body"></div>
-      </div>
-      <div class="card" id="calmonth-card" style="margin-bottom:24px">
-        <div class="card-header">
-          <span class="card-title">月別の予定分析</span>
-          <div class="flex gap-2 items-center">
-            <button class="btn btn-sm" onclick="changeCalMonth(-1)">◀</button>
-            <span id="calmonth-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
-            <button class="btn btn-sm" onclick="changeCalMonth(1)">▶</button>
-          </div>
-        </div>
-        <div id="calmonth-body"></div>
-      </div>
       <div class="grid-2">
         <div class="card">
           <div class="card-header">
@@ -473,6 +448,17 @@
           <div class="card-header"><span class="card-title">サービス別売上（今月）</span></div>
           <div id="service-chart"></div>
         </div>
+      </div>
+      <div class="card" id="calmonth-card" style="margin-bottom:24px">
+        <div class="card-header">
+          <span class="card-title">月別の予定分析</span>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-sm" onclick="changeCalMonth(-1)">◀</button>
+            <span id="calmonth-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
+            <button class="btn btn-sm" onclick="changeCalMonth(1)">▶</button>
+          </div>
+        </div>
+        <div id="calmonth-body"></div>
       </div>
       <div class="card">
         <div class="card-header">
@@ -891,6 +877,7 @@ function renderDashboard() {
   const totalY = coachingY + commY;
   const active = db.customers.filter(c=>c.status==='契約中').length;
   const mAppts = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)).length;
+  const mProposals = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)&&a.proposed).length;
   const goal = db.goals[thisYM]||{};
   const mGoal = Number(goal.totalSales||0);
   const ach = mGoal>0 ? Math.min(Math.round(totalM/mGoal*100),100) : null;
@@ -909,13 +896,14 @@ function renderDashboard() {
 
   // Goal progress
   const gDiv = document.getElementById('goal-progress');
-  if (!goal.totalSales&&!goal.appointments&&!SERVICES.some(s=>goal[svcKey(s)])) {
+  if (!goal.totalSales&&!goal.appointments&&!goal.proposals&&!SERVICES.some(s=>goal[svcKey(s)])) {
     gDiv.innerHTML = `<div class="empty" style="padding:20px"><p>目標が設定されていません</p><button class="btn btn-sm btn-primary" style="margin-top:10px" onclick="showPage('goals',document.querySelectorAll('.nav-item')[4])">目標を設定する</button></div>`;
   } else {
     const items = [
       {label:'月間売上合計', cur:totalM, tgt:goal.totalSales, color:'var(--accent)', isYen:true},
       ...SERVICES.map(s=>({label:s, cur:ms.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0), tgt:goal[svcKey(s)], color:SVC_COLOR[s], isYen:true})),
       {label:'アポイント数', cur:mAppts, tgt:goal.appointments, color:'var(--purple)', isYen:false},
+      {label:'提案回数', cur:mProposals, tgt:goal.proposals, color:'var(--warning)', isYen:false},
     ].filter(i=>i.tgt);
     gDiv.innerHTML = items.map(i=>{
       const pct=Math.min(Math.round(Number(i.cur)/Number(i.tgt)*100),100);
@@ -2082,6 +2070,12 @@ function openModal(type, data){
         <input id="f-inflow-detail" value="${esc(a.inflowDetail||'')}" placeholder="${inf==='SNS'?'Instagram / X / YouTube など':inf==='紹介'?'山田さん':''}">
       </div>
       <div class="form-group"><label>次回アクション</label><input id="f-next" value="${esc(a.nextAction||'')}"></div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;font-weight:500">
+          <input type="checkbox" id="f-proposed" ${a.proposed?'checked':''} style="width:auto;flex-shrink:0">
+          提案した（サービス提案を行った）
+        </label>
+      </div>
       <div class="form-group"><label>備考・メモ</label><textarea id="f-notes" rows="10" style="min-height:240px">${esc(a.notes||'')}</textarea></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
       <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">アポチェックリスト</div>
@@ -2137,6 +2131,7 @@ function openModal(type, data){
         </tr></tfoot>
       </table>
       <div class="form-group" style="margin-top:16px"><label>アポイント数目標（件）</label><input id="f-appts" type="number" value="${goal.appointments||''}"></div>
+      <div class="form-group"><label>提案回数目標（件）</label><input id="f-proposals" type="number" value="${goal.proposals||''}"></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveMonthGoal('${key}')">保存</button></div>`);
     calcGoalTotal();
@@ -2330,6 +2325,7 @@ async function saveAppointment(){
     contractGoals:isContract?document.getElementById('f-cgoals')?.value||'':'',
     contractSpreadsheetId:isContract?document.getElementById('f-cspreadsheet')?.value.trim()||'':'',
     nextAction:document.getElementById('f-next').value,
+    proposed:document.getElementById('f-proposed')?.checked||false,
     notes:document.getElementById('f-notes').value,
     checklist:Object.fromEntries(appoChecklist.flatMap((sec,si)=>sec.items.map((_,ii)=>{const k=`cl_${si}_${ii}`;return[k,document.getElementById(k)?.checked||false];})))
   };
@@ -2422,6 +2418,7 @@ async function saveMonthGoal(key){
     lab:{count:labCount,total:labCount*10000},
     totalSales,
     appointments:Number(document.getElementById('f-appts').value)||0,
+    proposals:Number(document.getElementById('f-proposals').value)||0,
   };
   const {error}=await sb.from('goals').upsert({period_key:key, data});
   if(error)return alert('保存失敗: '+error.message);
