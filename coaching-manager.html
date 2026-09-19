@@ -3457,10 +3457,10 @@ ${text}
           ai_advice: obj.ai_advice,
         };
         const sheetsRes = await fetch(COACHING_WEBHOOK, { method:'POST', body:JSON.stringify(payload) });
-        const sheetsJson = await sheetsRes.json().catch(()=>({status:'unknown'}));
-        if(sheetsJson.status !== 'success') {
-          console.warn('Sheets応答:', sheetsJson);
-          alert('⚠️ アプリへの保存は成功しましたが、Google Sheetsへの送信に失敗しました。\n\nエラー: ' + (sheetsJson.message || JSON.stringify(sheetsJson)));
+        const sheetsJson = await sheetsRes.json().catch(()=>null);
+        console.log('Sheets応答:', sheetsRes.status, sheetsJson);
+        if(!sheetsRes.ok && sheetsJson?.status !== 'success') {
+          alert('⚠️ アプリへの保存は成功しましたが、Google Sheetsへの送信に失敗しました。\n\nエラー: ' + (sheetsJson?.message || `HTTP ${sheetsRes.status}`));
         }
       } catch(e) {
         alert('⚠️ アプリへの保存は成功しましたが、Google Sheetsへの送信に失敗しました。\n\nエラー: ' + e.message);
@@ -3509,9 +3509,9 @@ async function sendToSheets(sessionId){
   if(btn){ btn.disabled=true; btn.textContent='送信中…'; }
   try {
     const res = await fetch(COACHING_WEBHOOK, { method:'POST', body:JSON.stringify(payload) });
-    const json = await res.json();
-    if(json.status==='success') alert('✅ Google Sheetsへの送信が完了しました！');
-    else throw new Error(json.message||'Unknown error');
+    const json = await res.json().catch(()=>null);
+    if(res.ok || json?.status==='success') alert('✅ スプシに反映しました！');
+    else throw new Error(json?.message||`HTTP ${res.status}`);
   } catch(e) {
     alert('❌ 送信失敗: ' + e.message);
   } finally {
