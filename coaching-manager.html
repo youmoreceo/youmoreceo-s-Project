@@ -1380,10 +1380,18 @@ async function syncCalendarStatsToSupabase(){
       if(!Array.isArray(data.events)) continue;
 
       const counts = { flamingo: 0, banana: 0, basil: 0 };
+      const counted = new Set();
       data.events.forEach(e => {
-        if(e.colorKey === 'c4') counts.flamingo++;
-        else if(e.colorKey === 'c5') counts.banana++;
-        else if(e.colorKey === 'c10') counts.basil++;
+        const t = e.title || '';
+        const isFlam = e.colorKey === 'c4' || t.includes('経営者アポ');
+        const isBana = e.colorKey === 'c5' || t.includes('営業マンアポ');
+        const isBasil = e.colorKey === 'c10' || t.includes('協業アポ');
+        const key = e.start + '_' + t;
+        if(counted.has(key)) return;
+        counted.add(key);
+        if(isFlam) counts.flamingo++;
+        else if(isBana) counts.banana++;
+        else if(isBasil) counts.basil++;
       });
 
       await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
@@ -1429,10 +1437,18 @@ async function refreshCalStatsNow(){
       if(data.error || !Array.isArray(data.events)) continue;
 
       const counts = { flamingo: 0, banana: 0, basil: 0 };
+      const counted = new Set();
       data.events.forEach(e => {
-        if(e.colorKey === 'c4') counts.flamingo++;
-        else if(e.colorKey === 'c5') counts.banana++;
-        else if(e.colorKey === 'c10') counts.basil++;
+        const t = e.title || '';
+        const isFlam = e.colorKey === 'c4' || t.includes('経営者アポ');
+        const isBana = e.colorKey === 'c5' || t.includes('営業マンアポ');
+        const isBasil = e.colorKey === 'c10' || t.includes('協業アポ');
+        const key = e.start + '_' + t;
+        if(counted.has(key)) return;
+        counted.add(key);
+        if(isFlam) counts.flamingo++;
+        else if(isBana) counts.banana++;
+        else if(isBasil) counts.basil++;
       });
 
       await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
