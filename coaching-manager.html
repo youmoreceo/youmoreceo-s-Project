@@ -1381,17 +1381,18 @@ async function syncCalendarStatsToSupabase(){
 
       const counts = { flamingo: 0, banana: 0, basil: 0 };
       const counted = new Set();
-      data.events.forEach(e => {
+      data.events.filter(e => !e.declined && !e.allDay).forEach(e => {
         const t = e.title || '';
-        const isFlam = e.colorKey === 'c4' || t.includes('経営者アポ');
-        const isBana = e.colorKey === 'c5' || t.includes('営業マンアポ');
-        const isBasil = e.colorKey === 'c10' || t.includes('協業アポ');
-        const key = e.start + '_' + t;
+        const byTitle = t.includes('経営者アポ') ? 'flam' : t.includes('営業マンアポ') ? 'bana' : t.includes('協業アポ') ? 'basil' : null;
+        const byColor = e.colorKey === 'c4' ? 'flam' : e.colorKey === 'c5' ? 'bana' : e.colorKey === 'c10' ? 'basil' : null;
+        const kind = byTitle || byColor;
+        if(!kind) return;
+        const key = e.date + '_' + e.startTime + '_' + t;
         if(counted.has(key)) return;
         counted.add(key);
-        if(isFlam) counts.flamingo++;
-        else if(isBana) counts.banana++;
-        else if(isBasil) counts.basil++;
+        if(kind === 'flam') counts.flamingo++;
+        else if(kind === 'bana') counts.banana++;
+        else counts.basil++;
       });
 
       await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
@@ -1438,17 +1439,18 @@ async function refreshCalStatsNow(){
 
       const counts = { flamingo: 0, banana: 0, basil: 0 };
       const counted = new Set();
-      data.events.forEach(e => {
+      data.events.filter(e => !e.declined && !e.allDay).forEach(e => {
         const t = e.title || '';
-        const isFlam = e.colorKey === 'c4' || t.includes('経営者アポ');
-        const isBana = e.colorKey === 'c5' || t.includes('営業マンアポ');
-        const isBasil = e.colorKey === 'c10' || t.includes('協業アポ');
-        const key = e.start + '_' + t;
+        const byTitle = t.includes('経営者アポ') ? 'flam' : t.includes('営業マンアポ') ? 'bana' : t.includes('協業アポ') ? 'basil' : null;
+        const byColor = e.colorKey === 'c4' ? 'flam' : e.colorKey === 'c5' ? 'bana' : e.colorKey === 'c10' ? 'basil' : null;
+        const kind = byTitle || byColor;
+        if(!kind) return;
+        const key = e.date + '_' + e.startTime + '_' + t;
         if(counted.has(key)) return;
         counted.add(key);
-        if(isFlam) counts.flamingo++;
-        else if(isBana) counts.banana++;
-        else if(isBasil) counts.basil++;
+        if(kind === 'flam') counts.flamingo++;
+        else if(kind === 'bana') counts.banana++;
+        else counts.basil++;
       });
 
       await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
