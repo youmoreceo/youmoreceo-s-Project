@@ -459,24 +459,6 @@
           <div id="goal-next-month-body" style="padding:16px 20px"></div>
         </div>
       </div>
-      <div class="card" id="calmonth-card" style="margin-bottom:24px">
-        <div class="card-header">
-          <span class="card-title">月別の予定分析</span>
-          <div class="flex gap-2 items-center">
-            <button class="btn btn-sm" onclick="changeCalMonth(-1)">◀</button>
-            <span id="calmonth-label" style="font-size:14px;font-weight:500;min-width:100px;text-align:center"></span>
-            <button class="btn btn-sm" onclick="changeCalMonth(1)">▶</button>
-          </div>
-        </div>
-        <div id="calmonth-body"></div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">最近のアポイント</span>
-          <button class="btn btn-sm" onclick="showPage('appointments', document.querySelectorAll('.nav-item')[3])">すべて見る</button>
-        </div>
-        <div id="recent-appointments"></div>
-      </div>
 
       <!-- AI Advice -->
       <div class="card" id="ai-advice-card" style="margin-top:24px">
@@ -890,7 +872,7 @@ function showPage(name, btn) {
 // ===== DASHBOARD =====
 function renderDashboard() {
   const now = new Date();
-  const thisYM = now.toISOString().slice(0,7);
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('dashboard-subtitle').textContent = monthLabel(thisYM);
   document.getElementById('current-month-label').textContent = monthLabel(thisYM);
 
@@ -923,22 +905,13 @@ function renderDashboard() {
 
   // 今月・来月の目標カード
   const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
-  const nextYM = nextDate.toISOString().slice(0,7);
+  const nextYM = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('current-month-label').textContent = monthLabel(thisYM);
   document.getElementById('next-month-label').textContent = monthLabel(nextYM);
   renderGoalCard('goal-this-month-body', thisYM, ms, mProposals);
   renderGoalCard('goal-next-month-body', nextYM, [], 0);
 
-  // Recent appts
-  const ra=[...db.appointments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
-  document.getElementById('recent-appointments').innerHTML = ra.length===0
-    ? '<div class="empty" style="padding:20px"><p>アポイントがありません</p></div>'
-    : `<div class="table-wrap"><table><thead><tr><th>氏名</th><th>日時</th><th>ステータス</th><th>次回アクション</th></tr></thead><tbody>
-      ${ra.map(a=>`<tr><td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><span>${a.name||''}</span></div></td><td class="text-xs text-muted">${a.date||''}</td><td>${a.status?`<span class="badge ${STATUS_BADGE[a.status]||'badge-gray'}">${a.status}</span>`:''}</td><td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nextAction||''}</td></tr>`).join('')}
-      </tbody></table></div>`;
-
   loadCalendar().then(()=>{ renderApoTracking(); checkCalendarNotifications(); });
-  loadCalMonth();
   renderEmpowerment();
 }
 
@@ -1013,7 +986,7 @@ function renderApoTracking() {
   const el = document.getElementById('apo-tracking-body');
   if (!el) return;
   const now = new Date();
-  const thisYM = now.toISOString().slice(0,7);
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const calStats = db.goals[`cal_stats_${thisYM}`] || {};
   const goal = db.goals[thisYM] || {};
   const bananaTgt = goal.bananaTarget || 22;
@@ -1062,9 +1035,9 @@ async function generateGoalAdvice() {
   el.innerHTML = '<p class="text-xs text-muted" style="padding:8px 0">⏳ AIが分析中...</p>';
 
   const now = new Date();
-  const thisYM = now.toISOString().slice(0,7);
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
-  const nextYM = nextDate.toISOString().slice(0,7);
+  const nextYM = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}`;
   const dayOfMonth = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const remainDays = daysInMonth - dayOfMonth;
