@@ -419,6 +419,7 @@
         <h2>ダッシュボード</h2>
         <p id="dashboard-subtitle"></p>
       </div>
+      <div id="dashboard-top-notifications"></div>
       <div class="stats-grid" id="stats-grid"></div>
       <div class="card" id="apo-tracking-card" style="margin-bottom:24px">
         <div class="card-header">
@@ -426,7 +427,7 @@
           <button class="btn btn-sm" onclick="refreshApoStats()">カレンダー更新</button>
         </div>
         <div id="apo-tracking-body" style="padding:16px 20px"></div>
-        <div id="cal-notifications"></div>
+        <div id="cal-notifications" style="display:none"></div>
       </div>
       <div class="card" id="empowerment-card">
         <div class="card-header">
@@ -1007,10 +1008,14 @@ function renderApoTracking() {
     </div>`;
   };
 
+  const mProposals = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)&&a.proposed).length;
+  const proposalTgt = goal.proposals || 0;
+
   el.innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap">
     ${mk('営業マンアポ', calStats.banana||0, bananaTgt, '#f6bf26', '#f6bf26')}
     ${mk('経営者アポ', calStats.flamingo||0, flamingoTgt, '#e67c73', '#e67c73')}
     ${mk('協業アポ', calStats.basil||0, basilTgt, '#0b8043', '#0b8043')}
+    ${proposalTgt ? mk('提案回数', mProposals, proposalTgt, 'var(--accent)', 'var(--accent)') : ''}
   </div>
   <div style="font-size:11px;color:var(--text3);margin-top:10px">カレンダーの色集計（バナナ=営業マン / フラミンゴ=経営者 / バジル=協業）。「カレンダー更新」で最新に。</div>`;
 }
@@ -1337,7 +1342,9 @@ async function saveEmpowerment(ym, dayNum) {
 const CAL_CFG_KEY = 'gcal_config';
 const CAL_REFRESH_MS = 5 * 60 * 1000;
 let calData = null;
-let dismissedNotifications = new Set();
+let dismissedNotifications = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem('dismissed_notifs') || '[]')); } catch(e) { return new Set(); }
+})();
 let calTimer = null;
 let calError = null;
 
@@ -1564,7 +1571,8 @@ function renderCalendar(){
 function checkCalendarNotifications(){
   if(!calData || !calData.events) return;
   const COACHING_KEYWORDS = ['コーチング','セッション','1on1','1 on 1'];
-  const today = new Date().toISOString().slice(0,10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const events = calData.events.filter(e=>!e.declined && e.date <= today);
 
   const notifications = [];
@@ -1602,19 +1610,18 @@ function checkCalendarNotifications(){
 }
 
 function renderCalendarNotifications(notifications){
-  const el = document.getElementById('cal-notifications');
+  const el = document.getElementById('dashboard-top-notifications');
   if(!el) return;
   if(notifications.length===0){ el.innerHTML=''; return; }
-  el.innerHTML = `<div style="margin-bottom:16px">
-    <div style="font-weight:600;margin-bottom:8px;color:var(--text)">⚠️ 未登録の予定があります（${notifications.length}件）</div>
+  el.innerHTML = `<div style="margin-bottom:20px">
     ${notifications.map(n=>`
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid ${n.type==='session'?'var(--accent)':'var(--orange)'};border-radius:8px;margin-bottom:6px">
-        <span style="font-size:18px">${n.type==='session'?'📋':'📅'}</span>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff8e1;border:1px solid #f6bf26;border-left:4px solid #f6bf26;border-radius:10px;margin-bottom:8px">
+        <span style="font-size:20px">${n.type==='session'?'📋':'📅'}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500">${esc(n.title)}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${n.date} ／ ${n.type==='session'?'セッション未登録':'アポイント未登録'}</div>
+          <div style="font-size:13px;font-weight:600;color:#333">アポイント未入力：${esc(n.title)}</div>
+          <div style="font-size:11px;color:#888;margin-top:2px">${n.date} のカレンダー予定がアポイントに登録されていません</div>
         </div>
-        <button class="btn btn-sm" onclick="dismissNotification('${esc(n.id).replace(/'/g,"\\'")}')">完了</button>
+        <button class="btn btn-sm btn-primary" onclick="dismissNotification('${esc(n.id).replace(/'/g,"\\'")}')">入力完了</button>
       </div>
     `).join('')}
   </div>`;
@@ -1622,6 +1629,7 @@ function renderCalendarNotifications(notifications){
 
 function dismissNotification(id){
   dismissedNotifications.add(id);
+  try { localStorage.setItem('dismissed_notifs', JSON.stringify([...dismissedNotifications])); } catch(e) {}
   checkCalendarNotifications();
 }
 
