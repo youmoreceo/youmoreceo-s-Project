@@ -949,26 +949,26 @@ function renderGoalCard(divId, ym, salesRows, proposalCount) {
   const bananaTgt = goal.bananaTarget || 22;
   const flamingoTgt = goal.flamingoTarget || 15;
   const basilTgt = goal.basilTarget || 8;
-  const bananaCur = isThisMonth ? (calStats.banana||0) : 0;
-  const flamingoCur = isThisMonth ? (calStats.flamingo||0) : 0;
-  const basilCur = isThisMonth ? (calStats.basil||0) : 0;
+  const bananaCur = calStats.banana||0;
+  const flamingoCur = calStats.flamingo||0;
+  const basilCur = calStats.basil||0;
 
   const apoSection = `
     <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">── 行動目標（アポ）</div>
     ${mkBar('営業マンアポ', bananaCur, bananaTgt, '#f6bf26')}
     ${mkBar('経営者アポ', flamingoCur, flamingoTgt, '#e67c73')}
     ${mkBar('協業アポ', basilCur, basilTgt, '#0b8043')}
-    ${goal.appointments ? mkBar('アポ合計', isThisMonth?(bananaCur+flamingoCur+basilCur):0, goal.appointments, 'var(--purple)') : ''}
-    ${goal.proposals ? mkBar('提案回数', isThisMonth?proposalCount:0, goal.proposals, 'var(--warning)') : ''}
+    ${goal.appointments ? mkBar('アポ合計', bananaCur+flamingoCur+basilCur, goal.appointments, 'var(--purple)') : ''}
+    ${goal.proposals ? mkBar('提案回数', proposalCount, goal.proposals, 'var(--warning)') : ''}
   `;
 
   const svcSection = SERVICES.map(s => {
     const cur = isThisMonth ? salesRows.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0) : 0;
-    const tgt = goal[svcKey(s)]?.total || goal[svcKey(s)] || 0;
+    const _raw = goal[svcKey(s)]; const tgt = Number(_raw?.total ?? _raw) || 0;
     return mkBarYen(s, cur, tgt, SVC_COLOR[s]);
   }).join('');
 
-  const totalTgt = goal.totalSales || 0;
+  const totalTgt = Number(goal.totalSales) || 0;
   const totalCur = isThisMonth ? salesRows.reduce((a,b)=>a+Number(b.amount||0),0) : 0;
 
   el.innerHTML = apoSection
