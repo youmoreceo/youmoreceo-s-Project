@@ -423,7 +423,7 @@
       <div class="card" id="apo-tracking-card" style="margin-bottom:24px">
         <div class="card-header">
           <span class="card-title">アポイント追跡（今月）</span>
-          <button class="btn btn-sm" onclick="loadCalendar(true).then(renderApoTracking)">カレンダー更新</button>
+          <button class="btn btn-sm" onclick="refreshApoStats()">カレンダー更新</button>
         </div>
         <div id="apo-tracking-body" style="padding:16px 20px"></div>
         <div id="cal-notifications"></div>
@@ -1384,6 +1384,54 @@ async function syncCalendarStatsToSupabase(){
     } catch(e) { console.error('cal sync error', ym, e); }
   }
   if(status) status.textContent = `✅ ${saved}ヶ月分を同期しました`;
+}
+
+async function refreshApoStats(){
+  const btn = document.querySelector('#apo-tracking-card .btn');
+  if(btn){ btn.disabled = true; btn.textContent = '更新中...'; }
+  await refreshCalStatsNow();
+  renderApoTracking();
+  const now = new Date();
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const nextYM = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}`;
+  const ms = db.sales.filter(s=>s.date&&s.date.startsWith(thisYM));
+  const mProposals = db.appointments.filter(a=>a.date&&a.date.startsWith(thisYM)&&a.proposed).length;
+  renderGoalCard('goal-this-month-body', thisYM, ms, mProposals);
+  renderGoalCard('goal-next-month-body', nextYM, [], 0);
+  if(btn){ btn.disabled = false; btn.textContent = 'カレンダー更新'; }
+}
+
+/** 今月・来月の色集計をカレンダーAPIから取得してSupabaseとdb.goalsを更新する */
+async function refreshCalStatsNow(){
+  const cfg = getCalConfig();
+  if(!cfg) return;
+  const now = new Date();
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const nextYM = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}`;
+
+  for(const ym of [thisYM, nextYM]){
+    try {
+      const u = new URL(cfg.url);
+      u.searchParams.set('month', ym);
+      if(cfg.token) u.searchParams.set('token', cfg.token);
+      const res = await fetch(u.toString());
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(data.error || !Array.isArray(data.events)) continue;
+
+      const counts = { flamingo: 0, banana: 0, basil: 0 };
+      data.events.forEach(e => {
+        if(e.colorKey === 'c4') counts.flamingo++;
+        else if(e.colorKey === 'c5') counts.banana++;
+        else if(e.colorKey === 'c10') counts.basil++;
+      });
+
+      await sb.from('goals').upsert({ period_key: `cal_stats_${ym}`, data: counts });
+      db.goals[`cal_stats_${ym}`] = counts;
+    } catch(e) { console.error('cal stats refresh error', ym, e); }
+  }
 }
 
 /** fetch の失敗理由をユーザーに分かる言葉にする */
