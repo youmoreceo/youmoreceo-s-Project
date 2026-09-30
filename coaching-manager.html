@@ -419,8 +419,15 @@
         <h2>ダッシュボード</h2>
         <p id="dashboard-subtitle"></p>
       </div>
-      <div id="cal-notifications"></div>
       <div class="stats-grid" id="stats-grid"></div>
+      <div class="card" id="apo-tracking-card" style="margin-bottom:24px">
+        <div class="card-header">
+          <span class="card-title">アポイント追跡（今月）</span>
+          <button class="btn btn-sm" onclick="loadCalendar(true).then(renderApoTracking)">カレンダー更新</button>
+        </div>
+        <div id="apo-tracking-body" style="padding:16px 20px"></div>
+        <div id="cal-notifications"></div>
+      </div>
       <div class="card" id="empowerment-card">
         <div class="card-header">
           <span class="card-title">エンパワーメント記録</span>
@@ -436,17 +443,20 @@
         </div>
         <div id="empowerment-body" style="padding:16px"></div>
       </div>
-      <div class="grid-2">
+      <div class="grid-2" style="margin-bottom:24px">
         <div class="card">
           <div class="card-header">
-            <span class="card-title">今月の目標達成率</span>
+            <span class="card-title">今月の目標管理</span>
             <span id="current-month-label" class="text-xs text-muted"></span>
           </div>
-          <div id="goal-progress"></div>
+          <div id="goal-this-month-body" style="padding:16px 20px"></div>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">サービス別売上（今月）</span></div>
-          <div id="service-chart"></div>
+          <div class="card-header">
+            <span class="card-title">来月の目標管理</span>
+            <span id="next-month-label" class="text-xs text-muted"></span>
+          </div>
+          <div id="goal-next-month-body" style="padding:16px 20px"></div>
         </div>
       </div>
       <div class="card" id="calmonth-card" style="margin-bottom:24px">
@@ -466,6 +476,24 @@
           <button class="btn btn-sm" onclick="showPage('appointments', document.querySelectorAll('.nav-item')[3])">すべて見る</button>
         </div>
         <div id="recent-appointments"></div>
+      </div>
+
+      <!-- AI Advice -->
+      <div class="card" id="ai-advice-card" style="margin-top:24px">
+        <div class="card-header">
+          <span class="card-title">🤖 AI目標アドバイス</span>
+          <button class="btn btn-sm btn-primary" onclick="generateGoalAdvice()">アドバイスを生成</button>
+        </div>
+        <div id="ai-advice-body" style="padding:16px 20px">
+          <p class="text-xs text-muted">「アドバイスを生成」を押すと、今月・来月の目標達成に向けた足りない行動・成果・日程の助言をAIが分析します。</p>
+          <div id="ai-key-section" style="margin-top:12px;display:none">
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="ai-key-input" type="password" placeholder="Anthropic APIキーを入力 (sk-ant-...)" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)">
+              <button class="btn btn-sm btn-primary" onclick="saveAiKey()">保存</button>
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-top:4px">キーはブラウザのlocalStorageにのみ保存されます。外部送信なし。</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -834,9 +862,9 @@ function today() { return new Date().toISOString().slice(0,10); }
 function monthLabel(ym) { const [y,m]=ym.split('-'); return y+'年'+Number(m)+'月'; }
 function ym(y,m) { return y+'-'+String(m).padStart(2,'0'); }
 
-const SERVICES = ['フロントコーチング','長期1on1コーチング','ビジネスコーチング','リトリートプログラム'];
-const SVC_BADGE = { 'フロントコーチング':'badge-purple','長期1on1コーチング':'badge-blue','ビジネスコーチング':'badge-teal','リトリートプログラム':'badge-green' };
-const SVC_COLOR = { 'フロントコーチング':'#7c3aed','長期1on1コーチング':'#2563eb','ビジネスコーチング':'#0d9488','リトリートプログラム':'#059669' };
+const SERVICES = ['フロントコーチング','長期1on1コーチング','SSC','リトリートプログラム'];
+const SVC_BADGE = { 'フロントコーチング':'badge-purple','長期1on1コーチング':'badge-blue','SSC':'badge-teal','リトリートプログラム':'badge-green' };
+const SVC_COLOR = { 'フロントコーチング':'#7c3aed','長期1on1コーチング':'#2563eb','SSC':'#0d9488','リトリートプログラム':'#059669' };
 const STATUS_BADGE = { '見込み':'badge-blue','再アポ':'badge-yellow','契約':'badge-green','失注':'badge-red' };
 const MONTHS_JP = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
@@ -884,43 +912,22 @@ function renderDashboard() {
 
   const period = fyStartYear - 2024 + 1;
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card stat-card-2"><div class="stat-label">第${period}期 売上</div><div class="stat-value">${fmtY(totalY)}</div><div class="stat-sub">コーチング${fmtY(coachingY)} ＋ ラボ${fmtY(commY)}</div></div>
+    <div class="stat-card stat-card-2"><div class="stat-label">第${period}期 売上合計</div><div class="stat-value">${fmtY(totalY)}</div><div class="stat-sub">コーチング${fmtY(coachingY)} ＋ ラボ${fmtY(commY)}</div></div>
+    <div class="stat-card stat-card-plain"><div class="stat-label">今月の売上目標</div><div class="stat-value">${mGoal>0?fmtY(mGoal):'—'}</div><div class="stat-sub">未設定の場合は目標管理から入力</div></div>
     <div class="stat-card stat-card-1">
-      <div class="stat-label">今月売上</div>
+      <div class="stat-label">今月の売上</div>
       <div class="stat-value">${fmtY(totalM)}</div>
-      ${ach!==null?`<div class="stat-progress"><div class="stat-progress-bar" style="width:${ach}%"></div></div><div class="stat-sub">目標達成率 ${ach}%${commM>0?' (ラボ含む)':''}</div>`:`<div class="stat-sub">${commM>0?'ラボ '+fmtY(commM)+' 含む':'目標未設定'}</div>`}
+      ${ach!==null?`<div class="stat-progress"><div class="stat-progress-bar" style="width:${ach}%"></div></div><div class="stat-sub">達成率 ${ach}%${commM>0?' (ラボ含む)':''}</div>`:`<div class="stat-sub">${commM>0?'ラボ '+fmtY(commM)+' 含む':''}</div>`}
     </div>
-    <div class="stat-card stat-card-3"><div class="stat-label">契約中クライアント</div><div class="stat-value">${active}</div><div class="stat-sub">合計 ${db.customers.length}名登録</div></div>
-    <div class="stat-card stat-card-4"><div class="stat-label">今月アポ数</div><div class="stat-value">${mAppts}</div><div class="stat-sub">累計 ${db.appointments.length}件</div></div>
   `;
 
-  // Goal progress
-  const gDiv = document.getElementById('goal-progress');
-  if (!goal.totalSales&&!goal.appointments&&!goal.proposals&&!SERVICES.some(s=>goal[svcKey(s)])) {
-    gDiv.innerHTML = `<div class="empty" style="padding:20px"><p>目標が設定されていません</p><button class="btn btn-sm btn-primary" style="margin-top:10px" onclick="showPage('goals',document.querySelectorAll('.nav-item')[4])">目標を設定する</button></div>`;
-  } else {
-    const items = [
-      {label:'月間売上合計', cur:totalM, tgt:goal.totalSales, color:'var(--accent)', isYen:true},
-      ...SERVICES.map(s=>({label:s, cur:ms.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0), tgt:goal[svcKey(s)], color:SVC_COLOR[s], isYen:true})),
-      {label:'アポイント数', cur:mAppts, tgt:goal.appointments, color:'var(--purple)', isYen:false},
-      {label:'提案回数', cur:mProposals, tgt:goal.proposals, color:'var(--warning)', isYen:false},
-    ].filter(i=>i.tgt);
-    gDiv.innerHTML = items.map(i=>{
-      const pct=Math.min(Math.round(Number(i.cur)/Number(i.tgt)*100),100);
-      return `<div style="margin-bottom:12px">
-        <div class="progress-label">
-          <span style="font-size:12px;color:var(--text2)">${i.label}</span>
-          <span style="color:${pct>=100?'var(--success)':'var(--text2)'}">${i.isYen?fmtY(i.cur):i.cur+'件'} / ${i.isYen?fmtY(i.tgt):i.tgt+'件'} (${pct}%)</span>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${i.color}"></div></div>
-      </div>`;
-    }).join('') || '<p class="text-muted text-xs">目標項目がありません</p>';
-  }
-
-  // Service chart
-  const svcT = SERVICES.map(s=>({s, short:s==='フロントコーチング'?'フロント':s==='長期1on1コーチング'?'長期1on1':s==='ビジネスコーチング'?'BIZ':'リトリート', amt:ms.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0), color:SVC_COLOR[s]}));
-  const mx=Math.max(...svcT.map(s=>s.amt),1);
-  document.getElementById('service-chart').innerHTML=`<div class="bar-chart">${svcT.map(s=>`<div class="bar-group"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">${fmtY(s.amt)}</div><div class="bar" style="height:${Math.max(s.amt/mx*70,3)}px;background:${s.color}30;border:1px solid ${s.color}60;flex:none;width:100%"></div><div class="bar-label">${s.short}</div></div>`).join('')}</div>`;
+  // 今月・来月の目標カード
+  const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const nextYM = nextDate.toISOString().slice(0,7);
+  document.getElementById('current-month-label').textContent = monthLabel(thisYM);
+  document.getElementById('next-month-label').textContent = monthLabel(nextYM);
+  renderGoalCard('goal-this-month-body', thisYM, ms, mProposals);
+  renderGoalCard('goal-next-month-body', nextYM, [], 0);
 
   // Recent appts
   const ra=[...db.appointments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
@@ -930,10 +937,216 @@ function renderDashboard() {
       ${ra.map(a=>`<tr><td><div class="flex items-center gap-2"><div class="avatar">${(a.name||'?')[0]}</div><span>${a.name||''}</span></div></td><td class="text-xs text-muted">${a.date||''}</td><td>${a.status?`<span class="badge ${STATUS_BADGE[a.status]||'badge-gray'}">${a.status}</span>`:''}</td><td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nextAction||''}</td></tr>`).join('')}
       </tbody></table></div>`;
 
-  loadCalendar();
+  loadCalendar().then(()=>{ renderApoTracking(); checkCalendarNotifications(); });
   loadCalMonth();
-  checkCalendarNotifications();
   renderEmpowerment();
+}
+
+function renderGoalCard(divId, ym, salesRows, proposalCount) {
+  const goal = db.goals[ym] || {};
+  const calStats = db.goals[`cal_stats_${ym}`] || {};
+  const isThisMonth = salesRows.length > 0 || proposalCount > 0;
+  const el = document.getElementById(divId);
+  if (!el) return;
+
+  const mkBar = (label, cur, tgt, color) => {
+    if (!tgt) return '';
+    const pct = Math.min(Math.round(cur/tgt*100), 100);
+    return `<div style="margin-bottom:10px">
+      <div class="progress-label">
+        <span style="font-size:12px;color:var(--text2)">${label}</span>
+        <span style="color:${pct>=100?'var(--success)':'var(--text2)'};font-size:12px">${cur}件 / ${tgt}件 (${pct}%)</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  };
+  const mkBarYen = (label, cur, tgt, color) => {
+    if (!tgt) return '';
+    const pct = Math.min(Math.round(cur/tgt*100), 100);
+    return `<div style="margin-bottom:10px">
+      <div class="progress-label">
+        <span style="font-size:12px;color:var(--text2)">${label}</span>
+        <span style="color:${pct>=100?'var(--success)':'var(--text2)'};font-size:12px">${fmtY(cur)} / ${fmtY(tgt)} (${pct}%)</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  };
+
+  // アポ目標値（デフォルト: 営業22 / 経営者15 / 協業8）
+  const bananaTgt = goal.bananaTarget || 22;
+  const flamingoTgt = goal.flamingoTarget || 15;
+  const basilTgt = goal.basilTarget || 8;
+  const bananaCur = isThisMonth ? (calStats.banana||0) : 0;
+  const flamingoCur = isThisMonth ? (calStats.flamingo||0) : 0;
+  const basilCur = isThisMonth ? (calStats.basil||0) : 0;
+
+  const apoSection = `
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">── 行動目標（アポ）</div>
+    ${mkBar('営業マンアポ', bananaCur, bananaTgt, '#f6bf26')}
+    ${mkBar('経営者アポ', flamingoCur, flamingoTgt, '#e67c73')}
+    ${mkBar('協業アポ', basilCur, basilTgt, '#0b8043')}
+    ${goal.appointments ? mkBar('アポ合計', isThisMonth?(bananaCur+flamingoCur+basilCur):0, goal.appointments, 'var(--purple)') : ''}
+    ${goal.proposals ? mkBar('提案回数', isThisMonth?proposalCount:0, goal.proposals, 'var(--warning)') : ''}
+  `;
+
+  const svcSection = SERVICES.map(s => {
+    const cur = isThisMonth ? salesRows.filter(x=>x.service===s).reduce((a,b)=>a+Number(b.amount||0),0) : 0;
+    const tgt = goal[svcKey(s)]?.total || goal[svcKey(s)] || 0;
+    return mkBarYen(s, cur, tgt, SVC_COLOR[s]);
+  }).join('');
+
+  const totalTgt = goal.totalSales || 0;
+  const totalCur = isThisMonth ? salesRows.reduce((a,b)=>a+Number(b.amount||0),0) : 0;
+
+  el.innerHTML = apoSection
+    + (svcSection || !SERVICES.some(s=>goal[svcKey(s)]) ? '' : '')
+    + (totalTgt || svcSection ? `
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">── 成果目標（売上）</div>
+      ${svcSection}
+      ${mkBarYen('売上合計', totalCur, totalTgt, 'var(--accent)')}
+    ` : '')
+    + (!goal.totalSales && !goal.bananaTarget && !goal.appointments && !SERVICES.some(s=>goal[svcKey(s)])
+       ? `<p class="text-xs text-muted">目標未設定 — 目標管理から設定してください</p>` : '');
+}
+
+function renderApoTracking() {
+  const el = document.getElementById('apo-tracking-body');
+  if (!el) return;
+  const now = new Date();
+  const thisYM = now.toISOString().slice(0,7);
+  const calStats = db.goals[`cal_stats_${thisYM}`] || {};
+  const goal = db.goals[thisYM] || {};
+  const bananaTgt = goal.bananaTarget || 22;
+  const flamingoTgt = goal.flamingoTarget || 15;
+  const basilTgt = goal.basilTarget || 8;
+
+  const mk = (label, cur, tgt, color, dot) => {
+    const pct = Math.min(Math.round(cur/tgt*100), 100);
+    const rem = Math.max(tgt - cur, 0);
+    return `<div style="flex:1;min-width:120px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+        <span style="font-size:12px;color:var(--text2)">${label}</span>
+      </div>
+      <div style="font-size:22px;font-weight:700;color:var(--text)">${cur}<span style="font-size:13px;font-weight:400;color:var(--text3)"> / ${tgt}</span></div>
+      <div class="progress-bar" style="margin:6px 0 4px"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div style="font-size:11px;color:${rem===0?'var(--success)':'var(--text3)'}">${rem===0?'✅ 達成！':'残り '+rem+'件'}</div>
+    </div>`;
+  };
+
+  el.innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap">
+    ${mk('営業マンアポ', calStats.banana||0, bananaTgt, '#f6bf26', '#f6bf26')}
+    ${mk('経営者アポ', calStats.flamingo||0, flamingoTgt, '#e67c73', '#e67c73')}
+    ${mk('協業アポ', calStats.basil||0, basilTgt, '#0b8043', '#0b8043')}
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:10px">カレンダーの色集計（バナナ=営業マン / フラミンゴ=経営者 / バジル=協業）。「カレンダー更新」で最新に。</div>`;
+}
+
+// ===== AI GOAL ADVICE =====
+function saveAiKey() {
+  const key = document.getElementById('ai-key-input').value.trim();
+  if (!key.startsWith('sk-ant-')) { alert('APIキーは sk-ant- で始まる必要があります'); return; }
+  try { localStorage.setItem('anthropic_api_key', key); } catch(e) {}
+  document.getElementById('ai-key-section').style.display = 'none';
+  generateGoalAdvice();
+}
+
+async function generateGoalAdvice() {
+  let apiKey = '';
+  try { apiKey = localStorage.getItem('anthropic_api_key') || ''; } catch(e) {}
+  if (!apiKey) {
+    document.getElementById('ai-key-section').style.display = 'block';
+    return;
+  }
+  const el = document.getElementById('ai-advice-body');
+  el.innerHTML = '<p class="text-xs text-muted" style="padding:8px 0">⏳ AIが分析中...</p>';
+
+  const now = new Date();
+  const thisYM = now.toISOString().slice(0,7);
+  const nextDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const nextYM = nextDate.toISOString().slice(0,7);
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const remainDays = daysInMonth - dayOfMonth;
+
+  const thisGoal = db.goals[thisYM] || {};
+  const nextGoal = db.goals[nextYM] || {};
+  const calThis = db.goals[`cal_stats_${thisYM}`] || {};
+  const calNext = db.goals[`cal_stats_${nextYM}`] || {};
+
+  const ms = db.sales.filter(s => (s.date||'').startsWith(thisYM));
+  const thisRevenue = ms.reduce((a,b)=>a+Number(b.amount||0),0);
+  const thisAppts = db.appointments.filter(a=>(a.date||'').startsWith(thisYM));
+  const thisProposals = thisAppts.filter(a=>a.proposed).length;
+
+  const context = `
+今日: ${now.toLocaleDateString('ja-JP')} (今月残り${remainDays}日)
+
+【今月 ${thisYM}】
+- 売上目標: ${thisGoal.totalSales ? fmtY(thisGoal.totalSales) : '未設定'}
+- 今月の売上実績: ${fmtY(thisRevenue)}
+- 営業マンアポ: 実績${calThis.banana||0}件 / 目標${thisGoal.bananaTarget||22}件
+- 経営者アポ: 実績${calThis.flamingo||0}件 / 目標${thisGoal.flamingoTarget||15}件
+- 協業アポ: 実績${calThis.basil||0}件 / 目標${thisGoal.basilTarget||8}件
+- アポ合計目標: ${thisGoal.appointments||'未設定'}件 / 提案回数目標: ${thisGoal.proposals||'未設定'}件 / 実績: ${thisProposals}件
+- サービス別売上目標: ${SERVICES.map(s=>`${s}:${fmtY(thisGoal[svcKey(s)]||0)}`).join(' / ')}
+
+【来月 ${nextYM}】
+- 売上目標: ${nextGoal.totalSales ? fmtY(nextGoal.totalSales) : '未設定'}
+- 営業マンアポ目標: ${nextGoal.bananaTarget||22}件
+- 経営者アポ目標: ${nextGoal.flamingoTarget||15}件
+- 協業アポ目標: ${nextGoal.basilTarget||8}件
+- 来月カレンダー既存アポ: 営業${calNext.banana||0} / 経営者${calNext.flamingo||0} / 協業${calNext.basil||0}
+`;
+
+  const prompt = `あなたはビジネスコーチのサポートAIです。以下のデータを見て、今月と来月の目標達成に向けた具体的なアドバイスをください。
+
+${context}
+
+以下の観点で日本語で簡潔に答えてください（各100字以内）:
+
+【今月の目標達成アドバイス】
+- 足りない行動（アポ・提案数など）
+- 足りない成果（売上ギャップ）
+- 残り${remainDays}日でやるべき具体的な日程アクション
+
+【来月の目標達成アドバイス】
+- 今から準備すべき行動（パイプライン構築）
+- 目標設定の見直しポイント（もし必要なら）
+- 来月の日程管理のポイント`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+      if (res.status === 401) {
+        try { localStorage.removeItem('anthropic_api_key'); } catch(e) {}
+        el.innerHTML = `<p class="text-xs" style="color:var(--danger)">APIキーが無効です。再入力してください。</p><div id="ai-key-section" style="margin-top:12px"><div style="display:flex;gap:8px;align-items:center"><input id="ai-key-input" type="password" placeholder="Anthropic APIキーを入力 (sk-ant-...)" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)"><button class="btn btn-sm btn-primary" onclick="saveAiKey()">保存</button></div></div>`;
+      } else {
+        el.innerHTML = `<p class="text-xs" style="color:var(--danger)">エラー: ${err.error?.message||res.statusText}</p>`;
+      }
+      return;
+    }
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    el.innerHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--text)">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      <p style="font-size:11px;color:var(--text3);margin-top:12px">最終更新: ${new Date().toLocaleString('ja-JP')} <button class="btn btn-sm" style="margin-left:8px" onclick="generateGoalAdvice()">再生成</button></p>`;
+  } catch(e) {
+    el.innerHTML = `<p class="text-xs" style="color:var(--danger)">通信エラー: ${e.message}</p>`;
+  }
 }
 
 // ===== EMPOWERMENT COUNTER =====
@@ -1743,7 +1956,7 @@ function openCustomerDetail(id){
       <div>
         <div class="info-row"><span class="info-label">購入サービス</span><div>${(c.services||[]).map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="margin:1px">${s}</span>`).join('')||'—'}</div></div>
         ${(c.services||[]).includes('長期1on1コーチング')&&c.longtermMonths?`<div class="info-row"><span class="info-label">長期1on1契約期間</span><span>${c.longtermMonths}ヶ月</span></div>`:''}
-        ${(c.services||[]).includes('ビジネスコーチング')&&c.bizMonths?`<div class="info-row"><span class="info-label">BIZ契約期間</span><span>${c.bizMonths}ヶ月</span></div>`:''}
+        ${(c.services||[]).includes('SSC')&&c.bizMonths?`<div class="info-row"><span class="info-label">BIZ契約期間</span><span>${c.bizMonths}ヶ月</span></div>`:''}
         <div class="info-row"><span class="info-label">契約金額</span><span class="fw-500" style="color:var(--accent)">${c.price?fmtY(c.price):'—'}</span></div>
         <div class="info-row"><span class="info-label">合計支払</span><span class="fw-500">${fmtY(total)}</span></div>
       </div>
@@ -1837,7 +2050,7 @@ async function deleteAppointment(id){ if(!confirm('削除しますか？'))retur
 // ===== GOALS (year grid) =====
 function changeGoalYear(d){ currentGoalYear+=d; renderGoals(); }
 
-function svcKey(s){ return s==='フロントコーチング'?'front':s==='長期1on1コーチング'?'longterm':s==='ビジネスコーチング'?'biz':s==='リトリートプログラム'?'retreat':s; }
+function svcKey(s){ return s==='フロントコーチング'?'front':s==='長期1on1コーチング'?'longterm':s==='SSC'?'biz':s==='リトリートプログラム'?'retreat':s; }
 
 function renderGoals(){
   const isFiscal = goalMode === 'fiscal';
@@ -1940,7 +2153,7 @@ function openModal(type, data){
       <div id="months-fields" style="display:none">
         <div class="form-row">
           <div id="longterm-months-wrap" style="display:none" class="form-group"><label>長期1on1 契約月数</label><input id="f-longterm-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
-          <div id="biz-months-wrap" style="display:none" class="form-group"><label>ビジネスコーチング 契約月数</label><input id="f-biz-months" type="number" min="1" value="${esc(c.bizMonths||'')}" placeholder="例: 3"></div>
+          <div id="biz-months-wrap" style="display:none" class="form-group"><label>SSC 契約月数</label><input id="f-biz-months" type="number" min="1" value="${esc(c.bizMonths||'')}" placeholder="例: 3"></div>
         </div>
       </div>
 
@@ -2186,7 +2399,7 @@ function toggleContractServices(){
 }
 
 function toggleApptContractDates(){
-  const needsDates=['長期1on1コーチング','ビジネスコーチング'];
+  const needsDates=['長期1on1コーチング','SSC'];
   const show=needsDates.some(s=>document.getElementById('csvc-'+svcKey(s))?.checked);
   const wrap=document.getElementById('appt-contract-dates-wrap');
   if(wrap) wrap.style.display=show?'block':'none';
@@ -2225,7 +2438,7 @@ async function saveCustomer(){
     services,
     price,
     longtermMonths:services.includes('長期1on1コーチング')?Number(document.getElementById('f-longterm-months')?.value)||null:null,
-    bizMonths:services.includes('ビジネスコーチング')?Number(document.getElementById('f-biz-months')?.value)||null:null,
+    bizMonths:services.includes('SSC')?Number(document.getElementById('f-biz-months')?.value)||null:null,
     contractStart:document.getElementById('f-cstart').value,
     contractEnd:document.getElementById('f-cend').value,
     revenueDate,
