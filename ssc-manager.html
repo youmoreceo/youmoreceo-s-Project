@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SSC 生徒管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#F3F6FB;--surface:#FFFFFF;--surface2:#F7F9FC;--ink:#1A2439;--heading:#13254A;--muted:#5A6781;--faint:#8A95AA;
+  --rule:#DCE3EE;--blue:#2D5DC2;--blue-soft:#E6EDFA;--accent:#DC7431;--accent-soft:#FBEADB;
+  --green:#1F8A5B;--green-soft:#E1F3EA;--amber:#A86A12;--amber-soft:#FCF1DA;--red:#C2413B;--red-soft:#FBE6E4;
+  --nav:#13254A;--nav-ink:#EEF2F9;--nav-muted:#A9B7D3;
+  --shadow:0 12px 32px -18px rgba(19,37,74,.35);
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --num:"Inter","Zen Kaku Gothic New",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1424;--surface:#16213A;--surface2:#121B2F;--ink:#E3E9F4;--heading:#F2F5FB;--muted:#9AA7BF;--faint:#6F7C95;
+    --rule:#26334F;--blue:#86A9F2;--blue-soft:#1B2B4D;--accent:#F09A5C;--accent-soft:#3A2717;
+    --green:#5CC996;--green-soft:#15352A;--amber:#E8B45A;--amber-soft:#382A12;--red:#F08A84;--red-soft:#3D1D1C;
+    --nav:#0A1020;--nav-ink:#E3E9F4;--nav-muted:#8494B3;--shadow:0 12px 32px -18px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1424;--surface:#16213A;--surface2:#121B2F;--ink:#E3E9F4;--heading:#F2F5FB;--muted:#9AA7BF;--faint:#6F7C95;
+  --rule:#26334F;--blue:#86A9F2;--blue-soft:#1B2B4D;--accent:#F09A5C;--accent-soft:#3A2717;
+  --green:#5CC996;--green-soft:#15352A;--amber:#E8B45A;--amber-soft:#382A12;--red:#F08A84;--red-soft:#3D1D1C;
+  --nav:#0A1020;--nav-ink:#E3E9F4;--nav-muted:#8494B3;--shadow:0 12px 32px -18px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+
+/* Login */
+.login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--nav);padding:16px;z-index:100}
+.login-box{background:var(--surface);border-radius:18px;padding:36px 30px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-mark{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--num);font-weight:700;font-size:13px;letter-spacing:.02em;flex:none}
+.login-box .brand{justify-content:center;margin-bottom:22px}
+.login-box h1{font-size:18px;color:var(--heading)}
+.login-box label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}
+.login-err{color:var(--red);font-size:12px;min-height:18px;margin-top:10px;text-align:center}
+
+/* Shell */
+.app{display:none;min-height:100%}
+.side{position:fixed;inset:0 auto 0 0;width:220px;background:var(--nav);color:var(--nav-ink);display:flex;flex-direction:column;padding:20px 12px;z-index:20}
+.side .brand{padding:0 8px 22px}
+.side .brand b{display:block;font-size:14px}
+.side .brand small{display:block;color:var(--nav-muted);font-size:11px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--nav-muted);padding:10px 12px;border-radius:9px;cursor:pointer;text-align:left;font-size:14px}
+.nav button:hover{background:rgba(255,255,255,.06);color:var(--nav-ink)}
+.nav button.on{background:rgba(255,255,255,.1);color:#fff;font-weight:700}
+.nav svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav .sh{display:none}
+.nav .cnt{margin-left:auto;font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;font-family:var(--num)}
+.side-foot{margin-top:auto;font-size:11px;color:var(--nav-muted);padding:0 8px;word-break:break-all}
+.side-foot button{margin-top:8px;background:none;border:1px solid rgba(255,255,255,.18);color:var(--nav-muted);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px}
+.main{margin-left:220px;padding:28px 32px 60px;max-width:1400px}
+.demo-bar{background:var(--amber-soft);color:var(--amber);font-size:12px;padding:6px 12px;border-radius:8px;margin-bottom:16px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.head h2{font-size:22px;color:var(--heading);letter-spacing:.03em}
+.head p{color:var(--muted);font-size:13px}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Controls */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#0D1424}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#0D1424}}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.inp,select.inp,textarea.inp{width:100%;border:1px solid var(--rule);background:var(--surface);border-radius:9px;padding:8px 11px;outline:none;font-size:14px;min-height:38px}
+.inp:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+textarea.inp{min-height:84px;resize:vertical}
+#f-note{min-height:420px;line-height:1.8}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--rule);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:7px;cursor:pointer;color:var(--muted);font-size:13px}
+.seg button.on{background:var(--surface);color:var(--heading);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.seg .n{font-family:var(--num);font-size:11px;margin-left:4px;opacity:.7}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:18px 20px}
+.card h3{font-size:14px;color:var(--heading);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card h3 small{font-weight:400;color:var(--muted);font-size:12px}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:14px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-family:var(--num);font-size:26px;font-weight:700;color:var(--heading);line-height:1.3;margin-top:2px}
+.kpi .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px;font-family:var(--sans)}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:4px}
+.two{grid-template-columns:1fr 1fr}
+.three{grid-template-columns:repeat(3,1fr)}
+.bar{height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:4px}
+.bar.ok i{background:var(--green)}
+.hbars{display:flex;flex-direction:column;gap:8px}
+.hbar{display:grid;grid-template-columns:90px 1fr 44px;gap:10px;align-items:center;font-size:13px}
+.hbar .t{height:10px;background:var(--surface2);border-radius:5px;overflow:hidden}
+.hbar .t i{display:block;height:100%;background:var(--blue);border-radius:5px}
+.hbar .c{text-align:right;font-family:var(--num);color:var(--muted)}
+.hbar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--rule);font-size:13px}
+.li:first-child{border-top:0}
+.li .who{cursor:pointer;font-weight:500}
+.li .who:hover{color:var(--blue)}
+.empty{color:var(--faint);font-size:13px;padding:14px 0;text-align:center}
+.cols{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:10px}
+.cols .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;min-width:0}
+.cols .stack{width:100%;max-width:34px;position:relative;flex:1;display:flex;align-items:flex-end}
+.cols .stack i{display:block;width:100%;background:var(--blue);border-radius:4px 4px 0 0;min-height:1px}
+.cols .stack i.fut{background:var(--blue-soft);border:1px dashed var(--blue)}
+.cols .stack b{position:absolute;left:-3px;right:-3px;height:2px;background:var(--accent)}
+.cols .lb{font-size:11px;color:var(--muted);font-family:var(--num)}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+
+/* Badges & chips */
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.b-on{background:var(--green-soft);color:var(--green)}
+.b-pause{background:var(--amber-soft);color:var(--amber)}
+.b-end{background:var(--surface2);color:var(--faint);border:1px solid var(--rule)}
+.b-blue{background:var(--blue-soft);color:var(--blue)}
+.b-red{background:var(--red-soft);color:var(--red)}
+.chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);margin:1px 3px 1px 0;white-space:nowrap}
+.checks{display:flex;gap:4px}
+.ck{border:1px solid var(--rule);background:var(--surface);color:var(--faint);font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.ck.on{background:var(--green-soft);border-color:transparent;color:var(--green);font-weight:700}
+.ck.on::before{content:"✓ "}
+
+/* Toolbar & table */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar .inp{width:auto;min-width:120px}
+.toolbar .search{flex:1;min-width:200px}
+.tog{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;padding:0 6px;user-select:none}
+.tbl-wrap{background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--surface2);text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--rule);white-space:nowrap;cursor:pointer;user-select:none}
+th.r,td.r{text-align:right}
+th .ar{font-size:10px;margin-left:3px}
+td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:middle;white-space:nowrap}
+td.wrap{white-space:normal}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--surface2)}
+tbody tr:last-child td{border-bottom:0}
+td .nm{font-weight:700;color:var(--heading)}
+td small{display:block;color:var(--faint);font-size:11px;line-height:1.3}
+tfoot td{background:var(--surface2);font-weight:700;border-top:1px solid var(--rule);border-bottom:0}
+.cards{display:none;flex-direction:column;gap:10px}
+.mcard{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:14px;cursor:pointer}
+.mcard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.mcard .meta{font-size:12px;color:var(--muted);margin:6px 0}
+.mcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}
+.sum-line{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-top:10px;padding:0 4px;flex-wrap:wrap;gap:8px}
+.sum-line b{color:var(--heading);font-family:var(--num);font-size:15px}
+.inline-sel{border:1px solid var(--rule);background:var(--surface);border-radius:7px;padding:3px 6px;font-size:12px}
+
+/* Funnel */
+.funnel{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.fstep{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;position:relative}
+.fstep .l{font-size:12px;color:var(--muted)}
+.fstep .v{font-family:var(--num);font-size:22px;font-weight:700;color:var(--heading)}
+.fstep .r{font-size:11px;color:var(--faint)}
+.fstep.goal .v{color:var(--accent)}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(10,16,32,.5);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto;z-index:50;backdrop-filter:blur(2px)}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:820px;box-shadow:var(--shadow);margin:auto 0}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--rule);gap:10px}
+.modal-h h3{font-size:17px;color:var(--heading)}
+.modal-b{padding:6px 22px 20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 22px;border-top:1px solid var(--rule);flex-wrap:wrap}
+.modal-f .r{display:flex;gap:8px;margin-left:auto}
+.sec{padding-top:16px}
+.sec-t{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec-t::after{content:"";flex:1;height:1px;background:var(--rule)}
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px}
+.fg .w2{grid-column:span 2}
+.fg .w3{grid-column:1/-1}
+.fl label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.fl label .req{color:var(--red)}
+.hint{font-size:11px;color:var(--faint);margin-top:4px}
+.warn{font-size:12px;color:var(--amber);background:var(--amber-soft);padding:6px 10px;border-radius:8px;margin-top:8px}
+.clubs{display:flex;flex-wrap:wrap;gap:8px}
+.clubs select{width:auto;min-width:160px}
+.pause-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.pause-row .inp{width:auto}
+.checkrow{display:flex;gap:10px;flex-wrap:wrap}
+.cbox{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:10px;padding:9px 14px;cursor:pointer;user-select:none;font-size:14px}
+.cbox input{width:16px;height:16px;accent-color:var(--green)}
+.cbox.on{background:var(--green-soft);border-color:transparent;color:var(--green);font-weight:700}
+.stat3{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.stat3 div{background:var(--surface2);border-radius:10px;padding:10px 12px}
+.stat3 .l{font-size:11px;color:var(--muted)}
+.stat3 .v{font-family:var(--num);font-weight:700;font-size:16px;color:var(--heading)}
+.hist{max-height:220px;overflow:auto;border:1px solid var(--rule);border-radius:10px;margin-top:10px}
+.hist td,.hist th{padding:6px 10px;font-size:12px;position:static}
+
+/* Settings */
+.set-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.set-item{display:flex;align-items:center;gap:6px}
+.set-item .inp{min-height:34px;padding:6px 10px}
+.set-item .cnt{font-size:11px;color:var(--faint);white-space:nowrap;min-width:40px;text-align:right;font-family:var(--num)}
+.set-item.arch .inp{opacity:.5;text-decoration:line-through}
+.icon-btn{border:0;background:none;cursor:pointer;color:var(--faint);padding:4px 6px;border-radius:6px;font-size:13px;line-height:1}
+.icon-btn:hover{background:var(--surface2);color:var(--ink)}
+.add-row{display:flex;gap:8px}
+
+/* Goals */
+.goal-tbl input{width:110px;text-align:right;border:1px solid var(--rule);background:var(--surface);border-radius:7px;padding:4px 8px;font-family:var(--num)}
+.goal-tbl input.s{width:64px}
+.goal-tbl tr.cur td{background:var(--blue-soft)}
+.pct{font-family:var(--num);font-size:12px;font-weight:700}
+.pct.ok{color:var(--green)}.pct.mid{color:var(--amber)}.pct.low{color:var(--red)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--heading);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.err{background:var(--red);color:#fff}
+.loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,16,32,.35);z-index:150}
+.spin{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Mobile */
+@media (max-width:900px){
+  .two,.three{grid-template-columns:1fr}
+  .funnel{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:760px){
+  .side{inset:auto 0 0 0;width:auto;height:auto;flex-direction:row;padding:6px 4px calc(6px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.08)}
+  .side .brand,.side-foot{display:none}
+  .nav .lg{display:none}.nav .sh{display:inline}
+  .nav{flex-direction:row;width:100%;justify-content:space-around}
+  .nav button{flex-direction:column;gap:2px;font-size:10px;padding:6px 4px;width:auto;flex:1;align-items:center;position:relative}
+  .nav .cnt{position:absolute;top:0;right:12%;margin:0;font-size:9px;padding:0 5px}
+  .main{margin-left:0;padding:18px 16px 96px}
+  .head h2{font-size:19px}
+  .tbl-wrap.resp{display:none}
+  .cards{display:flex}
+  .fg{grid-template-columns:1fr 1fr}
+  .fg .w2{grid-column:1/-1}
+  .stat3{grid-template-columns:1fr 1fr}
+  .modal-bg{padding:0}
+  .modal{border-radius:0;min-height:100%}
+  .funnel{grid-template-columns:repeat(2,1fr)}
+  .toolbar .inp{flex:1 1 40%;min-width:0}
+  .hbar{grid-template-columns:80px 1fr 36px}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login" id="login">
+  <div class="login-box">
+    <div class="brand"><div class="brand-mark">SSC</div><h1>生徒管理</h1></div>
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label for="l-email">メールアドレス</label>
+      <input class="inp" id="l-email" type="email" autocomplete="username" required>
+      <label for="l-pass">パスワード</label>
+      <input class="inp" id="l-pass" type="password" autocomplete="current-password" required>
+      <button class="btn primary" id="l-btn" style="width:100%;justify-content:center;margin-top:18px;padding:11px">ログイン</button>
+      <div class="login-err" id="l-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+  <aside class="side">
+    <div class="brand"><div class="brand-mark">SSC</div><div><b>Sales Skills College</b><small>生徒・売上管理</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot"><span id="user-email"></span><br><button onclick="doLogout()">ログアウト</button></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading"><div class="spin"></div></div>
+
+<script>
+// ===================== 設定 =====================
+// コーチング管理アプリと同じ Supabase プロジェクトを使う（anon key は公開前提のキー）
+const SUPABASE_URL = 'https://lzypyxdkxxmmwuelngxa.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6eXB5eGRreHhtbXd1ZWxuZ3hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MTU0ODYsImV4cCI6MjA5ODI5MTQ4Nn0.khYK9x0E90wJvz3afxQTB9kDaWzaKml9ob0nJ0gb-1M';
+const DEMO = new URLSearchParams(location.search).has('demo');
+const sb = DEMO ? null : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STATUSES = ['契約中','休止中','契約終了'];
+const STATUS_BADGE = {'契約中':'b-on','休止中':'b-pause','契約終了':'b-end'};
+const STAGES = ['オリエン予約','オリエン参加','選考・面接','合格','見送り'];
+const GENDERS = ['男性','女性','その他'];
+const PAY_METHODS = ['クレジットカード','口座振替','銀行振込','その他'];
+const CHECKS = [['contract','契約書'],['payment','決済'],['line','LINE']];
+const COMPANY_FOUNDED_FY = 2024; // 第1期 = 2024/9〜2025/8
+
+const DEFAULT_MASTER = {
+  clubs: [],
+  cohorts: [{id:'k1', name:'1期生', start:'2026-11-10', planId:'pb1'}],
+  industries: ['投資用不動産','不動産賃貸','保険','人材','IT・SaaS','広告・メディア','金融','メーカー','商社・卸','医療・介護','士業','コンサル','コーチング','経営者','その他'],
+  sources: ['紹介','Instagram','X','LINE','イベント','LP・Web','その他'],
+  // 料金プラン（設定タブで編集）。各リストの一番上が新規登録時の初期値
+  plans: {
+    base:   [{id:'pb1', name:'1期生特別価格', amount:22000}, {id:'pb2', name:'通常', amount:44000}],
+    option: [{id:'po1', name:'顧問', amount:55000}],
+    entry:  [],
+  },
+};
+
+// ===================== State =====================
+const S = {
+  customers: [], payments: [], master: clone(DEFAULT_MASTER), goals: {},
+  view: 'dash',
+  f: { q:'', status:'契約中', cohort:'', club:'', industry:'', gender:'', incomplete:false },
+  lf: { q:'', stage:'active' },
+  sort: { k:'start', dir:-1 },
+  payMonth: curYM(),
+  goalFY: fyOf(curYM()),
+};
+
+// ===================== Utils =====================
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function yen(n){ return '¥'+Math.round(Number(n)||0).toLocaleString('ja-JP'); }
+function man(n){ n=Number(n)||0; return Math.abs(n)>=10000 ? (Math.round(n/1000)/10).toLocaleString('ja-JP')+'万' : n.toLocaleString('ja-JP'); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function curYM(){ return todayStr().slice(0,7); }
+function addM(ym,n){ let [y,m]=ym.split('-').map(Number); m+=n; y+=Math.floor((m-1)/12); m=((m-1)%12+12)%12+1; return y+'-'+String(m).padStart(2,'0'); }
+function mLabel(ym){ const [y,m]=ym.split('-'); return y+'年'+Number(m)+'月'; }
+function mShort(ym){ return Number(ym.split('-')[1])+'月'; }
+function fyOf(ym){ const [y,m]=ym.split('-').map(Number); return m>=9?y:y-1; }
+function fyMonths(fy){ return Array.from({length:12},(_,i)=>addM(fy+'-09',i)); }
+function fyLabel(fy){ return `第${fy-COMPANY_FOUNDED_FY+1}期（${fy}年9月〜${fy+1}年8月）`; }
+function fmtDate(d){ if(!d) return '—'; const [y,m,dd]=d.split('-'); return `${y}/${Number(m)}/${Number(dd)}`; }
+function pct(a,b){ return b>0 ? Math.round(a/b*100) : null; }
+function pctClass(p){ return p==null?'':p>=100?'ok':p>=70?'mid':'low'; }
+function toast(msg,err){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',2400); }
+function loading(v){ document.getElementById('loading').style.display=v?'flex':'none'; }
+
+// ===================== 名前解決 =====================
+const clubName = id => S.master.clubs.find(c=>c.id===id)?.name || '';
+const cohortName = id => S.master.cohorts.find(c=>c.id===id)?.name || '';
+const students = () => S.customers.filter(c=>c.kind!=='lead');
+const leads = () => S.customers.filter(c=>c.kind==='lead');
+const byId = id => S.customers.find(c=>c.id===id);
+const PLAN_TYPES = [['base','基本プラン','月額'],['option','オプション','月額・任意'],['entry','入学金','初月のみ・任意']];
+// 期生に紐づくプラン → なければ基本プランの一番上
+function defaultPlan(cohortId){
+  const M=S.master, k=M.cohorts.find(x=>x.id===cohortId);
+  const b=M.plans.base.find(p=>p.id===k?.planId) || (k?.base!=null?{id:'',name:'',amount:k.base}:null) || M.plans.base[0];
+  return {baseId:b?.id||'',baseName:b?.name||'',base:b?.amount||0,advisor:false,optId:'',optName:'',advisorFee:0,entryId:'',entryName:'',entryFee:0};
+}
+const optLabel = p => p?.optName || 'オプション';
+
+// ===================== 売上計算 =====================
+function monthlyFee(c){ const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
+function isPaused(c,ym){ return (c.pauses||[]).some(p=>p.from && ym>=p.from && (!p.to || ym<=p.to)); }
+function endYM(c){ return c.endDate ? c.endDate.slice(0,7) : null; }
+// その月の請求見込み額
+function billOf(c,ym){
+  if(c.kind==='lead' || !c.startDate) return 0;
+  const s=c.startDate.slice(0,7), e=endYM(c);
+  if(ym<s || (e && ym>e)) return 0;
+  if(isPaused(c,ym)) return 0;
+  return monthlyFee(c) + (ym===s ? (Number(c.plan?.entryFee)||0) : 0);
+}
+// 今月までの累計（請求ベース）
+function billedTotal(c, until=curYM()){
+  if(c.kind==='lead' || !c.startDate) return 0;
+  let e=endYM(c); if(!e || e>until) e=until;
+  let t=0; for(let m=c.startDate.slice(0,7); m<=e; m=addM(m,1)) t+=billOf(c,m);
+  return t;
+}
+function activeMonths(c, until=curYM()){
+  if(c.kind==='lead' || !c.startDate) return 0;
+  let e=endYM(c); if(!e || e>until) e=until;
+  let n=0; for(let m=c.startDate.slice(0,7); m<=e; m=addM(m,1)) if(!isPaused(c,m)) n++;
+  return n;
+}
+const paidOf = (cid, ym) => S.payments.filter(p=>p.customerId===cid && (!ym || p.month===ym)).reduce((a,p)=>a+(Number(p.amount)||0),0);
+const billMonth = ym => students().reduce((a,c)=>a+billOf(c,ym),0);
+const paidMonth = ym => S.payments.filter(p=>p.month===ym).reduce((a,p)=>a+(Number(p.amount)||0),0);
+const incomplete = c => CHECKS.filter(([k])=>!c.checks?.[k]).map(([,l])=>l);
+const orientCount = ym => S.customers.filter(c=>c.orientDate && c.orientDate.slice(0,7)===ym).length;
+const enrollCount = ym => students().filter(c=>c.startDate && c.startDate.slice(0,7)===ym).length;
+function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約中').reduce((a,c)=>a+(isPaused(c,m)?0:monthlyFee(c)),0); }
+
+// ===================== データ層 =====================
+const Store = DEMO ? {
+  _k:'ssc_demo_v3',
+  _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{}}); this._put(); },
+  async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
+  async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
+  async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
+  async deletePayment(id){ S.payments=S.payments.filter(p=>p.id!==id); this._put(); },
+  async saveSetting(key){ this._put(); },
+} : {
+  async load(){
+    const [c,p,s] = await Promise.all([
+      sb.from('ssc_customers').select('id,data,created_at').order('created_at'),
+      sb.from('ssc_payments').select('id,data,created_at').order('created_at'),
+      sb.from('ssc_settings').select('key,data'),
+    ]);
+    const err = c.error||p.error||s.error;
+    if(err){ throw err; }
+    S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
+    S.payments = p.data.map(r=>({...r.data, id:r.id}));
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; });
+    if(migrateMaster()) await this.saveSetting('master');
+  },
+  _strip(o){ const {id,_created,...d}=o; return d; },
+  async saveCustomer(c){
+    if(c.id){
+      const {error}=await sb.from('ssc_customers').update({data:this._strip(c),updated_at:new Date().toISOString()}).eq('id',c.id);
+      if(error) throw error;
+      const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c;
+    } else {
+      const {data,error}=await sb.from('ssc_customers').insert({data:this._strip(c)}).select('id,created_at').single();
+      if(error) throw error;
+      c.id=data.id; c._created=data.created_at; S.customers.push(c);
+    }
+    return c;
+  },
+  async deleteCustomer(id){
+    let r=await sb.from('ssc_payments').delete().filter('data->>customerId','eq',id); if(r.error) throw r.error;
+    r=await sb.from('ssc_customers').delete().eq('id',id); if(r.error) throw r.error;
+    S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id);
+  },
+  async savePayment(p){
+    const {data,error}=await sb.from('ssc_payments').insert({data:this._strip(p)}).select('id').single();
+    if(error) throw error; p.id=data.id; S.payments.push(p); return p;
+  },
+  async deletePayment(id){ const {error}=await sb.from('ssc_payments').delete().eq('id',id); if(error) throw error; S.payments=S.payments.filter(p=>p.id!==id); },
+  async saveSetting(key){ const {error}=await sb.from('ssc_settings').upsert({key,data:S[key],updated_at:new Date().toISOString()}); if(error) throw error; },
+};
+// 保存済みの設定に、後から決まった変更を一度だけ反映する
+function migrateMaster(){
+  const M=S.master; M._mig=M._mig||[]; let changed=false;
+  if(!M._mig.includes('industry-2026-10')){
+    const i=M.industries.indexOf('不動産');
+    if(i>=0) M.industries.splice(i,1,...['投資用不動産','不動産賃貸'].filter(x=>!M.industries.includes(x)));
+    if(!M.industries.includes('コーチング')){ const j=M.industries.indexOf('その他'); M.industries.splice(j>=0?j:M.industries.length,0,'コーチング'); }
+    M._mig.push('industry-2026-10'); changed=true;
+  }
+  return changed;
+}
+async function run(fn, okMsg){ try{ loading(true); const r=await fn(); if(okMsg) toast(okMsg); return r; } catch(e){ console.error(e); toast('保存に失敗しました：'+(e.message||e),true); throw e; } finally{ loading(false); } }
+
+// ===================== 認証 =====================
+async function init(){
+  if(DEMO){ document.getElementById('user-email').textContent='デモモード'; return showApp(); }
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) showApp(session.user.email); else showLogin();
+  sb.auth.onAuthStateChange((ev,session)=>{ if(ev==='SIGNED_OUT') showLogin(); if(ev==='SIGNED_IN' && document.getElementById('app').style.display!=='block') showApp(session.user.email); });
+}
+function showLogin(){ document.getElementById('app').style.display='none'; document.getElementById('login').style.display='flex'; }
+async function showApp(email){
+  document.getElementById('login').style.display='none';
+  if(email) document.getElementById('user-email').textContent=email;
+  try{ loading(true); await Store.load(); }
+  catch(e){
+    loading(false);
+    const missing = /ssc_|relation|schema cache/i.test(e.message||'');
+    document.getElementById('app').style.display='block';
+    document.getElementById('main').innerHTML=`<div class="card"><h3>データを読み込めませんでした</h3><p style="color:var(--muted)">${missing?'Supabase に SSC 用のテーブルがまだ作られていないようです。セットアップ用 SQL を SQL Editor で実行してから再読み込みしてください。':esc(e.message)}</p></div>`;
+    return;
+  }
+  loading(false);
+  document.getElementById('app').style.display='block';
+  render();
+}
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim(), password=document.getElementById('l-pass').value;
+  const btn=document.getElementById('l-btn'), err=document.getElementById('l-err');
+  btn.disabled=true; btn.textContent='ログイン中…'; err.textContent='';
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  btn.disabled=false; btn.textContent='ログイン';
+  if(error) err.textContent = error.message==='Invalid login credentials' ? 'メールアドレスまたはパスワードが違います' : error.message;
+}
+async function doLogout(){ if(DEMO) return toast('デモモードではログアウトできません'); if(confirm('ログアウトしますか？')) await sb.auth.signOut(); }
+
+// ===================== ナビ =====================
+const ICONS = {
+  dash:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+  students:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  leads:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
+  pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金管理','入金'],['goals','目標','目標'],['settings','設定','設定']];
+function renderNav(){
+  const m=curYM();
+  const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
+  const upcoming = leads().filter(c=>['オリエン予約','オリエン参加','選考・面接','合格'].includes(c.stage)).length;
+  const badge = {pay:unpaid, leads:upcoming};
+  document.getElementById('nav').innerHTML = VIEWS.map(([k,l,sh])=>`<button class="${S.view===k?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span class="lg">${l}</span><span class="sh">${sh}</span>${badge[k]?`<span class="cnt">${badge[k]}</span>`:''}</button>`).join('');
+}
+function go(v){ S.view=v; render(); window.scrollTo(0,0); }
+function render(){
+  renderNav();
+  const main=document.getElementById('main');
+  const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,settings:viewSettings}[S.view])();
+  if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
+}
+
+// ===================== ダッシュボード =====================
+function viewDash(){
+  const m=curYM(), fy=fyOf(m), st=students();
+  const on=st.filter(c=>c.status==='契約中'), pa=st.filter(c=>c.status==='休止中');
+  const bill=billMonth(m), paid=paidMonth(m);
+  const g=S.goals[m]||{};
+  const fyM=fyMonths(fy);
+  const fyBill=fyM.filter(x=>x<=m).reduce((a,x)=>a+billMonth(x),0);
+  const fyGoal=fyM.reduce((a,x)=>a+(Number(S.goals[x]?.sales)||0),0);
+  const or=orientCount(m);
+  const todo=st.filter(c=>c.status!=='契約終了' && incomplete(c).length);
+  const unpaid=st.filter(c=>billOf(c,m)>paidOf(c.id,m));
+  const up=leads().filter(c=>c.orientDate && c.orientDate>=todayStr() && c.stage==='オリエン予約').sort((a,b)=>a.orientDate.localeCompare(b.orientDate)).slice(0,6);
+
+  const kp=(l,v,s,bar)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}${bar!=null?`<div class="bar ${bar>=100?'ok':''}"><i style="width:${Math.min(100,bar)}%"></i></div>`:''}</div>`;
+
+  // 月別売上グラフ（今期）
+  const vals=fyM.map(x=>({m:x,b:billMonth(x),g:Number(S.goals[x]?.sales)||0}));
+  const max=Math.max(1,...vals.map(v=>Math.max(v.b,v.g)));
+  const chart=`<div class="cols">${vals.map(v=>`<div class="col" title="${mLabel(v.m)}  見込み ${yen(v.b)} / 目標 ${yen(v.g)}"><div class="stack"><i class="${v.m>m?'fut':''}" style="height:${v.b/max*100}%"></i>${v.g?`<b style="bottom:${v.g/max*100}%"></b>`:''}</div><div class="lb">${mShort(v.m)}</div></div>`).join('')}</div>
+    <div class="legend" style="margin-top:8px"><span style="--c:var(--blue)">請求見込み</span><span style="--c:var(--blue-soft)">来月以降（見込み）</span><span style="--c:var(--accent)">目標</span></div>`;
+
+  const hb=(rows)=>{ const mx=Math.max(1,...rows.map(r=>r[1])); return rows.length?`<div class="hbars">${rows.map(r=>`<div class="hbar"><span class="nm" title="${esc(r[0])}">${esc(r[0])}</span><span class="t"><i style="width:${r[1]/mx*100}%"></i></span><span class="c">${r[1]}名</span></div>`).join('')}</div>`:'<div class="empty">データなし</div>'; };
+  const activeSt=st.filter(c=>c.status!=='契約終了');
+  const byCohort=S.master.cohorts.map(k=>[k.name,activeSt.filter(c=>c.cohort===k.id).length]);
+  const byClub=S.master.clubs.filter(c=>!c.archived).map(k=>[k.name,activeSt.filter(c=>(c.clubs||[]).includes(k.id)).length]).sort((a,b)=>b[1]-a[1]);
+
+  return `
+  <div class="head"><div><h2>ダッシュボード</h2><p>${mLabel(m)}・${fyLabel(fy)}</p></div>
+    <div class="head-actions"><button class="btn" onclick="openCustomer(null,'lead')">＋ オリエン予約</button><button class="btn primary" onclick="openCustomer(null,'student')">＋ 生徒を登録</button></div></div>
+  <div class="grid kpis">
+    ${kp('在籍中', `${on.length}<small>名</small>`, `休止中 ${pa.length}名 ／ 累計 ${st.length}名`)}
+    ${kp('今月の請求見込み', `<span class="num">${yen(bill)}</span>`, `月額合計（MRR）${yen(mrr())}`)}
+    ${kp('今月の入金', `<span class="num">${yen(paid)}</span>`, bill?`未入金 ${yen(Math.max(0,bill-paid))}（${unpaid.length}名）`:'', pct(paid,bill))}
+    ${kp('今月の売上目標', g.sales?`<span class="num">${pct(bill,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(bill,g.sales):null)}
+    ${kp('今月のオリエン', `${or}<small>件${g.appo?' / '+g.appo:''}</small>`, g.appo?`目標まであと ${Math.max(0,g.appo-or)}件`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.appo?pct(or,g.appo):null)}
+  </div>
+  <div class="grid two" style="margin-bottom:14px">
+    <div class="card"><h3>今期の月別売上 <small>今期累計 ${yen(fyBill)}${fyGoal?` ／ 年間目標 ${yen(fyGoal)}`:''}</small></h3>${chart}</div>
+    <div class="card"><h3>手続き未完了 <small>${todo.length}名</small></h3><div class="list">${todo.length?todo.map(c=>`<div class="li"><span class="who" onclick="openCustomer('${c.id}')">${esc(c.name)} <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></span><span>${incomplete(c).map(x=>`<span class="badge b-red" style="margin-left:4px">${x}</span>`).join('')}</span></div>`).join(''):'<div class="empty">すべて完了しています</div>'}</div></div>
+  </div>
+  <div class="grid three">
+    <div class="card"><h3>今月の未入金 <small>${unpaid.length}名</small></h3><div class="list">${unpaid.length?unpaid.map(c=>`<div class="li"><span class="who" onclick="openCustomer('${c.id}')">${esc(c.name)}</span><span class="num">${yen(billOf(c,m)-paidOf(c.id,m))}</span></div>`).join(''):'<div class="empty">未入金はありません</div>'}</div>${unpaid.length?`<button class="btn sm" style="margin-top:10px" onclick="go('pay')">入金管理へ →</button>`:''}</div>
+    <div class="card"><h3>期生別（在籍・休止）</h3>${hb(byCohort)}</div>
+    <div class="card"><h3>部活動別（在籍・休止）</h3>${byClub.length?hb(byClub):'<div class="empty">部活動がまだありません<br><a href="#" onclick="go(\'settings\');return false">設定で追加 →</a></div>'}</div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>今後のオリエンテーション <small>${up.length}件</small></h3><div class="list">${up.length?up.map(c=>`<div class="li"><span class="who" onclick="openCustomer('${c.id}')">${esc(c.name)}${c.referrer?` <small style="color:var(--faint)">紹介：${esc(c.referrer)}</small>`:''}</span><span class="num">${fmtDate(c.orientDate)}${c.orientTime?' '+esc(c.orientTime):''}</span></div>`).join(''):'<div class="empty">予定はありません</div>'}</div></div>`;
+}
+
+// ===================== 生徒一覧 =====================
+function filteredStudents(){
+  const f=S.f, q=f.q.trim().toLowerCase();
+  let rows=students().filter(c=>
+    (!f.status || c.status===f.status) &&
+    (!f.cohort || c.cohort===f.cohort) &&
+    (!f.club || (c.clubs||[]).includes(f.club)) &&
+    (!f.industry || c.industry===f.industry) &&
+    (!f.gender || c.gender===f.gender) &&
+    (!f.incomplete || incomplete(c).length) &&
+    (!q || [c.name,c.kana,c.company,c.referrer,c.note,c.industry,c.jobTitle,c.email,cohortName(c.cohort),...(c.clubs||[]).map(clubName)].join(' ').toLowerCase().includes(q))
+  );
+  const key={name:c=>c.kana||c.name||'',cohort:c=>cohortName(c.cohort),status:c=>STATUSES.indexOf(c.status),start:c=>c.startDate||'',months:c=>activeMonths(c),industry:c=>c.industry||'',gender:c=>c.gender||'',referrer:c=>c.referrer||'',fee:c=>monthlyFee(c),total:c=>billedTotal(c),paid:c=>paidOf(c.id)}[S.sort.k]||(c=>0);
+  rows.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*S.sort.dir; });
+  return rows;
+}
+function setF(k,v){ S.f[k]=v; if(k==='q') S._focusQ=true; render(); }
+function setSort(k){ S.sort = S.sort.k===k ? {k,dir:-S.sort.dir} : {k,dir:1}; render(); }
+function viewStudents(){
+  const st=students(), rows=filteredStudents(), f=S.f;
+  const cnt=s=>st.filter(c=>!s||c.status===s).length;
+  const opt=(arr,cur,all)=>`<option value="">${all}</option>`+arr.map(([v,l])=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(l)}</option>`).join('');
+  const th=(k,l,cls='')=>`<th class="${cls}" onclick="setSort('${k}')">${l}${S.sort.k===k?`<span class="ar">${S.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
+  const totalBilled=rows.reduce((a,c)=>a+billedTotal(c),0), totalPaid=rows.reduce((a,c)=>a+paidOf(c.id),0), totalFee=rows.filter(c=>c.status==='契約中').reduce((a,c)=>a+monthlyFee(c),0);
+  const checksHtml=c=>`<div class="checks">${CHECKS.map(([k,l])=>`<button class="ck ${c.checks?.[k]?'on':''}" onclick="event.stopPropagation();toggleCheck('${c.id}','${k}')">${l}</button>`).join('')}</div>`;
+  const clubsHtml=c=>(c.clubs||[]).map(id=>clubName(id)).filter(Boolean).map(n=>`<span class="chip">${esc(n)}</span>`).join('')||'<span style="color:var(--faint)">—</span>';
+  return `
+  <div class="head"><div><h2>生徒一覧</h2><p>行をクリックで詳細・編集。チェック欄はその場でオン／オフできます。</p></div>
+    <div class="head-actions"><button class="btn" onclick="exportCSV()">CSV出力</button><button class="btn primary" onclick="openCustomer(null,'student')">＋ 生徒を登録</button></div></div>
+  <div class="toolbar">
+    <div class="seg">${[['契約中','契約中'],['休止中','休止中'],['契約終了','契約終了'],['','すべて']].map(([v,l])=>`<button class="${f.status===v?'on':''}" onclick="setF('status','${v}')">${l}<span class="n">${cnt(v)}</span></button>`).join('')}</div>
+    <input class="inp search" id="q" placeholder="名前・会社・紹介者・備考で検索" value="${esc(f.q)}" oninput="setF('q',this.value)">
+  </div>
+  <div class="toolbar">
+    <select class="inp" onchange="setF('cohort',this.value)">${opt(S.master.cohorts.map(k=>[k.id,k.name]),f.cohort,'期生：すべて')}</select>
+    <select class="inp" onchange="setF('club',this.value)">${opt(S.master.clubs.map(k=>[k.id,k.name+(k.archived?'（廃部）':'')]),f.club,'部活：すべて')}</select>
+    <select class="inp" onchange="setF('industry',this.value)">${opt(S.master.industries.map(x=>[x,x]),f.industry,'業種：すべて')}</select>
+    <select class="inp" onchange="setF('gender',this.value)">${opt(GENDERS.map(x=>[x,x]),f.gender,'性別：すべて')}</select>
+    <label class="tog"><input type="checkbox" ${f.incomplete?'checked':''} onchange="setF('incomplete',this.checked)"> 手続き未完了のみ</label>
+    ${(f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
+  </div>
+  <div class="tbl-wrap resp"><table>
+    <thead><tr>${th('name','氏名')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
+    <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
+      <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||c.kana||'')}</small></td>
+      <td>${esc(cohortName(c.cohort))||'—'}</td>
+      <td><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></td>
+      <td class="num">${fmtDate(c.startDate)}${c.status==='契約終了'&&c.endDate?`<small>〜${fmtDate(c.endDate)}</small>`:''}</td>
+      <td class="r num">${activeMonths(c)}ヶ月</td>
+      <td>${esc(c.industry)||'—'}</td>
+      <td>${esc(c.gender)||'—'}</td>
+      <td class="wrap" style="min-width:110px">${clubsHtml(c)}</td>
+      <td>${esc(c.referrer)||'—'}</td>
+      <td>${checksHtml(c)}</td>
+      <td class="r num">${yen(monthlyFee(c))}${c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
+      <td class="r num"><b>${yen(billedTotal(c))}</b></td>
+      <td class="r num">${yen(paidOf(c.id))}</td>
+    </tr>`).join(''):`<tr><td colspan="13"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
+    ${rows.length?`<tfoot><tr><td colspan="10">${rows.length}名</td><td class="r num">${yen(totalFee)}</td><td class="r num">${yen(totalBilled)}</td><td class="r num">${yen(totalPaid)}</td></tr></tfoot>`:''}
+  </table></div>
+  <div class="cards">${rows.length?rows.map(c=>`<div class="mcard" onclick="openCustomer('${c.id}')">
+      <div class="top"><div><b style="color:var(--heading)">${esc(c.name)}</b> <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></div><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></div>
+      <div class="meta">${fmtDate(c.startDate)}〜 ・ ${activeMonths(c)}ヶ月 ・ ${esc(c.industry||'業種未設定')} ・ ${esc(c.gender||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>
+      <div>${clubsHtml(c)}</div>
+      <div class="foot">${checksHtml(c)}<b class="num">${yen(billedTotal(c))}</b></div>
+    </div>`).join(''):'<div class="empty">該当する生徒がいません</div>'}</div>
+  <div class="sum-line"><span>表示中 ${rows.length}名 ／ 月額合計（契約中）<b>${yen(totalFee)}</b></span><span>累計売上 <b>${yen(totalBilled)}</b> ・ 入金済 <b>${yen(totalPaid)}</b></span></div>`;
+}
+async function toggleCheck(id,k){
+  const c=clone(byId(id)); c.checks={...(c.checks||{}),[k]:!c.checks?.[k]};
+  await run(()=>Store.saveCustomer(c)); render();
+}
+function exportCSV(){
+  const rows=filteredStudents();
+  const head=['氏名','ふりがな','性別','年齢','会社','役職','業種','営業歴','期生','状態','契約開始','契約終了','継続月数','基本プラン','基本月額','オプション','オプション月額','月額合計','入学金','支払方法','累計売上','入金済','部活動','紹介者','流入経路','契約書','決済','LINE','メール','備考'];
+  const body=rows.map(c=>[c.name,c.kana,c.gender,c.age,c.company,c.jobTitle,c.industry,c.experience,cohortName(c.cohort),c.status,c.startDate,c.endDate,activeMonths(c),c.plan?.baseName,c.plan?.base,c.plan?.advisor?optLabel(c.plan):'',c.plan?.advisor?c.plan.advisorFee:0,monthlyFee(c),c.plan?.entryFee,c.payMethod,billedTotal(c),paidOf(c.id),(c.clubs||[]).map(clubName).join('／'),c.referrer,c.source,...CHECKS.map(([k])=>c.checks?.[k]?'済':''),c.email,c.note]);
+  const csv=[head,...body].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=`SSC生徒一覧_${todayStr()}.csv`; a.click();
+}
+
+// ===================== オリエン・見込み =====================
+function viewLeads(){
+  const ls=leads(), q=S.lf.q.trim().toLowerCase();
+  let rows=ls.filter(c=>(S.lf.stage==='active'?c.stage!=='見送り':S.lf.stage==='all'?true:c.stage===S.lf.stage) && (!q||[c.name,c.kana,c.company,c.referrer,c.note].join(' ').toLowerCase().includes(q)));
+  rows.sort((a,b)=>(b.orientDate||'').localeCompare(a.orientDate||''));
+  // ファネル（今期）
+  const fy=fyOf(curYM()), fyM=fyMonths(fy);
+  const inFY=c=>c.orientDate && fyM.includes(c.orientDate.slice(0,7));
+  const all=S.customers.filter(inFY);
+  const reach=i=>all.filter(c=>c.kind!=='lead' || (c.stage!=='見送り' && STAGES.indexOf(c.stage)>=i) || (c.stage==='見送り' && (c.lostAt??0)>=i)).length;
+  const f=[reach(0),reach(1),reach(2),reach(3),all.filter(c=>c.kind!=='lead').length];
+  const fl=['オリエン予約','オリエン参加','選考・面接','合格','入学'];
+  const m=curYM(), g=S.goals[m]||{};
+  return `
+  <div class="head"><div><h2>オリエン・見込み</h2><p>オリエンテーション予約から入学までを管理。「入学登録」で生徒一覧へ移ります。</p></div>
+    <div class="head-actions"><button class="btn primary" onclick="openCustomer(null,'lead')">＋ オリエン予約を登録</button></div></div>
+  <div class="card" style="margin-bottom:14px"><h3>今期のファネル <small>${fyLabel(fy)}・オリエン日基準</small></h3>
+    <div class="funnel" style="margin:0">${f.map((v,i)=>`<div class="fstep ${i===4?'goal':''}"><div class="l">${fl[i]}</div><div class="v">${v}</div><div class="r">${i?`前段から ${pct(v,f[i-1])??'—'}%`:`今月 ${orientCount(m)}件${g.appo?' / 目標'+g.appo:''}`}</div></div>`).join('')}</div>
+  </div>
+  <div class="toolbar">
+    <div class="seg">${[['active','進行中'],...STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>c.stage!=='見送り').length:v==='all'?ls.length:ls.filter(c=>c.stage===v).length}</span></button>`).join('')}</div>
+    <input class="inp search" placeholder="名前・紹介者で検索" value="${esc(S.lf.q)}" onchange="S.lf.q=this.value;render()">
+  </div>
+  <div class="tbl-wrap resp"><table>
+    <thead><tr><th>オリエン日</th><th>氏名</th><th>ステージ</th><th>業種</th><th>紹介者</th><th>流入経路</th><th>メモ</th><th></th></tr></thead>
+    <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
+      <td class="num">${fmtDate(c.orientDate)}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}</td>
+      <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||'')}</small></td>
+      <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value)">${STAGES.map(s=>`<option ${s===c.stage?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td>${esc(c.industry)||'—'}</td><td>${esc(c.referrer)||'—'}</td><td>${esc(c.source)||'—'}</td>
+      <td class="wrap" style="max-width:220px;color:var(--muted)">${esc((c.note||'').slice(0,40))}</td>
+      <td onclick="event.stopPropagation()">${c.stage!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
+    </tr>`).join(''):'<tr><td colspan="8"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
+  <div class="cards">${rows.map(c=>`<div class="mcard" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge b-blue">${esc(c.stage)}</span></div><div class="meta">${fmtDate(c.orientDate)} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
+}
+async function setStage(id,v){
+  const c=clone(byId(id)); if(v==='見送り') c.lostAt=STAGES.indexOf(c.stage); c.stage=v;
+  await run(()=>Store.saveCustomer(c),'ステージを更新しました'); render();
+}
+function enroll(id){ openCustomer(id); toEnroll(); }
+
+// ===================== 入金管理 =====================
+function viewPay(){
+  const m=S.payMonth;
+  const rows=students().map(c=>({c,bill:billOf(c,m),paid:paidOf(c.id,m),pays:S.payments.filter(p=>p.customerId===c.id&&p.month===m)})).filter(r=>r.bill||r.paid);
+  rows.sort((a,b)=>((a.paid>=a.bill)-(b.paid>=b.bill)) || (a.c.kana||a.c.name).localeCompare(b.c.kana||b.c.name,'ja'));
+  const bill=rows.reduce((a,r)=>a+r.bill,0), paid=rows.reduce((a,r)=>a+r.paid,0);
+  const st=r=>r.paid>=r.bill&&r.bill?['入金済','b-on']:r.paid>0&&r.paid<r.bill?['一部入金','b-pause']:r.bill===0?['請求なし','b-end']:['未入金','b-red'];
+  return `
+  <div class="head"><div><h2>入金管理</h2><p>契約内容から自動計算した請求見込みと、実際の入金を照合します。</p></div>
+    <div class="head-actions"><button class="btn" onclick="S.payMonth=addM(S.payMonth,-1);render()">‹ 前月</button><button class="btn" style="min-width:120px;justify-content:center" onclick="S.payMonth=curYM();render()">${mLabel(m)}</button><button class="btn" onclick="S.payMonth=addM(S.payMonth,1);render()">翌月 ›</button></div></div>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">請求見込み</div><div class="v num">${yen(bill)}</div><div class="s">${rows.filter(r=>r.bill).length}名</div></div>
+    <div class="card kpi"><div class="l">入金済</div><div class="v num">${yen(paid)}</div><div class="bar ${paid>=bill?'ok':''}"><i style="width:${bill?Math.min(100,paid/bill*100):0}%"></i></div></div>
+    <div class="card kpi"><div class="l">未入金</div><div class="v num" style="color:${bill-paid>0?'var(--red)':'var(--heading)'}">${yen(Math.max(0,bill-paid))}</div><div class="s">${rows.filter(r=>r.paid<r.bill).length}名</div></div>
+  </div>
+  ${rows.filter(r=>r.paid<r.bill).length>1?`<div style="margin-bottom:10px;text-align:right"><button class="btn sm" onclick="payAll()">未入金をまとめて「入金済」にする</button></div>`:''}
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>氏名</th><th>期生</th><th>内訳</th><th class="r">請求見込み</th><th class="r">入金額</th><th>状態</th><th>入金記録</th><th></th></tr></thead>
+    <tbody>${rows.length?rows.map(r=>{const [l,b]=st(r);const c=r.c;const s=c.startDate?.slice(0,7)===m;return `<tr>
+      <td><span class="nm" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span><small>${esc(c.payMethod||'')}</small></td>
+      <td>${esc(cohortName(c.cohort))}</td>
+      <td style="font-size:12px;color:var(--muted)">基本${man(c.plan?.base)}${c.plan?.advisor?` ＋ ${esc(optLabel(c.plan))}${man(c.plan.advisorFee)}`:''}${s&&c.plan?.entryFee?` ＋ 入学金${man(c.plan.entryFee)}`:''}</td>
+      <td class="r num">${yen(r.bill)}</td><td class="r num">${yen(r.paid)}</td>
+      <td><span class="badge ${b}">${l}</span></td>
+      <td style="font-size:12px">${r.pays.map(p=>`<div>${fmtDate(p.date)} ${yen(p.amount)} <button class="icon-btn" title="取り消し" onclick="delPayment('${p.id}')">✕</button></div>`).join('')||'<span style="color:var(--faint)">—</span>'}</td>
+      <td style="white-space:nowrap">${r.paid<r.bill?`<button class="btn sm primary" onclick="quickPay('${c.id}')">入金済にする</button> `:''}<button class="btn sm" onclick="openPayment('${c.id}')">金額を指定</button></td>
+    </tr>`}).join(''):'<tr><td colspan="8"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
+    ${rows.length?`<tfoot><tr><td colspan="3">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
+  </table></div>
+  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>`;
+}
+async function quickPay(cid){
+  const c=byId(cid), m=S.payMonth, amt=billOf(c,m)-paidOf(cid,m);
+  await run(()=>Store.savePayment({customerId:cid,month:m,amount:amt,date:todayStr(),method:c.payMethod||''}),`${c.name}さんを入金済にしました`);
+  if(!c.checks?.payment){ const cc=clone(c); cc.checks={...(cc.checks||{}),payment:true}; await Store.saveCustomer(cc).catch(()=>{}); }
+  render();
+}
+async function payAll(){
+  const m=S.payMonth, list=students().filter(c=>billOf(c,m)>paidOf(c.id,m));
+  if(!confirm(`${mLabel(m)}の未入金 ${list.length}名分を、請求見込み額どおり入金済にします。よろしいですか？`)) return;
+  await run(async()=>{ for(const c of list) await Store.savePayment({customerId:c.id,month:m,amount:billOf(c,m)-paidOf(c.id,m),date:todayStr(),method:c.payMethod||''}); },'入金を記録しました');
+  render();
+}
+async function delPayment(id){ if(!confirm('この入金記録を取り消しますか？')) return; await run(()=>Store.deletePayment(id),'取り消しました'); render(); if(document.getElementById('modal-root').innerHTML && D?.id) openCustomer(D.id); }
+function openPayment(cid, month){
+  const c=byId(cid), m=month||S.payMonth, rest=Math.max(0,billOf(c,m)-paidOf(cid,m));
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:440px">
+    <div class="modal-h"><h3>入金を記録：${esc(c.name)}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl"><label>対象月</label><input class="inp" type="month" id="p-month" value="${m}"></div>
+      <div class="fl"><label>入金日</label><input class="inp" type="date" id="p-date" value="${todayStr()}"></div>
+      <div class="fl"><label>金額（円）</label><input class="inp num" type="number" id="p-amt" value="${rest}"></div>
+      <div class="fl"><label>方法</label><select class="inp" id="p-method">${PAY_METHODS.map(x=>`<option ${x===c.payMethod?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="fl w3"><label>メモ</label><input class="inp" id="p-memo" placeholder="例：イベント参加費、分割1回目 など"></div>
+    </div></div>
+    <div class="modal-f"><div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="savePaymentForm('${cid}')">記録する</button></div></div>
+  </div></div>`;
+}
+async function savePaymentForm(cid){
+  const v=id=>document.getElementById(id).value;
+  const amt=Number(v('p-amt')); if(!amt) return toast('金額を入力してください',true);
+  await run(()=>Store.savePayment({customerId:cid,month:v('p-month'),date:v('p-date'),amount:amt,method:v('p-method'),memo:v('p-memo')}),'入金を記録しました');
+  closeModal(); render();
+}
+
+// ===================== 目標 =====================
+let goalTimer;
+function viewGoals(){
+  const fy=S.goalFY, ms=fyMonths(fy), cm=curYM();
+  const r=ms.map(m=>{ const g=S.goals[m]||{}; return {m,g,bill:billMonth(m),paid:paidMonth(m),or:orientCount(m),en:enrollCount(m)}; });
+  const T=k=>r.reduce((a,x)=>a+(typeof k==='function'?k(x):x[k]),0);
+  const gs=T(x=>Number(x.g.sales)||0), ga=T(x=>Number(x.g.appo)||0), ge=T(x=>Number(x.g.enroll)||0);
+  const P=(a,b,fut)=>{const p=pct(a,b);return p==null?'<span style="color:var(--faint)">—</span>':`<span class="pct ${fut?'':pctClass(p)}" ${fut?'style="color:var(--faint)" title="見込み"':''}>${p}%</span>`;};
+  const inp=(m,k,v,cls='')=>`<input class="${cls}" type="number" min="0" value="${v??''}" placeholder="—" oninput="setGoal('${m}','${k}',this.value)">`;
+  const past=ms.filter(m=>m<=cm);
+  const toDate={bill:r.filter(x=>x.m<=cm).reduce((a,x)=>a+x.bill,0), gs:r.filter(x=>x.m<=cm).reduce((a,x)=>a+(Number(x.g.sales)||0),0)};
+  return `
+  <div class="head"><div><h2>目標</h2><p>月ごとに売上・オリエン（アポ）・入学の目標を入力。実績は自動で集計されます。</p></div>
+    <div class="head-actions"><button class="btn" onclick="S.goalFY--;render()">‹</button><button class="btn" style="justify-content:center" onclick="S.goalFY=fyOf(curYM());render()">${fyLabel(fy)}</button><button class="btn" onclick="S.goalFY++;render()">›</button></div></div>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">年間売上目標</div><div class="v num">${yen(gs)}</div><div class="s">見込み着地 ${yen(T('bill'))}（${pct(T('bill'),gs)??'—'}%）</div><div class="bar ${T('bill')>=gs&&gs?'ok':''}"><i style="width:${gs?Math.min(100,T('bill')/gs*100):0}%"></i></div></div>
+    <div class="card kpi"><div class="l">今月までの進捗（売上）</div><div class="v num">${pct(toDate.bill,toDate.gs)??'—'}<small>%</small></div><div class="s">実績 ${yen(toDate.bill)} ／ 目標 ${yen(toDate.gs)}</div></div>
+    <div class="card kpi"><div class="l">オリエン（アポ）</div><div class="v">${T('or')}<small>/ ${ga||'—'}件</small></div><div class="bar ${T('or')>=ga&&ga?'ok':''}"><i style="width:${ga?Math.min(100,T('or')/ga*100):0}%"></i></div></div>
+    <div class="card kpi"><div class="l">入学</div><div class="v">${T('en')}<small>/ ${ge||'—'}名</small></div><div class="s">オリエン→入学 ${pct(T('en'),T('or'))??'—'}%</div></div>
+  </div>
+  <div class="tbl-wrap"><table class="goal-tbl">
+    <thead><tr><th>月</th><th class="r">売上目標</th><th class="r">請求見込み</th><th class="r">入金実績</th><th>達成率</th><th class="r">オリエン目標</th><th class="r">実績</th><th>達成率</th><th class="r">入学目標</th><th class="r">実績</th><th>達成率</th></tr></thead>
+    <tbody>${r.map(x=>`<tr class="${x.m===cm?'cur':''}">
+      <td><b>${mShort(x.m)}</b>${x.m===cm?' <span class="badge b-blue">今月</span>':''}</td>
+      <td class="r">${inp(x.m,'sales',x.g.sales)}</td>
+      <td class="r num" style="${x.m>cm?'color:var(--faint)':''}">${yen(x.bill)}</td>
+      <td class="r num">${x.m<=cm?yen(x.paid):'<span style="color:var(--faint)">—</span>'}</td>
+      <td>${P(x.bill,x.g.sales,x.m>cm)}</td>
+      <td class="r">${inp(x.m,'appo',x.g.appo,'s')}</td><td class="r num">${x.or}</td><td>${P(x.or,x.g.appo,x.m>cm)}</td>
+      <td class="r">${inp(x.m,'enroll',x.g.enroll,'s')}</td><td class="r num">${x.en}</td><td>${P(x.en,x.g.enroll,x.m>cm)}</td>
+    </tr>`).join('')}</tbody>
+    <tfoot><tr><td>合計</td><td class="r num">${yen(gs)}</td><td class="r num">${yen(T('bill'))}</td><td class="r num">${yen(T(x=>x.m<=cm?x.paid:0))}</td><td>${P(T('bill'),gs)}</td><td class="r num">${ga}</td><td class="r num">${T('or')}</td><td>${P(T('or'),ga)}</td><td class="r num">${ge}</td><td class="r num">${T('en')}</td><td>${P(T('en'),ge)}</td></tr></tfoot>
+  </table></div>
+  <p class="hint" style="margin-top:10px">来月以降の「請求見込み」は、今の在籍者が継続した場合の見込みです。オリエン実績はオリエン日、入学実績は契約開始日の月で数えます。入力は自動保存されます。</p>`;
+}
+function setGoal(m,k,v){
+  S.goals[m]={...(S.goals[m]||{}),[k]:v===''?'':Number(v)};
+  clearTimeout(goalTimer);
+  goalTimer=setTimeout(async()=>{ try{ await Store.saveSetting('goals'); toast('目標を保存しました'); if(document.activeElement?.tagName!=='INPUT') render(); }catch(e){ toast('保存に失敗しました：'+e.message,true); } },700);
+}
+
+// ===================== 設定 =====================
+function viewSettings(){
+  const M=S.master, all=S.customers;
+  const listBlock=(key,title,desc,items,countFn,opts={})=>`<div class="card"><h3>${title}</h3><p class="hint" style="margin:-6px 0 12px">${desc}</p>
+    <div class="set-list">${items.map((it,i)=>{const name=typeof it==='string'?it:it.name;const arch=it.archived;return `<div class="set-item ${arch?'arch':''}">
+      <input class="inp" value="${esc(name)}" onchange="renameItem('${key}',${i},this.value)">
+      ${opts.extra?opts.extra(it,i):''}
+      <span class="cnt">${countFn(it)}名</span>
+      <button class="icon-btn" title="上へ" onclick="moveItem('${key}',${i},-1)">↑</button>
+      ${opts.archive?`<button class="icon-btn" title="${arch?'復活':'廃部（非表示）'}" onclick="archiveItem('${key}',${i})">${arch?'↺':'⏸'}</button>`:''}
+      <button class="icon-btn" title="削除" onclick="deleteItem('${key}',${i})">✕</button></div>`;}).join('')||'<div class="empty">まだありません</div>'}</div>
+    <div class="add-row"><input class="inp" id="add-${key}" placeholder="${opts.ph||'追加する名前'}" onkeydown="if(event.key==='Enter')addItem('${key}')"><button class="btn primary" onclick="addItem('${key}')">追加</button></div></div>`;
+  return `
+  <div class="head"><div><h2>設定</h2><p>ここで追加した項目が、登録フォームや検索のプルダウンに反映されます。</p></div></div>
+  <div class="grid two">
+    ${listBlock('clubs','部活動','部活を作ったらここに追加。生徒には複数登録できます。⏸ で廃部（過去データは残して選択肢から隠す）。',M.clubs,it=>all.filter(c=>(c.clubs||[]).includes(it.id)).length,{archive:true,ph:'例：テレアポ部'})}
+    <div class="card"><h3>期生</h3><p class="hint" style="margin:-6px 0 12px">期ごとに開講日と基本プランを決めておくと、登録時に自動で入ります。</p>
+      <div class="set-list">${M.cohorts.map((k,i)=>`<div class="set-item">
+        <input class="inp" style="flex:1.2" value="${esc(k.name)}" onchange="renameItem('cohorts',${i},this.value)">
+        <input class="inp" type="date" style="flex:1.4" value="${k.start||''}" title="開講日" onchange="S.master.cohorts[${i}].start=this.value;saveMaster()">
+        <select class="inp" style="flex:1.4" title="基本プラン" onchange="S.master.cohorts[${i}].planId=this.value;delete S.master.cohorts[${i}].base;saveMaster()"><option value="">（一番上のプラン）</option>${M.plans.base.map(p=>`<option value="${p.id}" ${p.id===k.planId?'selected':''}>${esc(p.name)} ${yen(p.amount)}</option>`).join('')}</select>
+        <span class="cnt">${all.filter(c=>c.cohort===k.id).length}名</span>
+        <button class="icon-btn" onclick="moveItem('cohorts',${i},-1)">↑</button><button class="icon-btn" onclick="deleteItem('cohorts',${i})">✕</button></div>`).join('')}</div>
+      <div class="hint" style="margin-bottom:8px">左から：期の名前 ／ 開講日 ／ 基本プラン</div>
+      <div class="add-row"><input class="inp" id="add-cohorts" placeholder="例：${M.cohorts.length+1}期生" onkeydown="if(event.key==='Enter')addItem('cohorts')"><button class="btn primary" onclick="addItem('cohorts')">追加</button></div></div>
+    ${listBlock('industries','業種','生徒の業種の選択肢。',M.industries,it=>all.filter(c=>c.industry===it).length)}
+    ${listBlock('sources','流入経路','どこから来たか（紹介・SNSなど）。紹介者とは別に集計できます。',M.sources,it=>all.filter(c=>c.source===it).length)}
+    <div class="card"><h3>料金プラン</h3><p class="hint" style="margin:-6px 0 12px">ここに登録した料金が、生徒登録のプルダウンに出ます。各欄の一番上が新規登録時の初期値（期生にプランがあればそちら優先）。金額を変えても、登録済みの生徒の金額はそのままです。</p>
+      ${PLAN_TYPES.map(([t,l,sub])=>`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--heading);margin-bottom:6px">${l} <span style="font-weight:400;color:var(--faint)">${sub}</span></div>
+        <div class="set-list">${M.plans[t].map((p,i)=>`<div class="set-item">
+          <input class="inp" style="flex:2" value="${esc(p.name)}" onchange="setPlan('${t}',${i},'name',this.value)">
+          <input class="inp num" type="number" min="0" style="flex:1" value="${p.amount}" onchange="setPlan('${t}',${i},'amount',this.value)">
+          <span class="cnt">${all.filter(c=>c.plan&&[c.plan.baseId,c.plan.optId,c.plan.entryId].includes(p.id)).length}名</span>
+          <button class="icon-btn" title="上へ（一番上＝初期値）" onclick="movePlan('${t}',${i})">↑</button><button class="icon-btn" title="削除" onclick="delPlan('${t}',${i})">✕</button></div>`).join('')||'<div class="empty" style="padding:6px 0;text-align:left">なし</div>'}</div>
+        <div class="add-row"><input class="inp" style="flex:2" id="plan-n-${t}" placeholder="プラン名（例：${t==='base'?'2期生特別価格':t==='option'?'顧問':'入学金'}）"><input class="inp num" style="flex:1" type="number" min="0" id="plan-a-${t}" placeholder="金額" onkeydown="if(event.key==='Enter')addPlan('${t}')"><button class="btn primary" onclick="addPlan('${t}')">追加</button></div></div>`).join('')}
+    </div>
+    <div class="card"><h3>データ</h3><p class="hint" style="margin:-6px 0 12px">念のためのバックアップ。JSON で全データを書き出せます。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="backup()">バックアップをダウンロード</button><button class="btn" onclick="S.view='students';S.f.status='';render();exportCSV()">生徒一覧をCSV出力</button>${DEMO?`<button class="btn danger" onclick="if(confirm('デモデータを初期化しますか？')){localStorage.removeItem('ssc_demo_v3');location.reload()}">デモデータを初期化</button>`:''}</div>
+      <p class="hint" style="margin-top:12px">ログイン中：${esc(document.getElementById('user-email').textContent)}</p></div>
+  </div>`;
+}
+async function saveMaster(){ try{ await Store.saveSetting('master'); toast('設定を保存しました'); }catch(e){ toast('保存に失敗しました：'+e.message,true); } }
+function addItem(key){
+  const el=document.getElementById('add-'+key), v=el.value.trim(); if(!v) return;
+  const M=S.master;
+  if(key==='clubs'){ if(M.clubs.some(c=>c.name===v)) return toast('同じ名前があります',true); M.clubs.push({id:uid(),name:v}); }
+  else if(key==='cohorts'){ const last=M.cohorts[M.cohorts.length-1]; M.cohorts.push({id:uid(),name:v,start:'',planId:last?.planId||''}); }
+  else { if(M[key].includes(v)) return toast('同じ名前があります',true); M[key].push(v); }
+  saveMaster(); render(); setTimeout(()=>document.getElementById('add-'+key)?.focus(),0);
+}
+function addPlan(t){
+  const n=document.getElementById('plan-n-'+t).value.trim(), a=document.getElementById('plan-a-'+t).value;
+  if(!n||a==='') return toast('プラン名と金額を入力してください',true);
+  S.master.plans[t].push({id:uid(),name:n,amount:Number(a)}); saveMaster(); render();
+}
+function setPlan(t,i,k,v){ const p=S.master.plans[t][i]; if(k==='name'){ v=v.trim(); if(!v) return render(); p.name=v; } else p.amount=Number(v)||0; saveMaster(); }
+function movePlan(t,i){ const a=S.master.plans[t]; if(!i) return; [a[i-1],a[i]]=[a[i],a[i-1]]; saveMaster(); render(); }
+function delPlan(t,i){ const p=S.master.plans[t][i]; if(!confirm(`「${p.name}」を削除しますか？\n（登録済みの生徒の金額はそのまま残ります）`)) return; S.master.plans[t].splice(i,1); S.master.cohorts.forEach(k=>{ if(k.planId===p.id) k.planId=''; }); saveMaster(); render(); }
+function renameItem(key,i,v){
+  v=v.trim(); if(!v) return render();
+  const arr=S.master[key];
+  if(typeof arr[i]==='string'){ // 業種・流入経路は文字列なので、使っている生徒のデータも置き換える
+    const old=arr[i]; arr[i]=v; const f=key==='industries'?'industry':'source';
+    const hit=S.customers.filter(c=>c[f]===old);
+    if(hit.length) run(async()=>{ for(const c of hit){ const cc=clone(c); cc[f]=v; await Store.saveCustomer(cc);} });
+  } else arr[i].name=v;
+  saveMaster();
+}
+function moveItem(key,i,d){ const a=S.master[key]; if(i+d<0||i+d>=a.length) return; [a[i],a[i+d]]=[a[i+d],a[i]]; saveMaster(); render(); }
+function archiveItem(key,i){ const it=S.master[key][i]; it.archived=!it.archived; saveMaster(); render(); }
+function deleteItem(key,i){
+  const it=S.master[key][i], name=typeof it==='string'?it:it.name;
+  const used = key==='clubs'?S.customers.filter(c=>(c.clubs||[]).includes(it.id)).length : key==='cohorts'?S.customers.filter(c=>c.cohort===it.id).length : S.customers.filter(c=>c[key==='industries'?'industry':'source']===it).length;
+  if(used && key==='clubs') { if(!confirm(`「${name}」は ${used}名が所属しています。削除すると生徒の所属からも外れます。\n（残したい場合は ⏸ の廃部を使ってください）\n削除しますか？`)) return; }
+  else if(used) { if(!confirm(`「${name}」は ${used}名が使用中です。削除しても生徒のデータは残りますが、選択肢からは消えます。削除しますか？`)) return; }
+  else if(!confirm(`「${name}」を削除しますか？`)) return;
+  S.master[key].splice(i,1); saveMaster(); render();
+}
+function backup(){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
+}
+
+// ===================== 生徒・見込みフォーム =====================
+let D=null; // 編集中の下書き
+function newRecord(kind){
+  const M=S.master, k=M.cohorts[M.cohorts.length-1];
+  if(kind==='lead') return {kind:'lead',stage:'オリエン予約',orientDate:todayStr(),checks:{},clubs:[],pauses:[]};
+  return {kind:'student',status:'契約中',cohort:k?.id||'',startDate:(k?.start && k.start>=todayStr())?k.start:todayStr(),
+    plan:defaultPlan(k?.id),
+    payMethod:'クレジットカード',checks:{},clubs:[],pauses:[]};
+}
+function openCustomer(id,kind){
+  D = id ? clone(byId(id)) : newRecord(kind||'student');
+  D.clubs=D.clubs||[]; D.pauses=D.pauses||[]; D.checks=D.checks||{}; D.plan=D.plan||defaultPlan(D.cohort);
+  drawForm();
+}
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; D=null; }
+function toEnroll(){
+  readForm();
+  const nr=newRecord('student');
+  D={...nr,...D,kind:'student',status:'契約中',stage:'入学',plan:nr.plan,cohort:D.cohort||nr.cohort,startDate:nr.startDate,payMethod:D.payMethod||nr.payMethod};
+  D._enrolling=true; drawForm(); toast('契約内容を入力して保存してください');
+}
+function drawForm(){
+  const isLead=D.kind==='lead', M=S.master, c=D;
+  const sel=(id,arr,cur,blank)=>`<select class="inp" id="${id}">${blank!=null?`<option value="">${blank}</option>`:''}${arr.map(x=>{const [v,l]=Array.isArray(x)?x:[x,x];return `<option value="${esc(v)}" ${String(v)===String(cur??'')?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;
+  const txt=(id,v,ph='',type='text',extra='')=>`<input class="inp" id="${id}" type="${type}" value="${esc(v??'')}" placeholder="${ph}" ${extra}>`;
+  const names=[...new Set(S.customers.filter(x=>x.id!==c.id).map(x=>x.name).filter(Boolean))];
+  const referred = c.id ? S.customers.filter(x=>x.id!==c.id && x.referrer && x.referrer===c.name) : [];
+  const industries = c.industry && !M.industries.includes(c.industry) ? [...M.industries,c.industry] : M.industries;
+  const sources = c.source && !M.sources.includes(c.source) ? [...M.sources,c.source] : M.sources;
+  let summary='';
+  if(!isLead && c.id && !c._enrolling){
+    const orig=byId(c.id), billed=billedTotal(orig), paid=paidOf(c.id);
+    const months=[]; if(orig.startDate){ let e=endYM(orig)&&endYM(orig)<curYM()?endYM(orig):curYM(); for(let m=e; m>=orig.startDate.slice(0,7) && months.length<36; m=addM(m,-1)) months.push(m); }
+    summary=`<div class="sec"><div class="sec-t">売上サマリー</div>
+      <div class="stat3"><div><div class="l">継続月数</div><div class="v">${activeMonths(orig)}ヶ月</div></div><div><div class="l">累計売上（請求）</div><div class="v">${yen(billed)}</div></div><div><div class="l">入金済</div><div class="v">${yen(paid)}</div></div><div><div class="l">差額</div><div class="v" style="color:${billed-paid>0?'var(--red)':'var(--green)'}">${yen(billed-paid)}</div></div></div>
+      ${months.length?`<div class="hist"><table><thead><tr><th>月</th><th class="r">請求見込み</th><th class="r">入金</th><th></th></tr></thead><tbody>${months.map(m=>{const b=billOf(orig,m),p=paidOf(c.id,m);return `<tr><td>${mLabel(m)}${isPaused(orig,m)?' <span class="badge b-pause">休止</span>':''}</td><td class="r num">${yen(b)}</td><td class="r num">${yen(p)}</td><td>${b>p?`<button class="btn sm" onclick="openPayment('${c.id}','${m}')">入金記録</button>`:p?'<span class="badge b-on">済</span>':''}</td></tr>`}).join('')}</tbody></table></div>`:''}
+      ${referred.length?`<p class="hint" style="margin-top:10px">この人の紹介で来た人：${referred.map(x=>`<a href="#" onclick="openCustomer('${x.id}');return false">${esc(x.name)}</a>`).join('、')}（${referred.length}名）</p>`:''}
+    </div>`;
+  }
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal">
+    <div class="modal-h"><h3>${c.id&&!c._enrolling?esc(c.name):c._enrolling?'入学登録：'+esc(c.name):isLead?'オリエン予約を登録':'生徒を登録'}</h3>
+      <div style="display:flex;gap:8px;align-items:center">${!isLead&&c.status?`<span class="badge ${STATUS_BADGE[c.status]}">${c.status}</span>`:''}${isLead?`<span class="badge b-blue">${esc(c.stage)}</span>`:''}<button class="icon-btn" onclick="closeModal()">✕</button></div></div>
+    <div class="modal-b">
+      ${summary}
+      ${isLead?`<div class="sec"><div class="sec-t">オリエンテーション</div><div class="fg">
+        <div class="fl"><label>ステージ</label>${sel('f-stage',STAGES,c.stage)}</div>
+        <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}</div>
+        <div class="fl"><label>時間</label>${txt('f-orientTime',c.orientTime,'例：19:00')}</div>
+        <div class="fl"><label>面接日</label>${txt('f-interviewDate',c.interviewDate,'','date')}</div>
+      </div></div>`:''}
+      <div class="sec"><div class="sec-t">基本情報</div><div class="fg">
+        <div class="fl"><label>氏名 <span class="req">*</span></label>${txt('f-name',c.name,'山田 太郎')}</div>
+        <div class="fl"><label>ふりがな</label>${txt('f-kana',c.kana,'氏名を入力すると自動で入ります')}<div class="hint" id="kana-hint"></div></div>
+        <div class="fl"><label>性別</label>${sel('f-gender',GENDERS,c.gender,'—')}</div>
+        <div class="fl"><label>会社名</label>${txt('f-company',c.company)}</div>
+        <div class="fl"><label>業種</label>${sel('f-industry',industries,c.industry,'—')}</div>
+        <div class="fl"><label>役職</label>${txt('f-jobTitle',c.jobTitle,'例：営業課長')}</div>
+        <div class="fl"><label>年齢</label>${txt('f-age',c.age,'例：30代前半')}</div>
+        <div class="fl"><label>営業歴</label>${txt('f-experience',c.experience,'例：3年')}</div>
+        <div class="fl w2"><label>メール</label>${txt('f-email',c.email,'','email')}</div>
+      </div></div>
+      ${!isLead?`<div class="sec"><div class="sec-t">所属</div><div class="fg">
+        <div class="fl"><label>期生</label>${sel('f-cohort',M.cohorts.map(k=>[k.id,k.name]),c.cohort,'—')}</div>
+        <div class="fl w2"><label>部活動（複数可）</label><div class="clubs" id="club-sels"></div></div>
+      </div></div>
+      <div class="sec"><div class="sec-t">契約</div><div class="fg">
+        <div class="fl"><label>契約状態</label>${sel('f-status',STATUSES,c.status)}</div>
+        <div class="fl"><label>契約開始日 <span class="req">*</span></label>${txt('f-startDate',c.startDate,'','date')}</div>
+        <div class="fl"><label>契約終了日</label>${txt('f-endDate',c.endDate,'','date')}<div class="hint">終了したら入力（この月まで請求）</div></div>
+        <div class="fl"><label>基本プラン</label>${planSel('base',c.plan.baseId,c.plan.base,false)}</div>
+        <div class="fl"><label>オプション</label>${planSel('option',c.plan.advisor?c.plan.optId:null,c.plan.advisorFee,true)}</div>
+        <div class="fl"><label>入学金</label>${planSel('entry',c.plan.entryFee?c.plan.entryId:null,c.plan.entryFee,true)}</div>
+        <div class="fl"><label>月額合計</label><div class="inp num" id="f-total" style="background:var(--surface2);display:flex;align-items:center;font-weight:700"></div></div>
+        <div class="fl"><label>支払方法</label>${sel('f-payMethod',PAY_METHODS,c.payMethod)}</div>
+        <div class="fl w2"><label>休止期間</label><div id="pause-rows"></div></div>
+      </div><div id="status-warn"></div></div>
+      <div class="sec"><div class="sec-t">手続き</div><div class="checkrow">${CHECKS.map(([k,l])=>`<label class="cbox ${c.checks[k]?'on':''}"><input type="checkbox" id="f-ck-${k}" ${c.checks[k]?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> ${l}</label>`).join('')}</div></div>`:''}
+      <div class="sec"><div class="sec-t">紹介・流入</div><div class="fg">
+        <div class="fl"><label>紹介者</label><input class="inp" id="f-referrer" list="ref-list" value="${esc(c.referrer||'')}" placeholder="名前を入力（生徒から候補表示）"><datalist id="ref-list">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+        <div class="fl"><label>流入経路</label>${sel('f-source',sources,c.source,'—')}</div>
+      </div></div>
+      <div class="sec"><div class="sec-t">備考</div><textarea class="inp" id="f-note" placeholder="目標、悩み、面談メモなど">${esc(c.note||'')}</textarea></div>
+    </div>
+    <div class="modal-f">
+      ${c.id&&!c._enrolling?`<button class="btn danger" onclick="delCustomer()">削除</button>`:'<span></span>'}
+      <div class="r">${isLead&&c.stage!=='見送り'?`<button class="btn accent" onclick="toEnroll()">入学登録へ →</button>`:''}<button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveForm()">保存</button></div>
+    </div>
+  </div></div>`;
+  if(!isLead){
+    drawClubs(); drawPauses(); updTotal(); document.getElementById('f-status').onchange=onStatus;
+    // 新規・入学登録時は、期生を選び直すとその期の基本プランに切り替える
+    if(!c.id||c._enrolling) document.getElementById('f-cohort').onchange=e=>{ const d=defaultPlan(e.target.value); const s=document.getElementById('f-plan-base'); s.value=d.baseId||'custom'; document.getElementById('f-amt-base').value=d.base; updTotal(); };
+  }
+  setupAutoKana();
+  if(!c.id) setTimeout(()=>document.getElementById('f-name')?.focus(),30);
+}
+// ふりがな自動入力：氏名を打つときの変換前の読み（IMEのひらがな）を拾って入れる
+// ふりがな欄を直接書き換えたら、それ以降は自動で上書きしない
+function setupAutoKana(){
+  const name=document.getElementById('f-name'), kana=document.getElementById('f-kana'), hint=document.getElementById('kana-hint');
+  if(!name||!kana) return;
+  let auto=!kana.value, parts=[], comp='';
+  const toHira=t=>t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
+  const show=()=>{ hint.textContent=auto?'自動入力中（直接修正もできます）':''; };
+  const apply=()=>{ if(auto) kana.value=parts.join('').replace(/\s+/g,' ').trim(); };
+  name.addEventListener('compositionstart',()=>{ comp=''; });
+  name.addEventListener('compositionupdate',e=>{ const d=toHira(e.data||''); if(d && /^[ぁ-ゖー゛゜\s　]+$/.test(d)) comp=d; });
+  name.addEventListener('compositionend',()=>{ if(comp){ parts.push(comp); comp=''; apply(); } });
+  name.addEventListener('input',e=>{
+    if(e.isComposing) return;
+    if(!name.value.trim()){ parts=[]; apply(); return; }
+    if(/[\s　]$/.test(name.value) && parts[parts.length-1]!==' '){ parts.push(' '); apply(); }
+  });
+  kana.addEventListener('input',()=>{ auto=!kana.value; if(auto) parts=[]; show(); });
+  show();
+}
+
+// 部活：1つ選ぶと次の選択欄が出る
+// 料金プルダウン＋金額欄（プランを選ぶと金額が入る。金額を手で変えると「手入力」扱い）
+function planSel(t,id,amount,optional){
+  const list=S.master.plans[t], none=optional&&id==null;
+  const known=list.some(p=>p.id===id);
+  const custom=!none && !known;
+  return `<div style="display:flex;gap:6px"><select class="inp" id="f-plan-${t}" style="flex:1.4;min-width:0" onchange="pickPlan('${t}')">
+    ${optional?`<option value="" ${none?'selected':''}>なし</option>`:''}
+    ${list.map(p=>`<option value="${p.id}" ${p.id===id?'selected':''}>${esc(p.name)}（${yen(p.amount)}）</option>`).join('')}
+    <option value="custom" ${custom?'selected':''}>手入力</option></select>
+    <input class="inp num" type="number" min="0" id="f-amt-${t}" style="flex:1;min-width:0;${none?'visibility:hidden':''}" value="${none?'':amount??0}" oninput="document.getElementById('f-plan-${t}').value='custom';updTotal()"></div>`;
+}
+function pickPlan(t){
+  const v=document.getElementById('f-plan-'+t).value, a=document.getElementById('f-amt-'+t), p=S.master.plans[t].find(x=>x.id===v);
+  a.style.visibility=v===''?'hidden':'';
+  if(p) a.value=p.amount; else if(v==='') a.value=''; else a.focus();
+  updTotal();
+}
+function updTotal(){
+  const el=document.getElementById('f-total'); if(!el) return;
+  const n=t=>document.getElementById('f-plan-'+t).value===''?0:Number(document.getElementById('f-amt-'+t).value)||0;
+  const e=n('entry');
+  el.innerHTML=`${yen(n('base')+n('option'))}${e?`<span style="font-weight:400;font-size:12px;color:var(--muted);margin-left:6px">初月＋入学金${yen(e)}</span>`:''}`;
+}
+function readPlan(t){
+  const v=document.getElementById('f-plan-'+t).value, p=S.master.plans[t].find(x=>x.id===v);
+  return {id:p?.id||'', name:p?.name||(v==='custom'?'手入力':''), amount:v===''?0:Number(document.getElementById('f-amt-'+t).value)||0, on:v!==''};
+}
+function drawClubs(){
+  const el=document.getElementById('club-sels'); if(!el) return;
+  const all=S.master.clubs, active=all.filter(c=>!c.archived);
+  D.clubs=D.clubs.filter(id=>all.some(c=>c.id===id));
+  if(!all.length){ el.innerHTML=`<span class="hint" style="margin:0;align-self:center">部活動がまだありません。<a href="#" onclick="closeModal();go('settings');return false">設定で追加 →</a></span>`; return; }
+  const n=D.clubs.length + (active.some(c=>!D.clubs.includes(c.id))?1:0);
+  let h='';
+  for(let i=0;i<n;i++){
+    const cur=D.clubs[i]||'';
+    const opts=all.filter(c=>c.id===cur || (!c.archived && !D.clubs.includes(c.id)));
+    h+=`<select class="inp" onchange="setClub(${i},this.value)"><option value="">${cur?'（外す）':i?'＋ もう1つ追加':'部活を選択'}</option>${opts.map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${esc(c.name)}${c.archived?'（廃部）':''}</option>`).join('')}</select>`;
+  }
+  el.innerHTML=h;
+}
+function setClub(i,v){ if(v) D.clubs[i]=v; else D.clubs.splice(i,1); drawClubs(); }
+function drawPauses(){
+  const el=document.getElementById('pause-rows'); if(!el) return;
+  el.innerHTML=D.pauses.map((p,i)=>`<div class="pause-row"><input class="inp" type="month" value="${p.from||''}" onchange="D.pauses[${i}].from=this.value"> 〜 <input class="inp" type="month" value="${p.to||''}" onchange="D.pauses[${i}].to=this.value"><span class="hint" style="margin:0">${p.to?'':'（再開未定）'}</span><button class="icon-btn" onclick="D.pauses.splice(${i},1);drawPauses()">✕</button></div>`).join('')
+    + `<button class="btn sm" onclick="D.pauses.push({from:curYM(),to:''});drawPauses()">＋ 休止期間を追加</button>`;
+}
+// 状態を変えたら休止期間・終了日を自動で整える
+function onStatus(){
+  const v=document.getElementById('f-status').value, m=curYM(), w=document.getElementById('status-warn');
+  const open=D.pauses.find(p=>!p.to);
+  let msg='';
+  if(v==='休止中' && !open){ D.pauses.push({from:m,to:''}); msg=`${mLabel(m)}からの休止期間を追加しました。開始月を調整してください。`; }
+  if(v==='契約中' && open){ open.to=addM(m,-1)<open.from?open.from:addM(m,-1); msg=`休止期間を ${mLabel(open.to)} までで締めました。`; }
+  if(v==='契約終了' && !document.getElementById('f-endDate').value){ document.getElementById('f-endDate').value=todayStr(); msg='契約終了日に今日を入れました。最終請求月を確認してください。'; }
+  drawPauses(); w.innerHTML=msg?`<div class="warn">${msg}</div>`:'';
+}
+function readForm(){
+  const v=id=>{const e=document.getElementById(id); return e?e.value.trim():undefined;};
+  const set=(k,val)=>{ if(val!==undefined) D[k]=val; };
+  ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
+  if(document.getElementById('f-plan-base')){ const b=readPlan('base'),o=readPlan('option'),e=readPlan('entry');
+    D.plan={baseId:b.id,baseName:b.name,base:b.amount,advisor:o.on,optId:o.id,optName:o.name,advisorFee:o.amount,entryId:e.id,entryName:e.name,entryFee:e.amount}; }
+  if(document.getElementById('f-ck-contract')) CHECKS.forEach(([k])=>D.checks[k]=document.getElementById('f-ck-'+k).checked);
+  const ta=document.getElementById('f-note'); if(ta) D.note=ta.value;
+}
+async function saveForm(){
+  readForm();
+  if(!D.name) return toast('氏名を入力してください',true);
+  if(D.kind!=='lead'){
+    if(!D.startDate) return toast('契約開始日を入力してください',true);
+    if(D.endDate && D.endDate<D.startDate) return toast('契約終了日が開始日より前になっています',true);
+    if(D.pauses.some(p=>!p.from || (p.to && p.to<p.from))) return toast('休止期間の月を確認してください',true);
+    if(D.status==='休止中' && !D.pauses.some(p=>!p.to || p.to>=curYM())) D.pauses.push({from:curYM(),to:''});
+  }
+  const {_enrolling,...rec}=D; const wasEnroll=_enrolling;
+  await run(()=>Store.saveCustomer(rec), wasEnroll?`${rec.name}さんを入学登録しました 🎉`:'保存しました');
+  closeModal();
+  if(wasEnroll){ S.view='students'; S.f.status='契約中'; }
+  render();
+}
+async function delCustomer(){
+  const n=D.name, paid=S.payments.filter(p=>p.customerId===D.id).length;
+  if(!confirm(`「${n}」を削除しますか？${paid?`\n入金記録 ${paid}件も一緒に削除されます。`:''}\n\n※契約が終わった人は削除せず「契約終了」にすると売上履歴が残ります。`)) return;
+  await run(()=>Store.deleteCustomer(D.id),'削除しました'); closeModal(); render();
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && D && document.getElementById('modal-root').innerHTML) closeModal(); });
+
+// ===================== デモデータ =====================
+function demoSeed(){
+  const M=clone(DEFAULT_MASTER);
+  M.cohorts=[{id:'k0',name:'0期生（β）',start:'2026-05-12',planId:'pb1'},{id:'k1',name:'1期生',start:'2026-11-10',planId:'pb1'}];
+  M.clubs=[{id:'cb1',name:'テレアポ部'},{id:'cb2',name:'ロープレ部'},{id:'cb3',name:'読書部'}];
+  const mk=(o)=>({kind:'student',checks:{contract:true,payment:true,line:true},clubs:[],pauses:[],payMethod:'クレジットカード',plan:{baseId:'pb1',baseName:'1期生特別価格',base:22000,advisor:false,advisorFee:0,entryFee:0},...o,id:uid()});
+  const cs=[
+    mk({name:'佐藤 健太',kana:'さとう けんた',gender:'男性',industry:'投資用不動産',company:'〇〇不動産',cohort:'k0',status:'契約中',startDate:'2026-05-12',clubs:['cb1','cb2'],referrer:'',source:'紹介',orientDate:'2026-04-20'}),
+    mk({name:'鈴木 美咲',kana:'すずき みさき',gender:'女性',industry:'保険',cohort:'k0',status:'契約中',startDate:'2026-05-12',clubs:['cb2'],referrer:'佐藤 健太',source:'紹介',plan:{baseId:'pb1',baseName:'1期生特別価格',base:22000,advisor:true,optId:'po1',optName:'顧問',advisorFee:55000,entryFee:0},orientDate:'2026-04-28'}),
+    mk({name:'高橋 翔',kana:'たかはし しょう',gender:'男性',industry:'人材',cohort:'k0',status:'休止中',startDate:'2026-05-12',pauses:[{from:'2026-08',to:''}],clubs:['cb3'],source:'Instagram'}),
+    mk({name:'田中 優子',kana:'たなか ゆうこ',gender:'女性',industry:'IT・SaaS',cohort:'k0',status:'契約終了',startDate:'2026-05-12',endDate:'2026-07-31',source:'イベント'}),
+    mk({name:'伊藤 大輝',kana:'いとう だいき',gender:'男性',industry:'保険',cohort:'k1',status:'契約中',startDate:'2026-11-10',clubs:['cb1'],referrer:'鈴木 美咲',source:'紹介',checks:{contract:true,payment:false,line:true},orientDate:'2026-09-12'}),
+    mk({name:'渡辺 さくら',kana:'わたなべ さくら',gender:'女性',industry:'広告・メディア',cohort:'k1',status:'契約中',startDate:'2026-11-10',source:'LP・Web',checks:{contract:false,payment:false,line:true},orientDate:'2026-09-18'}),
+    {kind:'lead',id:uid(),name:'山本 拓也',gender:'男性',industry:'不動産賃貸',stage:'オリエン予約',orientDate:'2026-09-30',orientTime:'19:00',referrer:'佐藤 健太',source:'紹介',checks:{},clubs:[],pauses:[]},
+    {kind:'lead',id:uid(),name:'中村 彩',gender:'女性',industry:'人材',stage:'選考・面接',orientDate:'2026-09-20',source:'Instagram',checks:{},clubs:[],pauses:[]},
+    {kind:'lead',id:uid(),name:'小林 誠',gender:'男性',industry:'金融',stage:'オリエン予約',orientDate:'2026-10-03',orientTime:'20:00',source:'X',checks:{},clubs:[],pauses:[]},
+  ];
+  const ps=[];
+  cs.filter(c=>c.kind==='student').forEach(c=>{ for(let m=c.startDate.slice(0,7); m<curYM(); m=addM(m,1)){ const b=billOf(c,m); if(b) ps.push({id:uid(),customerId:c.id,month:m,amount:b,date:m+'-27',method:c.payMethod}); } });
+  const goals={}; fyMonths(fyOf(curYM())).forEach((m,i)=>goals[m]={sales:100000+i*30000,appo:6+Math.floor(i/3)*2,enroll:2+Math.floor(i/4)});
+  return {customers:cs,payments:ps,master:M,goals};
+}
+
+init();
+</script>
+</body>
+</html>
