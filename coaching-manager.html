@@ -1589,37 +1589,41 @@ function renderCalendar(){
 function checkCalendarNotifications(){
   if(!calData || !calData.events) return;
   const COACHING_KEYWORDS = ['コーチング','セッション','1on1','1 on 1'];
+  // これらのキーワードを含むイベントは通知対象外（個人の予定・定例等）
+  const SKIP_KEYWORDS = ['OFF','off','休','ランニング','ウォーキング','リトリート','朝活','勉強会','移動','新幹線','飛行機','電車','ランチ','ディナー','夕食','朝食','プライベート','個人','準備','確認','作業','MTG内部','社内','雑務','経営者アポ','営業マンアポ','協業アポ'];
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const events = calData.events.filter(e=>!e.declined && e.date <= today);
+  // 今日のイベントのみ対象（過去分は通知しない）
+  const events = calData.events.filter(e=>!e.declined && !e.allDay && e.date === today);
 
   const notifications = [];
 
   events.forEach(e=>{
-    const isCoaching = COACHING_KEYWORDS.some(k=>e.title.includes(k));
-    const notifId = `${e.date}_${e.title}`;
+    const t = e.title || '';
+    const isCoaching = COACHING_KEYWORDS.some(k=>t.includes(k));
+    const isSkip = SKIP_KEYWORDS.some(k=>t.includes(k));
+    const notifId = `${e.date}_${t}`;
     if(dismissedNotifications.has(notifId)) return;
+    if(isSkip) return;
 
     if(isCoaching){
-      // セッション未登録チェック
+      // コーチングセッション未登録チェック
       const matchedClient = db.customers.find(c=>{
-        const n=c.name||''; return n && e.title.includes(n);
+        const n=c.name||''; return n && t.includes(n);
       });
-      if(!matchedClient) return; // 顧客リストにない人は対象外
+      if(!matchedClient) return;
       const hasSession = db.sessions.some(s=>s.date===e.date && (s.clientName===matchedClient.name||s.clientId===matchedClient.id));
       if(!hasSession){
-        notifications.push({id:notifId, date:e.date, title:e.title, type:'session', clientName:matchedClient.name});
+        notifications.push({id:notifId, date:e.date, title:t, type:'session', clientName:matchedClient.name});
       }
     } else {
-      // アポイント未登録チェック
-      const hasAppo = db.appointments.some(a=>a.date===e.date && e.title.includes(a.name||''));
+      // アポイント未登録チェック：タイトルにアポイント登録済みの名前が含まれていなければ通知
+      const hasAppo = db.appointments.some(a=>{
+        const n = a.name||'';
+        return a.date===e.date && n && (t.includes(n) || n.includes(t.replace(/さん|様|氏$/,'')));
+      });
       if(!hasAppo){
-        // 顧客名やよくある単語のみのイベントはスキップ（人名が含まれていそうなものだけ）
-        const isLikelyAppo = db.customers.some(c=>{const n=c.name||''; return n&&e.title.includes(n);}) ||
-                              e.title.includes('アポ') || e.title.includes('面談') || e.title.includes('打ち合わせ');
-        if(isLikelyAppo){
-          notifications.push({id:notifId, date:e.date, title:e.title, type:'appointment'});
-        }
+        notifications.push({id:notifId, date:e.date, title:t, type:'appointment'});
       }
     }
   });
