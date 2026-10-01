@@ -2464,7 +2464,7 @@ function toggleSvcDetail(){
 }
 
 function showModal(html){
-  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target.classList.contains('modal-overlay'))closeModal()"><div class="modal">${html}</div></div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;
 }
 function closeModal(){ document.getElementById('modal-container').innerHTML=''; editingId=null; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
