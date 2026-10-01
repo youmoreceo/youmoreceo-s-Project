@@ -309,7 +309,7 @@ const COMPANY_FOUNDED_FY = 2024; // 第1期 = 2024/9〜2025/8
 const DEFAULT_MASTER = {
   clubs: [],
   cohorts: [{id:'k1', name:'1期生', start:'2026-11-10', planId:'pb1'}],
-  industries: ['投資用不動産','不動産賃貸','保険','人材','IT・SaaS','広告・メディア','金融','メーカー','商社・卸','医療・介護','士業','コンサル','コーチング','経営者','その他'],
+  industries: ['投資用不動産','不動産賃貸','保険','人材','IT・SaaS','広告・メディア','金融','メーカー','商社・卸','医療・介護','士業','コンサル','コーチング','経営者'],
   sources: ['紹介','Instagram','X','LINE','イベント','LP・Web','その他'],
   // 料金プラン（設定タブで編集）。各リストの一番上が新規登録時の初期値
   plans: {
@@ -456,6 +456,10 @@ function migrateMaster(){
     if(i>=0) M.industries.splice(i,1,...['投資用不動産','不動産賃貸'].filter(x=>!M.industries.includes(x)));
     if(!M.industries.includes('コーチング')){ const j=M.industries.indexOf('その他'); M.industries.splice(j>=0?j:M.industries.length,0,'コーチング'); }
     M._mig.push('industry-2026-10'); changed=true;
+  }
+  if(!M._mig.includes('industry-free-input')){
+    M.industries=M.industries.filter(x=>x!=='その他');
+    M._mig.push('industry-free-input'); changed=true;
   }
   return changed;
 }
@@ -605,7 +609,7 @@ function viewStudents(){
   <div class="toolbar">
     <select class="inp" onchange="setF('cohort',this.value)">${opt(S.master.cohorts.map(k=>[k.id,k.name]),f.cohort,'期生：すべて')}</select>
     <select class="inp" onchange="setF('club',this.value)">${opt(S.master.clubs.map(k=>[k.id,k.name+(k.archived?'（廃部）':'')]),f.club,'部活：すべて')}</select>
-    <select class="inp" onchange="setF('industry',this.value)">${opt(S.master.industries.map(x=>[x,x]),f.industry,'業種：すべて')}</select>
+    <select class="inp" onchange="setF('industry',this.value)">${opt([...new Set([...S.master.industries,...students().map(c=>c.industry).filter(Boolean)])].map(x=>[x,x]),f.industry,'業種：すべて')}</select>
     <select class="inp" onchange="setF('gender',this.value)">${opt(GENDERS.map(x=>[x,x]),f.gender,'性別：すべて')}</select>
     <label class="tog"><input type="checkbox" ${f.incomplete?'checked':''} onchange="setF('incomplete',this.checked)"> 手続き未完了のみ</label>
     ${(f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
@@ -905,7 +909,6 @@ function drawForm(){
   const txt=(id,v,ph='',type='text',extra='')=>`<input class="inp" id="${id}" type="${type}" value="${esc(v??'')}" placeholder="${ph}" ${extra}>`;
   const names=[...new Set(S.customers.filter(x=>x.id!==c.id).map(x=>x.name).filter(Boolean))];
   const referred = c.id ? S.customers.filter(x=>x.id!==c.id && x.referrer && x.referrer===c.name) : [];
-  const industries = c.industry && !M.industries.includes(c.industry) ? [...M.industries,c.industry] : M.industries;
   const sources = c.source && !M.sources.includes(c.source) ? [...M.sources,c.source] : M.sources;
   let summary='';
   if(!isLead && c.id && !c._enrolling){
@@ -933,7 +936,7 @@ function drawForm(){
         <div class="fl"><label>ふりがな</label>${txt('f-kana',c.kana,'氏名を入力すると自動で入ります')}<div class="hint" id="kana-hint"></div></div>
         <div class="fl"><label>性別</label>${sel('f-gender',GENDERS,c.gender,'—')}</div>
         <div class="fl"><label>会社名</label>${txt('f-company',c.company)}</div>
-        <div class="fl"><label>業種</label>${sel('f-industry',industries,c.industry,'—')}</div>
+        <div class="fl"><label>業種</label>${industryField(c.industry)}</div>
         <div class="fl"><label>役職</label>${txt('f-jobTitle',c.jobTitle,'例：営業課長')}</div>
         <div class="fl"><label>年齢</label>${txt('f-age',c.age,'例：30代前半')}</div>
         <div class="fl"><label>営業歴</label>${txt('f-experience',c.experience,'例：3年')}</div>
@@ -974,6 +977,17 @@ function drawForm(){
   setupAutoKana();
   if(!c.id) setTimeout(()=>document.getElementById('f-name')?.focus(),30);
 }
+// 業種：リストから選ぶ or 「直接入力」で自由に書く
+function industryField(cur){
+  const list=S.master.industries, custom=!!cur && !list.includes(cur);
+  return `<select class="inp" id="f-industry-sel" onchange="pickIndustry()"><option value="">—</option>${list.map(x=>`<option ${x===cur?'selected':''}>${esc(x)}</option>`).join('')}<option value="__custom__" ${custom?'selected':''}>✏️ 直接入力</option></select>
+    <input class="inp" id="f-industry" value="${esc(cur||'')}" placeholder="業種を入力" style="margin-top:6px;${custom?'':'display:none'}">`;
+}
+function pickIndustry(){
+  const v=document.getElementById('f-industry-sel').value, t=document.getElementById('f-industry');
+  if(v==='__custom__'){ t.style.display=''; t.value=''; t.focus(); } else { t.style.display='none'; t.value=v; }
+}
+
 // ふりがな自動入力：氏名を打つときの変換前の読み（IMEのひらがな）を拾って入れる
 // ふりがな欄を直接書き換えたら、それ以降は自動で上書きしない
 function setupAutoKana(){
