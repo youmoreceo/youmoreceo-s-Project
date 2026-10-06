@@ -3791,7 +3791,7 @@ function renderSettings(){
           <button onclick="moveSection(${si},1)" ${si===appoChecklist.length-1?'disabled':''} style="${btnStyle};opacity:${si===appoChecklist.length-1?0.3:1}">▼</button>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--accent)">【</div>
-        <input value="${esc(sec.section)}" onchange="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
+        <input value="${esc(sec.section)}" oninput="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
         <div style="font-size:11px;font-weight:700;color:var(--accent)">】</div>
         <button onclick="removeChecklistSection(${si})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:0 4px">×</button>
       </div>
@@ -3801,7 +3801,7 @@ function renderSettings(){
             <button onclick="moveItem(${si},${ii},-1)" ${ii===0?'disabled':''} style="${btnStyle};opacity:${ii===0?0.3:1}">▲</button>
             <button onclick="moveItem(${si},${ii},1)" ${ii===sec.items.length-1?'disabled':''} style="${btnStyle};opacity:${ii===sec.items.length-1?0.3:1}">▼</button>
           </div>
-          <input value="${esc(item)}" onchange="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
+          <input value="${esc(item)}" oninput="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
           <button onclick="removeChecklistItem(${si},${ii})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;flex-shrink:0">×</button>
         </div>
       `).join('')}
