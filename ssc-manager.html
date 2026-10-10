@@ -228,6 +228,12 @@ tfoot td{background:var(--surface2);font-weight:700;border-top:1px solid var(--r
 .pct{font-family:var(--num);font-size:12px;font-weight:700}
 .pct.ok{color:var(--green)}.pct.mid{color:var(--amber)}.pct.low{color:var(--red)}
 
+.confirm-bg{z-index:60}
+.impact{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.impact td{padding:7px 4px;border-bottom:1px solid var(--rule);white-space:normal}
+.impact td.r{text-align:right;font-family:var(--num);white-space:nowrap}
+.impact .up{color:var(--green);font-weight:700}.impact .down{color:var(--red);font-weight:700}
+.paycheck{width:22px;height:22px;accent-color:var(--green);cursor:pointer}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--heading);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .toast.err{background:var(--red);color:#fff}
@@ -290,6 +296,7 @@ tfoot td{background:var(--surface2);font-weight:700;border-top:1px solid var(--r
 </div>
 
 <div id="modal-root"></div>
+<div id="confirm-root"></div>
 <div class="toast" id="toast"></div>
 <div class="loading" id="loading"><div class="spin"></div></div>
 
@@ -315,6 +322,7 @@ const DEFAULT_MASTER = {
   industries: ['投資用不動産','不動産賃貸','保険','人材','IT・SaaS','広告・メディア','金融','メーカー','商社・卸','医療・介護','士業','コンサル','コーチング','経営者'],
   sources: ['紹介','Instagram','X','LINE','イベント','LP・Web','その他'],
   // 料金プラン（設定タブで編集）。各リストの一番上が新規登録時の初期値
+  supportFee: 5000, // サポートメンバー報酬：紹介した在籍生徒1人あたり月額
   plans: {
     base:   [{id:'pb1', name:'1期生特別価格', amount:22000}, {id:'pb2', name:'通常', amount:44000}],
     option: [{id:'po1', name:'顧問', amount:55000}],
@@ -409,7 +417,7 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v6',
+  _k:'ssc_demo_v7',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
   _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses})); }catch(e){} },
   async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[]}); this._put(); },
@@ -472,6 +480,22 @@ function migrateMaster(){
   }
   return changed;
 }
+// お金に関わる変更の前に「こう変わるけど大丈夫？」を出す。rows=[[項目, 変更前, 変更後, 差額(任意)]]
+function confirmMoney(title, rows, note=''){
+  return new Promise(res=>{
+    const root=document.getElementById('confirm-root');
+    const diff=d=>d==null?'':`<span class="${d>0?'up':d<0?'down':''}">${d>0?'+':d<0?'−':''}${yen(Math.abs(d))}</span>`;
+    root.innerHTML=`<div class="modal-bg confirm-bg"><div class="modal" style="max-width:520px">
+      <div class="modal-h"><h3>💰 ${esc(title)}</h3></div>
+      <div class="modal-b" style="padding-top:12px"><p style="font-size:13px;color:var(--muted)">この変更で、お金の数字が次のように変わります。問題なければ「この内容で保存」を押してください。</p>
+        <table class="impact">${rows.map(r=>`<tr><td>${esc(r[0])}</td><td class="r">${r[1]}</td><td class="r">→</td><td class="r"><b>${r[2]}</b></td><td class="r">${diff(r[3])}</td></tr>`).join('')}</table>
+        ${note?`<p class="hint" style="margin-top:10px">${note}</p>`:''}</div>
+      <div class="modal-f"><div class="r"><button class="btn" id="cm-no">やめる</button><button class="btn primary" id="cm-yes">この内容で保存</button></div></div></div></div>`;
+    const done=v=>{ root.innerHTML=''; res(v); };
+    document.getElementById('cm-yes').onclick=()=>done(true);
+    document.getElementById('cm-no').onclick=()=>done(false);
+  });
+}
 async function run(fn, okMsg){ try{ loading(true); const r=await fn(); if(okMsg) toast(okMsg); return r; } catch(e){ console.error(e); toast('保存に失敗しました：'+(e.message||e),true); throw e; } finally{ loading(false); } }
 
 // ===================== 認証 =====================
@@ -518,7 +542,7 @@ const ICONS = {
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金管理','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
@@ -714,7 +738,7 @@ function viewPay(){
   const bill=rows.reduce((a,r)=>a+r.bill,0), paid=rows.reduce((a,r)=>a+r.paid,0);
   const st=r=>r.paid>=r.bill&&r.bill?['入金済','b-on']:r.paid>0&&r.paid<r.bill?['一部入金','b-pause']:r.bill===0?['請求なし','b-end']:['未入金','b-red'];
   return `
-  <div class="head"><div><h2>入金管理</h2><p>契約内容から自動計算した請求見込みと、実際の入金を照合します。</p></div>
+  <div class="head"><div><h2>入金確認</h2><p>その月に在籍している生徒の一覧です。入金が確認できたら左のチェックを入れてください（サポートメンバー報酬にも反映）。</p></div>
     <div class="head-actions"><button class="btn" onclick="S.payMonth=addM(S.payMonth,-1);render()">‹ 前月</button><button class="btn" style="min-width:120px;justify-content:center" onclick="S.payMonth=curYM();render()">${mLabel(m)}</button><button class="btn" onclick="S.payMonth=addM(S.payMonth,1);render()">翌月 ›</button></div></div>
   <div class="grid kpis">
     <div class="card kpi"><div class="l">請求見込み</div><div class="v num">${yen(bill)}</div><div class="s">${rows.filter(r=>r.bill).length}名</div></div>
@@ -723,19 +747,31 @@ function viewPay(){
   </div>
   ${rows.filter(r=>r.paid<r.bill).length>1?`<div style="margin-bottom:10px;text-align:right"><button class="btn sm" onclick="payAll()">未入金をまとめて「入金済」にする</button></div>`:''}
   <div class="tbl-wrap"><table>
-    <thead><tr><th>氏名</th><th>期生</th><th>内訳</th><th class="r">請求見込み</th><th class="r">入金額</th><th>状態</th><th>入金記録</th><th></th></tr></thead>
+    <thead><tr><th style="width:56px;text-align:center">確認</th><th>氏名</th><th>期生</th><th>内訳</th><th class="r">請求見込み</th><th class="r">入金額</th><th>状態</th><th>入金記録</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map(r=>{const [l,b]=st(r);const c=r.c;const s=c.startDate?.slice(0,7)===m;return `<tr>
+      <td style="text-align:center">${r.bill?`<input type="checkbox" class="paycheck" ${r.paid>=r.bill?'checked':''} onchange="togglePaid('${c.id}',this.checked,this)" title="入金確認">`:''}</td>
       <td><span class="nm" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span><small>${esc(c.payMethod||'')}</small></td>
       <td>${esc(cohortName(c.cohort))}</td>
       <td style="font-size:12px;color:var(--muted)">基本${man(c.plan?.base)}${c.plan?.advisor?` ＋ ${esc(optLabel(c.plan))}${man(c.plan.advisorFee)}`:''}${s&&c.plan?.entryFee?` ＋ 入学金${man(c.plan.entryFee)}`:''}</td>
       <td class="r num">${yen(r.bill)}</td><td class="r num">${yen(r.paid)}</td>
       <td><span class="badge ${b}">${l}</span></td>
       <td style="font-size:12px">${r.pays.map(p=>`<div>${fmtDate(p.date)} ${yen(p.amount)} <button class="icon-btn" title="取り消し" onclick="delPayment('${p.id}')">✕</button></div>`).join('')||'<span style="color:var(--faint)">—</span>'}</td>
-      <td style="white-space:nowrap">${r.paid<r.bill?`<button class="btn sm primary" onclick="quickPay('${c.id}')">入金済にする</button> `:''}<button class="btn sm" onclick="openPayment('${c.id}')">金額を指定</button></td>
-    </tr>`}).join(''):'<tr><td colspan="8"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
-    ${rows.length?`<tfoot><tr><td colspan="3">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
+      <td style="white-space:nowrap">${r.paid<r.bill?` `:''}<button class="btn sm" onclick="openPayment('${c.id}')">金額を指定</button></td>
+    </tr>`}).join(''):'<tr><td colspan="9"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
+    ${rows.length?`<tfoot><tr><td colspan="4">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
   </table></div>
   <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>`;
+}
+// チェックON＝請求額どおり入金を記録、OFF＝その月の入金記録を取り消し
+async function togglePaid(cid,on,el){
+  const c=byId(cid), m=S.payMonth;
+  if(on) return quickPay(cid);
+  const pays=S.payments.filter(p=>p.customerId===cid&&p.month===m), amt=pays.reduce((a,p)=>a+(Number(p.amount)||0),0);
+  const sup=S.marketing.support.find(x=>x.name===c.referrer);
+  const rows=[[`${mLabel(m)}の入金（${c.name}）`,yen(amt),yen(0),-amt]];
+  if(sup){ const f=supportFeeAt(sup,m); rows.push([`${sup.name}さんへの報酬`,'',`−${yen(f)}`]); }
+  if(!(await confirmMoney('入金確認の取り消し',rows,'入金の記録を削除します。'))){ el.checked=true; return; }
+  await run(async()=>{ for(const p of pays) await Store.deletePayment(p.id); },'入金確認を取り消しました'); render();
 }
 async function quickPay(cid){
   const c=byId(cid), m=S.payMonth, amt=billOf(c,m)-paidOf(cid,m);
@@ -869,24 +905,43 @@ function setGoal(m,k,v){
 // ===================== 利益管理 =====================
 const EXPENSE_CATS=['広告費','会場費','交通費','飲食・交際費','ツール・システム','外注費','備品・消耗品','研修・書籍','その他'];
 const expOf = ym => S.expenses.filter(e=>e.month===ym);
+// サポートメンバーの報酬単価（途中で上がったら、その月から新しい金額）
+function supportFeeAt(mem,ym){
+  const fees=[...(mem.fees||[])].filter(f=>f.from).sort((a,b)=>a.from.localeCompare(b.from));
+  if(!fees.length) return Number(S.master.supportFee)||0;
+  const hit=fees.filter(f=>f.from<=ym).pop()||fees[0];
+  return Number(hit.amount)||0;
+}
+// 報酬：紹介した生徒のうち、その月の入金が確認できた人数 × 単価
+// retro=true なら登録前の月もさかのぼって発生、false なら登録した月から
+function supportPayout(mem,ym){
+  const fee=supportFeeAt(mem,ym);
+  if(!mem.name || (!mem.retro && mem.addedAt && ym<mem.addedAt.slice(0,7))) return {list:[],pending:[],amt:0,fee,before:true};
+  const refs=students().filter(c=>c.referrer===mem.name && billOf(c,ym)>0);
+  const list=refs.filter(c=>paidOf(c.id,ym)>=billOf(c,ym)), pending=refs.filter(c=>!list.includes(c));
+  return {list, pending, amt:list.length*fee, fee};
+}
+const supportOf = ym => S.marketing.support.map(mem=>({mem,...supportPayout(mem,ym)}));
 const salesFor = ym => S.profitBase==='paid' ? paidMonth(ym) : billMonth(ym);
-// 利益 = 売上 − 経費、2人で折半。各自の受取額 = 取り分 + 自分が立て替えた経費
+// 利益 = 売上 − 経費 − サポート報酬、2人で折半。各自の受取額 = 取り分 + 自分が立て替えた経費
 function profitOf(ym){
-  const sales=salesFor(ym), ex=expOf(ym), cost=ex.reduce((a,e)=>a+(Number(e.amount)||0),0), profit=sales-cost;
+  const sales=salesFor(ym), ex=expOf(ym), sup=supportOf(ym);
+  const exp=ex.reduce((a,e)=>a+(Number(e.amount)||0),0), supCost=sup.reduce((a,x)=>a+x.amt,0), cost=exp+supCost, profit=sales-cost;
   const per=PARTNERS.map(p=>{ const paid=ex.filter(e=>e.payer===p).reduce((a,e)=>a+(Number(e.amount)||0),0); return {p, paid, share:profit/2, receive:profit/2+paid}; });
-  return {sales,cost,profit,per,ex};
+  return {sales,exp,supCost,cost,profit,per,ex,sup};
 }
 function viewProfit(){
   const m=S.profitMonth, P=profitOf(m), fy=fyOf(m), fyM=fyMonths(fy);
   const Y=fyM.map(x=>({m:x,...profitOf(x)})), sum=k=>Y.reduce((a,y)=>a+y[k],0);
   const col=n=>n<0?'var(--red)':'var(--heading)';
   return `
-  <div class="head"><div><h2>利益管理</h2><p>（その月の売上 − 経費）÷ 2 で、岡部・石田それぞれの取り分を計算します。</p></div>
+  <div class="head"><div><h2>利益管理</h2><p>（その月の売上 − 経費 − サポートメンバー報酬）÷ 2 で、岡部・石田それぞれの取り分を計算します。</p></div>
     <div class="head-actions"><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,-1);render()">‹ 前月</button><button class="btn" style="min-width:120px;justify-content:center" onclick="S.profitMonth=curYM();render()">${mLabel(m)}</button><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,1);render()">翌月 ›</button></div></div>
   <div class="toolbar"><span style="font-size:13px;color:var(--muted)">売上の基準</span><div class="seg">${[['paid','入金実績'],['bill','請求見込み']].map(([v,l])=>`<button class="${S.profitBase===v?'on':''}" onclick="S.profitBase='${v}';render()">${l}</button>`).join('')}</div></div>
   <div class="grid kpis">
     <div class="card kpi"><div class="l">売上（${S.profitBase==='paid'?'入金実績':'請求見込み'}）</div><div class="v num">${yen(P.sales)}</div></div>
-    <div class="card kpi"><div class="l">経費</div><div class="v num">${yen(P.cost)}</div><div class="s">${P.ex.length}件</div></div>
+    <div class="card kpi"><div class="l">経費</div><div class="v num">${yen(P.exp)}</div><div class="s">${P.ex.length}件</div></div>
+    <div class="card kpi"><div class="l">サポートメンバー報酬</div><div class="v num">${yen(P.supCost)}</div><div class="s">${P.sup.filter(x=>x.amt).length}名に支払い</div></div>
     <div class="card kpi"><div class="l">利益</div><div class="v num" style="color:${col(P.profit)}">${yen(P.profit)}</div></div>
     <div class="card kpi"><div class="l">1人あたり（÷2）</div><div class="v num" style="color:${col(P.profit)}">${yen(P.profit/2)}</div></div>
   </div>
@@ -896,17 +951,22 @@ function viewProfit(){
       <div class="li"><span>立て替えた経費</span><span class="num">${yen(x.paid)}</span></div>
       <div class="li"><span><b>受け取る金額</b><small style="color:var(--faint);margin-left:6px">取り分＋立替経費</small></span><b class="num" style="font-size:16px;color:${col(x.receive)}">${yen(x.receive)}</b></div></div></div>`).join('')}
   </div>
+  <div class="card" style="margin-bottom:14px"><h3>${mLabel(m)}のサポートメンバー報酬 <small>紹介した生徒のうち、入金確認できた人数 × 各メンバーの単価</small></h3>
+    ${P.sup.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>サポートメンバー</th><th>紹介した在籍生徒</th><th class="r">人数</th><th class="r">支払額</th></tr></thead><tbody>
+      ${P.sup.map(x=>`<tr><td><span class="nm">${esc(x.mem.name)}</span><small>${yen(x.fee)}/人${x.mem.retro?'・遡りあり':''}</small></td><td class="wrap">${x.list.length?x.list.map(c=>`<a href="#" onclick="openCustomer('${c.id}');return false">${esc(c.name)}</a>`).join('、'):`<span style="color:var(--faint)">${x.before?'登録前の月':'なし'}</span>`}${x.pending?.length?`<small>入金待ち（未確認のため対象外）：${x.pending.map(c=>esc(c.name)).join('、')}</small>`:''}</td><td class="r num">${x.list.length}名</td><td class="r num"><b>${yen(x.amt)}</b></td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="2">合計</td><td class="r num">${P.sup.reduce((a,x)=>a+x.list.length,0)}名</td><td class="r num">${yen(P.supCost)}</td></tr></tfoot></table></div>`:'<div class="empty">サポートメンバーがまだいません（マーケティング → サポートメンバーで登録）</div>'}
+  </div>
   <div class="card" style="margin-bottom:14px"><h3>${mLabel(m)}の経費 <span><button class="btn sm primary" onclick="openExpense()">＋ 経費を追加</button></span></h3>
     ${P.ex.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>日付</th><th>使った人</th><th>項目</th><th>内容</th><th class="r">金額</th></tr></thead><tbody>
       ${[...P.ex].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>`<tr class="row" onclick="openExpense('${e.id}')"><td class="num">${fmtDate(e.date)}</td><td><span class="badge ${e.payer===PARTNERS[0]?'b-blue':'b-pause'}">${esc(e.payer)}</span></td><td>${esc(e.category)||'—'}</td><td class="wrap">${esc(e.item)||'—'}</td><td class="r num">${yen(e.amount)}</td></tr>`).join('')}
     </tbody></table></div>`:'<div class="empty">この月の経費はまだありません</div>'}
   </div>
   <div class="card"><h3>${fyLabel(fy)}の推移</h3><div class="tbl-wrap" style="border:0"><table>
-    <thead><tr><th>月</th><th class="r">売上</th><th class="r">経費</th><th class="r">利益</th>${PARTNERS.map(p=>`<th class="r">${esc(p)} 受取額</th>`).join('')}</tr></thead>
-    <tbody>${Y.map(y=>`<tr class="row ${y.m===m?'cur':''}" onclick="S.profitMonth='${y.m}';render()" style="${y.m===m?'background:var(--blue-soft)':''}"><td><b>${mShort(y.m)}</b></td><td class="r num">${yen(y.sales)}</td><td class="r num">${yen(y.cost)}</td><td class="r num" style="color:${col(y.profit)}"><b>${yen(y.profit)}</b></td>${y.per.map(x=>`<td class="r num">${yen(x.receive)}</td>`).join('')}</tr>`).join('')}</tbody>
-    <tfoot><tr><td>合計</td><td class="r num">${yen(sum('sales'))}</td><td class="r num">${yen(sum('cost'))}</td><td class="r num" style="color:${col(sum('profit'))}">${yen(sum('profit'))}</td>${PARTNERS.map((p,i)=>`<td class="r num">${yen(Y.reduce((a,y)=>a+y.per[i].receive,0))}</td>`).join('')}</tr></tfoot>
+    <thead><tr><th>月</th><th class="r">売上</th><th class="r">経費</th><th class="r">サポート報酬</th><th class="r">利益</th>${PARTNERS.map(p=>`<th class="r">${esc(p)} 受取額</th>`).join('')}</tr></thead>
+    <tbody>${Y.map(y=>`<tr class="row ${y.m===m?'cur':''}" onclick="S.profitMonth='${y.m}';render()" style="${y.m===m?'background:var(--blue-soft)':''}"><td><b>${mShort(y.m)}</b></td><td class="r num">${yen(y.sales)}</td><td class="r num">${yen(y.exp)}</td><td class="r num">${yen(y.supCost)}</td><td class="r num" style="color:${col(y.profit)}"><b>${yen(y.profit)}</b></td>${y.per.map(x=>`<td class="r num">${yen(x.receive)}</td>`).join('')}</tr>`).join('')}</tbody>
+    <tfoot><tr><td>合計</td><td class="r num">${yen(sum('sales'))}</td><td class="r num">${yen(sum('exp'))}</td><td class="r num">${yen(sum('supCost'))}</td><td class="r num" style="color:${col(sum('profit'))}">${yen(sum('profit'))}</td>${PARTNERS.map((p,i)=>`<td class="r num">${yen(Y.reduce((a,y)=>a+y.per[i].receive,0))}</td>`).join('')}</tr></tfoot>
   </table></div></div>
-  <p class="hint" style="margin-top:10px">受け取る金額 ＝ 利益÷2 ＋ その人が立て替えた経費（立て替えた分を精算した上で、利益を折半する計算）。</p>`;
+  <p class="hint" style="margin-top:10px">サポートメンバー報酬は、紹介した生徒の<b>その月の入金が確認できたら</b>発生します（入金確認タブでチェック）。休止中・契約終了の月は発生しません。受け取る金額 ＝ 利益÷2 ＋ その人が立て替えた経費（立て替えた分を精算した上で、利益を折半する計算）。</p>`;
 }
 function openExpense(id){
   const e = id ? S.expenses.find(x=>x.id===id) : {date: S.profitMonth===curYM()?todayStr():S.profitMonth+'-01', payer:PARTNERS[0]};
@@ -928,6 +988,14 @@ async function saveExpense(id){
   const rec={id:id||uid(), date:v('e-date'), payer:v('e-payer'), category:v('e-cat'), item:v('e-item'), amount:Number(v('e-amt'))};
   if(!rec.date||!rec.amount) return toast('日付と金額を入力してください',true);
   rec.month=rec.date.slice(0,7);
+  const prev=S.expenses.find(x=>x.id===rec.id);
+  if(prev && (Number(prev.amount)!==rec.amount || prev.payer!==rec.payer)){
+    const d=rec.amount-Number(prev.amount);
+    const rows=[['経費の金額',yen(prev.amount),yen(rec.amount),d]];
+    if(prev.payer!==rec.payer) rows.push(['立て替えた人',esc(prev.payer),esc(rec.payer)]);
+    if(d) rows.push([`${mLabel(rec.month)}の利益`,'',d>0?'減る':'増える',-d],['1人あたりの取り分','',d>0?'減る':'増える',Math.round(-d/2)]);
+    if(!(await confirmMoney('経費の変更',rows))) return;
+  }
   const i=S.expenses.findIndex(x=>x.id===rec.id); if(i>=0) S.expenses[i]=rec; else S.expenses.push(rec);
   await run(()=>Store.saveSetting('expenses'),'経費を保存しました'); S.profitMonth=rec.month; closeModal(); render();
 }
@@ -955,9 +1023,9 @@ function viewMarketing(){
     const km=MK_OWNED.includes(t), own=S.mkOwner;
     const rows=[...M[t]].filter(x=>!km||!own||x.owner===own).sort((a,b)=>(b.addedAt||'').localeCompare(a.addedAt||''));
     body=`${km?`<div class="toolbar"><div class="seg">${[['','全員'],...KEYMAN_OWNERS.map(o=>[o,o])].map(([v,l])=>`<button class="${own===v?'on':''}" onclick="S.mkOwner='${v}';render()">${l}<span class="n">${M[t].filter(x=>!v||x.owner===v).length}</span></button>`).join('')}</div></div>`:''}
-    <div class="tbl-wrap"><table><thead><tr><th>名前</th>${km?'<th>担当</th>':''}<th>業種</th><th class="r">紹介数</th><th>登録日</th><th>備考</th><th></th></tr></thead><tbody>
-      ${rows.length?rows.map(x=>`<tr class="row" onclick="openMk('${t}','${x.id}')"><td><span class="nm">${esc(x.name)}</span></td>${km?`<td><span class="badge ${x.owner===KEYMAN_OWNERS[0]?'b-blue':'b-pause'}">${esc(x.owner||'未設定')}</span></td>`:''}<td>${esc(x.industry)||'—'}</td><td class="r num">${referCount(x.name)}名</td><td class="num">${fmtDate(x.addedAt)}</td><td class="wrap" style="color:var(--muted);max-width:320px">${esc((x.note||'').slice(0,60))}</td><td class="r" style="width:40px"><button class="icon-btn" title="削除" onclick="event.stopPropagation();delMkRow('${t}','${x.id}')">🗑</button></td></tr>`).join(''):`<tr><td colspan="7"><div class="empty">まだ登録がありません</div></td></tr>`}
-    </tbody></table></div><p class="hint" style="margin-top:8px">紹介数＝生徒・見込み客の「紹介者」欄にこの名前が入っている人数（自動）。${t==='candidates'?'候補の詳細から「キーマンに昇格」でキーマンへ移せます。':''}</p>`;
+    <div class="tbl-wrap"><table><thead><tr><th>名前</th>${km?'<th>担当</th>':''}<th>業種</th><th class="r">紹介数</th>${t==='support'?'<th class="r">今月の報酬</th>':''}<th>登録日</th><th>備考</th><th></th></tr></thead><tbody>
+      ${rows.length?rows.map(x=>`<tr class="row" onclick="openMk('${t}','${x.id}')"><td><span class="nm">${esc(x.name)}</span></td>${km?`<td><span class="badge ${x.owner===KEYMAN_OWNERS[0]?'b-blue':'b-pause'}">${esc(x.owner||'未設定')}</span></td>`:''}<td>${esc(x.industry)||'—'}</td><td class="r num">${referCount(x.name)}名</td>${t==='support'?`<td class="r num"><b>${yen(supportPayout(x,curYM()).amt)}</b><small>${yen(supportFeeAt(x,curYM()))}/人・確認済 ${supportPayout(x,curYM()).list.length}名</small></td>`:''}<td class="num">${fmtDate(x.addedAt)}</td><td class="wrap" style="color:var(--muted);max-width:320px">${esc((x.note||'').slice(0,60))}</td><td class="r" style="width:40px"><button class="icon-btn" title="削除" onclick="event.stopPropagation();delMkRow('${t}','${x.id}')">🗑</button></td></tr>`).join(''):`<tr><td colspan="8"><div class="empty">まだ登録がありません</div></td></tr>`}
+    </tbody></table></div><p class="hint" style="margin-top:8px">${t==='support'?`今月の報酬＝紹介した生徒のうち今月の入金が確認できた人数 × その人の単価（自動・利益管理に反映）。`:''}紹介数＝生徒・見込み客の「紹介者」欄にこの名前が入っている人数（自動）。${t==='candidates'?'候補の詳細から「キーマンに昇格」でキーマンへ移せます。':''}</p>`;
   }
   if(t==='seminars'){
     const rows=[...M.seminars].sort((a,b)=>(b.date||'9999').localeCompare(a.date||'9999'));
@@ -991,6 +1059,7 @@ function viewMarketing(){
 function openMk(key,id){
   MKD = id ? clone(S.marketing[key].find(x=>x.id===id)) : {addedAt:todayStr(), ...(key==='schools'?{status:'打診中'}:{}), ...(MK_OWNED.includes(key)?{owner:S.mkOwner||KEYMAN_OWNERS[0]}:{})};
   MKD._key=key;
+  if(key==='support' && !(MKD.fees||[]).length) MKD.fees=[{from:(MKD.addedAt||todayStr()).slice(0,7), amount:Number(S.master.supportFee)||0}];
   const x=MKD, f=(id,label,val,type='text',extra='')=>`<div class="fl"><label>${label}</label><input class="inp" id="mk-${id}" type="${type}" value="${esc(val??'')}" ${extra}></div>`;
   const title={candidates:'キーマン候補',support:'サポートメンバー',keyman:'キーマン',seminars:'セミナー',schools:'スクール提携'}[key];
   let fields='';
@@ -1001,6 +1070,8 @@ function openMk(key,id){
       <div class="fl"><label>業種</label><input class="inp" id="mk-industry" list="mk-ind" value="${esc(x.industry||'')}" placeholder="選択 or 入力"><datalist id="mk-ind">${S.master.industries.map(v=>`<option value="${esc(v)}">`).join('')}</datalist></div>
       ${f('addedAt','登録日',x.addedAt,'date')}
       <div class="fl"><label>紹介数（自動）</label><div class="inp num" style="background:var(--surface2);display:flex;align-items:center">${referCount(x.name)}名</div></div>
+      ${key==='support'?`<div class="fl w3"><label>報酬単価（紹介した生徒1人あたり・月額）</label><div id="mk-fees"></div></div>
+      <div class="fl w3"><label>登録前の紹介分</label><div id="mk-retro"></div></div>`:''}
       <div class="fl w3"><label>備考</label><textarea class="inp" id="mk-note">${esc(x.note||'')}</textarea></div></div>`;
   }
   if(key==='seminars'){
@@ -1032,7 +1103,18 @@ function openMk(key,id){
     <div class="modal-b" style="padding-top:16px">${fields}</div>
     <div class="modal-f">${id?`<button class="btn danger" onclick="delMk()">削除</button>`:'<span></span>'}<div class="r">${key==='candidates'&&id?`<button class="btn accent" onclick="promoteMk()">キーマンに昇格 →</button>`:''}<button class="btn" onclick="closeMk()">キャンセル</button><button class="btn primary" onclick="saveMk()">保存</button></div></div>
   </div></div>`;
+  drawMkFees(); drawMkRetro();
   setTimeout(()=>document.querySelector('#modal-root input')?.focus(),30);
+}
+function drawMkFees(){
+  const el=document.getElementById('mk-fees'); if(!el) return;
+  el.innerHTML=MKD.fees.map((f,i)=>`<div class="pause-row"><input class="inp" type="month" value="${f.from||''}" onchange="MKD.fees[${i}].from=this.value"><span>から</span><input class="inp num" type="number" min="0" style="max-width:120px" value="${f.amount??''}" oninput="MKD.fees[${i}].amount=Number(this.value)||0"><span>円 ／ 人・月</span>${MKD.fees.length>1?`<button class="icon-btn" onclick="MKD.fees.splice(${i},1);drawMkFees()">✕</button>`:''}</div>`).join('')
+    +`<button class="btn sm" onclick="MKD.fees.push({from:curYM(),amount:MKD.fees[MKD.fees.length-1]?.amount||0});drawMkFees()">＋ 途中から金額を変える</button><div class="hint">金額が上がる月を追加すると、その月から新しい金額で計算します（それより前の月は元の金額のまま）。</div>`;
+}
+function drawMkRetro(){
+  const el=document.getElementById('mk-retro'); if(!el) return;
+  el.innerHTML=`<div class="seg">${[[false,'登録した月から払う'],[true,'遡って払う']].map(([v,l])=>`<button type="button" class="${!!MKD.retro===v?'on':''}" onclick="MKD.retro=${v};drawMkRetro()">${l}</button>`).join('')}</div>
+    <div class="hint">${MKD.retro?'サポートメンバーになる前に紹介した生徒の、過去の月の分も報酬に含めます。':`サポートメンバーに登録した月（${esc((MKD.addedAt||'').slice(0,7)||'—')}）以降の分だけ報酬を計算します。`}</div>`;
 }
 function mkSemState(){ const d=document.getElementById('mk-date').value; const done=!!d&&d<todayStr(); document.getElementById('mk-state').innerHTML=done?'<span class="badge b-on">完了</span>':d?'<span class="badge b-blue">予定</span>':'<span class="badge b-end">日程未定</span>'; }
 function closeMk(){ document.getElementById('modal-root').innerHTML=''; MKD=null; }
@@ -1044,6 +1126,17 @@ async function saveMk(){
   const note=document.getElementById('mk-note'); if(note) rec.note=note.value;
   if(key==='seminars' ? !rec.host : !rec.name) return toast(key==='seminars'?'セミナー先を入力してください':'名前を入力してください',true);
   const list=S.marketing[key];
+  if(key==='support'){
+    if(rec.fees.some(f=>!f.from)) return toast('報酬単価の開始月を入力してください',true);
+    const old=rec.id?list.find(x=>x.id===rec.id):null;
+    if(old){
+      const fy=fyOf(curYM()), ms=fyMonths(fy), tot=mem=>ms.reduce((a,m)=>a+supportPayout(mem,m).amt,0);
+      const rows=[], cm=curYM();
+      if(supportFeeAt(old,cm)!==supportFeeAt(rec,cm)) rows.push(['今月の単価（1人あたり）',yen(supportFeeAt(old,cm)),yen(supportFeeAt(rec,cm)),supportFeeAt(rec,cm)-supportFeeAt(old,cm)]);
+      const a=tot(old), b=tot(rec); if(a!==b) rows.push([`今期の報酬合計（${rec.name}さん）`,yen(a),yen(b),b-a],['今期の利益（2人合計）','',b>a?'減る':'増える',a-b],['1人あたりの取り分','',b>a?'減る':'増える',Math.round((a-b)/2)]);
+      if(rows.length && !(await confirmMoney(`${rec.name}さんの報酬設定の変更`,rows,'利益管理の「サポートメンバー報酬」と、岡部・石田の取り分に反映されます。'))) return;
+    }
+  }
   if(rec.id){ list[list.findIndex(x=>x.id===rec.id)]=rec; } else { rec.id=uid(); list.push(rec); }
   await run(()=>Store.saveSetting('marketing'),'保存しました'); closeMk(); render();
 }
@@ -1097,6 +1190,8 @@ function viewSettings(){
       <div class="add-row"><input class="inp" id="add-cohorts" placeholder="例：${M.cohorts.length+1}期生" onkeydown="if(event.key==='Enter')addItem('cohorts')"><button class="btn primary" onclick="addItem('cohorts')">追加</button></div></div>
     ${listBlock('industries','業種','生徒の業種の選択肢。',M.industries,it=>all.filter(c=>c.industry===it).length)}
     ${listBlock('sources','流入経路','どこから来たか（紹介・SNSなど）。紹介者とは別に集計できます。',M.sources,it=>all.filter(c=>c.source===it).length)}
+    <div class="card"><h3>サポートメンバー報酬</h3><p class="hint" style="margin:-6px 0 12px">紹介した生徒が在籍している間、1人につき毎月支払う金額。利益管理で経費と一緒に差し引かれます。</p>
+      <div class="add-row" style="align-items:center"><input class="inp num" type="number" min="0" style="max-width:160px" value="${M.supportFee??5000}" onchange="S.master.supportFee=Number(this.value)||0;saveMaster()"><span style="color:var(--muted)">円 ／ 人・月</span></div></div>
     <div class="card"><h3>料金プラン</h3><p class="hint" style="margin:-6px 0 12px">ここに登録した料金が、生徒登録のプルダウンに出ます。各欄の一番上が新規登録時の初期値（期生にプランがあればそちら優先）。金額を変えても、登録済みの生徒の金額はそのままです。</p>
       ${PLAN_TYPES.map(([t,l,sub])=>`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--heading);margin-bottom:6px">${l} <span style="font-weight:400;color:var(--faint)">${sub}</span></div>
         <div class="set-list">${M.plans[t].map((p,i)=>`<div class="set-item">
@@ -1107,7 +1202,7 @@ function viewSettings(){
         <div class="add-row"><input class="inp" style="flex:2" id="plan-n-${t}" placeholder="プラン名（例：${t==='base'?'2期生特別価格':t==='option'?'顧問':'入学金'}）"><input class="inp num" style="flex:1" type="number" min="0" id="plan-a-${t}" placeholder="金額" onkeydown="if(event.key==='Enter')addPlan('${t}')"><button class="btn primary" onclick="addPlan('${t}')">追加</button></div></div>`).join('')}
     </div>
     <div class="card"><h3>データ</h3><p class="hint" style="margin:-6px 0 12px">念のためのバックアップ。JSON で全データを書き出せます。</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="backup()">バックアップをダウンロード</button><button class="btn" onclick="S.view='students';S.f.status='';render();exportCSV()">生徒一覧をCSV出力</button>${DEMO?`<button class="btn danger" onclick="if(confirm('デモデータを初期化しますか？')){localStorage.removeItem('ssc_demo_v6');location.reload()}">デモデータを初期化</button>`:''}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="backup()">バックアップをダウンロード</button><button class="btn" onclick="S.view='students';S.f.status='';render();exportCSV()">生徒一覧をCSV出力</button>${DEMO?`<button class="btn danger" onclick="if(confirm('デモデータを初期化しますか？')){localStorage.removeItem('ssc_demo_v7');location.reload()}">デモデータを初期化</button>`:''}</div>
       <p class="hint" style="margin-top:12px">ログイン中：${esc(document.getElementById('user-email').textContent)}</p></div>
   </div>`;
 }
@@ -1177,7 +1272,7 @@ function drawForm(){
   const isLead=D.kind==='lead', M=S.master, c=D;
   const sel=(id,arr,cur,blank)=>`<select class="inp" id="${id}">${blank!=null?`<option value="">${blank}</option>`:''}${arr.map(x=>{const [v,l]=Array.isArray(x)?x:[x,x];return `<option value="${esc(v)}" ${String(v)===String(cur??'')?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;
   const txt=(id,v,ph='',type='text',extra='')=>`<input class="inp" id="${id}" type="${type}" value="${esc(v??'')}" placeholder="${ph}" ${extra}>`;
-  const names=[...new Set(S.customers.filter(x=>x.id!==c.id).map(x=>x.name).filter(Boolean))];
+  const names=[...new Set([...S.marketing.support,...S.marketing.keyman].map(x=>x.name).concat(S.customers.filter(x=>x.id!==c.id).map(x=>x.name)).filter(Boolean))];
   const referred = c.id ? S.customers.filter(x=>x.id!==c.id && x.referrer && x.referrer===c.name) : [];
   const sources = c.source && !M.sources.includes(c.source) ? [...M.sources,c.source] : M.sources;
   let summary='';
@@ -1356,6 +1451,18 @@ async function saveForm(){
     if(D.status==='休止中' && !D.pauses.some(p=>!p.to || p.to>=curYM())) D.pauses.push({from:curYM(),to:''});
   }
   const {_enrolling,...rec}=D; const wasEnroll=_enrolling;
+  const old=rec.id && !wasEnroll ? byId(rec.id) : null;
+  if(old && old.kind!=='lead' && rec.kind!=='lead'){
+    const fy=fyOf(curYM()), ms=fyMonths(fy);
+    const fyB=c=>ms.reduce((a,m)=>a+billOf(c,m),0);
+    const rows=[];
+    if(monthlyFee(old)!==monthlyFee(rec)) rows.push(['月額',yen(monthlyFee(old)),yen(monthlyFee(rec)),monthlyFee(rec)-monthlyFee(old)]);
+    if((Number(old.plan?.entryFee)||0)!==(Number(rec.plan?.entryFee)||0)) rows.push(['入学金',yen(old.plan?.entryFee),yen(rec.plan?.entryFee),(Number(rec.plan?.entryFee)||0)-(Number(old.plan?.entryFee)||0)]);
+    const a=billedTotal(old), b=billedTotal(rec); if(a!==b) rows.push(['累計売上（今月まで）',yen(a),yen(b),b-a]);
+    const fa=fyB(old), fb=fyB(rec); if(fa!==fb) rows.push([`今期（${fy}/9〜${fy+1}/8）の請求見込み`,yen(fa),yen(fb),fb-fa]);
+    const chg=ms.filter(m=>billOf(old,m)!==billOf(rec,m));
+    if(rows.length && !(await confirmMoney(`${rec.name}さんの契約内容の変更`,rows,chg.length?`金額が変わる月：${mShort(chg[0])}${chg.length>1?'〜'+mShort(chg[chg.length-1]):''}（${chg.length}ヶ月）。入金済みの記録は変わりません。`:''))) return;
+  }
   await run(()=>Store.saveCustomer(rec), wasEnroll?`${rec.name}さんを入学登録しました 🎉`:'保存しました');
   closeModal();
   if(wasEnroll){ S.view='students'; S.f.status='契約中'; }
@@ -1389,7 +1496,7 @@ function demoSeed(){
   cs.filter(c=>c.kind==='student').forEach(c=>{ for(let m=c.startDate.slice(0,7); m<curYM(); m=addM(m,1)){ const b=billOf(c,m); if(b) ps.push({id:uid(),customerId:c.id,month:m,amount:b,date:m+'-27',method:c.payMethod}); } });
   const goals={}; fyMonths(fyOf(curYM())).forEach((m,i)=>goals[m]={enroll:2+Math.floor(i/4),...(i===0?{price:22000,rate:30}:{}),...(i===6?{price:33000}:{}),keyman:3,seminar:1});
   const marketing={
-    support:[{id:uid(),name:'佐藤 健太',industry:'投資用不動産',addedAt:'2026-06-01'}],
+    support:[{id:uid(),name:'佐藤 健太',industry:'投資用不動産',addedAt:'2026-05-01'},{id:uid(),name:'鈴木 美咲',industry:'保険',addedAt:'2026-10-01'}],
     keyman:[{id:uid(),name:'高木 誠',owner:'石田 雄太',industry:'人材',addedAt:'2026-09-25'},{id:uid(),name:'鈴木 美咲',owner:'岡部 真',industry:'保険',addedAt:'2026-09-10',note:'保険業界の営業マネージャー層に顔が広い'}],
     seminars:[{id:uid(),host:'〇〇生命 営業部',date:'2026-09-20',time:'19:00〜20:30',attendees:15,consultGoal:5,consultResult:4,contracts:1},{id:uid(),host:'△△不動産',date:'2026-10-28',time:'18:00〜',consultGoal:4}],
     schools:[{id:uid(),name:'□□ビジネススクール',contact:'田中様',status:'交渉中',addedAt:'2026-09-15'}],
