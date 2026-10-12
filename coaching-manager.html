@@ -3777,6 +3777,20 @@ async function sendToSheets(sessionId){
 let installmentsData = [];
 
 // ===== SETTINGS =====
+function syncChecklistFromDOM(){
+  const el = document.getElementById('checklist-editor');
+  if(!el) return;
+  el.querySelectorAll('input[data-cl-section]').forEach(inp=>{
+    const si = +inp.dataset.clSection;
+    if(appoChecklist[si]) appoChecklist[si].section = inp.value;
+  });
+  el.querySelectorAll('input[data-cl-item]').forEach(inp=>{
+    const si = +inp.dataset.clSection, ii = +inp.dataset.clItem;
+    if(appoChecklist[si] && ii < appoChecklist[si].items.length)
+      appoChecklist[si].items[ii] = inp.value;
+  });
+}
+
 function renderSettings(){
   const urlInput = document.getElementById('setting-apo-sheet-url');
   if(urlInput) urlInput.value = localStorage.getItem('apoSheetUrl')||'';
@@ -3791,7 +3805,7 @@ function renderSettings(){
           <button onclick="moveSection(${si},1)" ${si===appoChecklist.length-1?'disabled':''} style="${btnStyle};opacity:${si===appoChecklist.length-1?0.3:1}">▼</button>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--accent)">【</div>
-        <input value="${esc(sec.section)}" oninput="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
+        <input data-cl-section="${si}" value="${esc(sec.section)}" oninput="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
         <div style="font-size:11px;font-weight:700;color:var(--accent)">】</div>
         <button onclick="removeChecklistSection(${si})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:0 4px">×</button>
       </div>
@@ -3801,7 +3815,7 @@ function renderSettings(){
             <button onclick="moveItem(${si},${ii},-1)" ${ii===0?'disabled':''} style="${btnStyle};opacity:${ii===0?0.3:1}">▲</button>
             <button onclick="moveItem(${si},${ii},1)" ${ii===sec.items.length-1?'disabled':''} style="${btnStyle};opacity:${ii===sec.items.length-1?0.3:1}">▼</button>
           </div>
-          <input value="${esc(item)}" oninput="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
+          <input data-cl-section="${si}" data-cl-item="${ii}" value="${esc(item)}" oninput="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
           <button onclick="removeChecklistItem(${si},${ii})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;flex-shrink:0">×</button>
         </div>
       `).join('')}
@@ -3811,6 +3825,7 @@ function renderSettings(){
 }
 
 function moveSection(si, dir){
+  syncChecklistFromDOM();
   const ni = si + dir;
   if(ni<0||ni>=appoChecklist.length) return;
   [appoChecklist[si], appoChecklist[ni]] = [appoChecklist[ni], appoChecklist[si]];
@@ -3818,6 +3833,7 @@ function moveSection(si, dir){
 }
 
 function moveItem(si, ii, dir){
+  syncChecklistFromDOM();
   const ni = ii + dir;
   const items = appoChecklist[si].items;
   if(ni<0||ni>=items.length) return;
@@ -3826,22 +3842,26 @@ function moveItem(si, ii, dir){
 }
 
 function addChecklistSection(){
+  syncChecklistFromDOM();
   appoChecklist.push({section:'新しいセクション', items:['']});
   renderSettings();
 }
 
 function removeChecklistSection(si){
   if(!confirm('このセクションを削除しますか？'))return;
+  syncChecklistFromDOM();
   appoChecklist.splice(si,1);
   renderSettings();
 }
 
 function addChecklistItem(si){
+  syncChecklistFromDOM();
   appoChecklist[si].items.push('');
   renderSettings();
 }
 
 function removeChecklistItem(si,ii){
+  syncChecklistFromDOM();
   appoChecklist[si].items.splice(ii,1);
   renderSettings();
 }
