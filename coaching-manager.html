@@ -1589,37 +1589,41 @@ function renderCalendar(){
 function checkCalendarNotifications(){
   if(!calData || !calData.events) return;
   const COACHING_KEYWORDS = ['コーチング','セッション','1on1','1 on 1'];
+  // これらのキーワードを含むイベントは通知対象外（個人の予定・定例等）
+  const SKIP_KEYWORDS = ['OFF','off','休','ランニング','ウォーキング','リトリート','朝活','勉強会','移動','新幹線','飛行機','電車','ランチ','ディナー','夕食','朝食','プライベート','個人','準備','確認','作業','MTG内部','社内','雑務','経営者アポ','営業マンアポ','協業アポ'];
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const events = calData.events.filter(e=>!e.declined && e.date <= today);
+  // 今日のイベントのみ対象（過去分は通知しない）
+  const events = calData.events.filter(e=>!e.declined && !e.allDay && e.date === today);
 
   const notifications = [];
 
   events.forEach(e=>{
-    const isCoaching = COACHING_KEYWORDS.some(k=>e.title.includes(k));
-    const notifId = `${e.date}_${e.title}`;
+    const t = e.title || '';
+    const isCoaching = COACHING_KEYWORDS.some(k=>t.includes(k));
+    const isSkip = SKIP_KEYWORDS.some(k=>t.includes(k));
+    const notifId = `${e.date}_${t}`;
     if(dismissedNotifications.has(notifId)) return;
+    if(isSkip) return;
 
     if(isCoaching){
-      // セッション未登録チェック
+      // コーチングセッション未登録チェック
       const matchedClient = db.customers.find(c=>{
-        const n=c.name||''; return n && e.title.includes(n);
+        const n=c.name||''; return n && t.includes(n);
       });
-      if(!matchedClient) return; // 顧客リストにない人は対象外
+      if(!matchedClient) return;
       const hasSession = db.sessions.some(s=>s.date===e.date && (s.clientName===matchedClient.name||s.clientId===matchedClient.id));
       if(!hasSession){
-        notifications.push({id:notifId, date:e.date, title:e.title, type:'session', clientName:matchedClient.name});
+        notifications.push({id:notifId, date:e.date, title:t, type:'session', clientName:matchedClient.name});
       }
     } else {
-      // アポイント未登録チェック
-      const hasAppo = db.appointments.some(a=>a.date===e.date && e.title.includes(a.name||''));
+      // アポイント未登録チェック：タイトルにアポイント登録済みの名前が含まれていなければ通知
+      const hasAppo = db.appointments.some(a=>{
+        const n = a.name||'';
+        return a.date===e.date && n && (t.includes(n) || n.includes(t.replace(/さん|様|氏$/,'')));
+      });
       if(!hasAppo){
-        // 顧客名やよくある単語のみのイベントはスキップ（人名が含まれていそうなものだけ）
-        const isLikelyAppo = db.customers.some(c=>{const n=c.name||''; return n&&e.title.includes(n);}) ||
-                              e.title.includes('アポ') || e.title.includes('面談') || e.title.includes('打ち合わせ');
-        if(isLikelyAppo){
-          notifications.push({id:notifId, date:e.date, title:e.title, type:'appointment'});
-        }
+        notifications.push({id:notifId, date:e.date, title:t, type:'appointment'});
       }
     }
   });
@@ -2464,7 +2468,7 @@ function toggleSvcDetail(){
 }
 
 function showModal(html){
-  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target.classList.contains('modal-overlay'))closeModal()"><div class="modal">${html}</div></div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;
 }
 function closeModal(){ document.getElementById('modal-container').innerHTML=''; editingId=null; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3773,6 +3777,20 @@ async function sendToSheets(sessionId){
 let installmentsData = [];
 
 // ===== SETTINGS =====
+function syncChecklistFromDOM(){
+  const el = document.getElementById('checklist-editor');
+  if(!el) return;
+  el.querySelectorAll('input[data-cl-section]').forEach(inp=>{
+    const si = +inp.dataset.clSection;
+    if(appoChecklist[si]) appoChecklist[si].section = inp.value;
+  });
+  el.querySelectorAll('input[data-cl-item]').forEach(inp=>{
+    const si = +inp.dataset.clSection, ii = +inp.dataset.clItem;
+    if(appoChecklist[si] && ii < appoChecklist[si].items.length)
+      appoChecklist[si].items[ii] = inp.value;
+  });
+}
+
 function renderSettings(){
   const urlInput = document.getElementById('setting-apo-sheet-url');
   if(urlInput) urlInput.value = localStorage.getItem('apoSheetUrl')||'';
@@ -3787,7 +3805,7 @@ function renderSettings(){
           <button onclick="moveSection(${si},1)" ${si===appoChecklist.length-1?'disabled':''} style="${btnStyle};opacity:${si===appoChecklist.length-1?0.3:1}">▼</button>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--accent)">【</div>
-        <input value="${esc(sec.section)}" onchange="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
+        <input data-cl-section="${si}" value="${esc(sec.section)}" oninput="appoChecklist[${si}].section=this.value" style="font-weight:700;font-size:13px;color:var(--accent);border:none;background:transparent;outline:none;flex:1">
         <div style="font-size:11px;font-weight:700;color:var(--accent)">】</div>
         <button onclick="removeChecklistSection(${si})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:0 4px">×</button>
       </div>
@@ -3797,7 +3815,7 @@ function renderSettings(){
             <button onclick="moveItem(${si},${ii},-1)" ${ii===0?'disabled':''} style="${btnStyle};opacity:${ii===0?0.3:1}">▲</button>
             <button onclick="moveItem(${si},${ii},1)" ${ii===sec.items.length-1?'disabled':''} style="${btnStyle};opacity:${ii===sec.items.length-1?0.3:1}">▼</button>
           </div>
-          <input value="${esc(item)}" onchange="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
+          <input data-cl-section="${si}" data-cl-item="${ii}" value="${esc(item)}" oninput="appoChecklist[${si}].items[${ii}]=this.value" style="flex:1;font-size:12px">
           <button onclick="removeChecklistItem(${si},${ii})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;flex-shrink:0">×</button>
         </div>
       `).join('')}
@@ -3807,6 +3825,7 @@ function renderSettings(){
 }
 
 function moveSection(si, dir){
+  syncChecklistFromDOM();
   const ni = si + dir;
   if(ni<0||ni>=appoChecklist.length) return;
   [appoChecklist[si], appoChecklist[ni]] = [appoChecklist[ni], appoChecklist[si]];
@@ -3814,6 +3833,7 @@ function moveSection(si, dir){
 }
 
 function moveItem(si, ii, dir){
+  syncChecklistFromDOM();
   const ni = ii + dir;
   const items = appoChecklist[si].items;
   if(ni<0||ni>=items.length) return;
@@ -3822,22 +3842,26 @@ function moveItem(si, ii, dir){
 }
 
 function addChecklistSection(){
+  syncChecklistFromDOM();
   appoChecklist.push({section:'新しいセクション', items:['']});
   renderSettings();
 }
 
 function removeChecklistSection(si){
   if(!confirm('このセクションを削除しますか？'))return;
+  syncChecklistFromDOM();
   appoChecklist.splice(si,1);
   renderSettings();
 }
 
 function addChecklistItem(si){
+  syncChecklistFromDOM();
   appoChecklist[si].items.push('');
   renderSettings();
 }
 
 function removeChecklistItem(si,ii){
+  syncChecklistFromDOM();
   appoChecklist[si].items.splice(ii,1);
   renderSettings();
 }
