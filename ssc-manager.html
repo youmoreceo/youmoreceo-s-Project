@@ -165,6 +165,9 @@ tfoot td{background:var(--surface2);font-weight:700;border-top:1px solid var(--r
 .mcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}
 .sum-line{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-top:10px;padding:0 4px;flex-wrap:wrap;gap:8px}
 .sum-line b{color:var(--heading);font-family:var(--num);font-size:15px}
+tr.undecided td{background:var(--amber-soft)}
+tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.mcard.undecided{border-color:var(--amber);background:var(--amber-soft)}
 .inline-sel{border:1px solid var(--rule);background:var(--surface);border-radius:7px;padding:3px 6px;font-size:12px}
 
 /* Funnel */
@@ -693,7 +696,9 @@ function exportCSV(){
 function viewLeads(){
   const ls=leads(), q=S.lf.q.trim().toLowerCase();
   let rows=ls.filter(c=>(S.lf.stage==='active'?c.stage!=='見送り':S.lf.stage==='all'?true:c.stage===S.lf.stage) && (!q||[c.name,c.kana,c.company,c.referrer,c.note].join(' ').toLowerCase().includes(q)));
-  rows.sort((a,b)=>(b.orientDate||'').localeCompare(a.orientDate||''));
+  // オリエン日が未定の人を一番上に、あとは新しい日付順
+  rows.sort((a,b)=>(!!a.orientDate-!!b.orientDate) || (b.orientDate||'').localeCompare(a.orientDate||''));
+  const undecided=rows.filter(c=>!c.orientDate && c.stage!=='見送り').length;
   // ファネル（今期）
   const fy=fyOf(curYM()), fyM=fyMonths(fy);
   const inFY=c=>c.orientDate && fyM.includes(c.orientDate.slice(0,7));
@@ -712,17 +717,18 @@ function viewLeads(){
     <div class="seg">${[['active','進行中'],...STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>c.stage!=='見送り').length:v==='all'?ls.length:ls.filter(c=>c.stage===v).length}</span></button>`).join('')}</div>
     <input class="inp search" placeholder="名前・紹介者で検索" value="${esc(S.lf.q)}" onchange="S.lf.q=this.value;render()">
   </div>
+  ${undecided?`<div class="warn" style="margin:0 0 10px">⚠ オリエン日が未定の人が ${undecided}名 います（一覧の一番上・黄色の行）。日程が決まったら入力してください。</div>`:''}
   <div class="tbl-wrap resp"><table>
     <thead><tr><th>オリエン日</th><th>氏名</th><th>ステージ</th><th>業種</th><th>紹介者</th><th>流入経路</th><th>メモ</th><th></th></tr></thead>
-    <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
-      <td class="num">${fmtDate(c.orientDate)}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}</td>
+    <tbody>${rows.length?rows.map(c=>`<tr class="row ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')">
+      <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}</td>
       <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||'')}</small></td>
       <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value)">${STAGES.map(s=>`<option ${s===c.stage?'selected':''}>${s}</option>`).join('')}</select></td>
       <td>${esc(c.industry)||'—'}</td><td>${esc(c.referrer)||'—'}</td><td>${esc(c.source)||'—'}</td>
       <td class="wrap" style="max-width:220px;color:var(--muted)">${esc((c.note||'').slice(0,40))}</td>
       <td onclick="event.stopPropagation()">${c.stage!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
     </tr>`).join(''):'<tr><td colspan="8"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
-  <div class="cards">${rows.map(c=>`<div class="mcard" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge b-blue">${esc(c.stage)}</span></div><div class="meta">${fmtDate(c.orientDate)} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
+  <div class="cards">${rows.map(c=>`<div class="mcard ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge b-blue">${esc(c.stage)}</span></div><div class="meta">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
 }
 async function setStage(id,v){
   const c=clone(byId(id)); if(v==='見送り') c.lostAt=STAGES.indexOf(c.stage); c.stage=v;
@@ -1251,7 +1257,7 @@ function backup(){
 let D=null; // 編集中の下書き
 function newRecord(kind){
   const M=S.master, k=M.cohorts[M.cohorts.length-1];
-  if(kind==='lead') return {kind:'lead',stage:'オリエン予約',orientDate:todayStr(),checks:{},clubs:[],pauses:[]};
+  if(kind==='lead') return {kind:'lead',stage:'オリエン予約',orientDate:'',checks:{},clubs:[],pauses:[]};
   return {kind:'student',status:'契約中',cohort:k?.id||'',startDate:(k?.start && k.start>=todayStr())?k.start:todayStr(),
     plan:defaultPlan(k?.id),
     payMethod:'クレジットカード',checks:{},clubs:[],pauses:[]};
@@ -1292,13 +1298,13 @@ function drawForm(){
       ${summary}
       ${isLead?`<div class="sec"><div class="sec-t">オリエンテーション</div><div class="fg">
         <div class="fl"><label>ステージ</label>${sel('f-stage',STAGES,c.stage)}</div>
-        <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}</div>
+        <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}<div class="hint">空のままなら「日程未定」</div></div>
         <div class="fl"><label>時間</label>${txt('f-orientTime',c.orientTime,'例：19:00')}</div>
         <div class="fl"><label>面接日</label>${txt('f-interviewDate',c.interviewDate,'','date')}</div>
       </div></div>`:''}
       <div class="sec"><div class="sec-t">基本情報</div><div class="fg">
         <div class="fl"><label>氏名 <span class="req">*</span></label>${txt('f-name',c.name,'山田 太郎')}</div>
-        <div class="fl"><label>ふりがな</label>${txt('f-kana',c.kana,'氏名を入力すると自動で入ります')}<div class="hint" id="kana-hint"></div></div>
+        <div class="fl"><label>ふりがな</label>${txt('f-kana',c.kana,'氏名から自動で入ります')}<div class="hint" id="kana-hint"></div></div>
         <div class="fl"><label>性別</label>${sel('f-gender',GENDERS,c.gender,'—')}</div>
         <div class="fl"><label>会社名</label>${txt('f-company',c.company)}</div>
         <div class="fl"><label>業種</label>${industryField(c.industry)}</div>
@@ -1353,25 +1359,39 @@ function pickIndustry(){
   if(v==='__custom__'){ t.style.display=''; t.value=''; t.focus(); } else { t.style.display='none'; t.value=v; }
 }
 
-// ふりがな自動入力：氏名を打つときの変換前の読み（IMEのひらがな）を拾って入れる
-// ふりがな欄を直接書き換えたら、それ以降は自動で上書きしない
+// ふりがな自動入力：氏名の漢字から辞書（kuromoji）で読みを推測して入れる
+// ふりがな欄を直接書き換えたら、それ以降は自動で上書きしない（空にすると自動に戻る）
+let _kanaTk=null, _kanaP=null;
+function loadKanaDict(){
+  if(_kanaP) return _kanaP;
+  const base='https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/';
+  _kanaP=new Promise((res,rej)=>{
+    const go=()=>kuromoji.builder({dicPath:base+'dict/'}).build((e,t)=>e?rej(e):res(_kanaTk=t));
+    if(window.kuromoji) return go();
+    const sc=document.createElement('script'); sc.src=base+'build/kuromoji.js'; sc.onload=go; sc.onerror=rej; document.head.appendChild(sc);
+  }).catch(e=>{ _kanaP=null; throw e; });
+  return _kanaP;
+}
+function guessKana(name){
+  const toHira=t=>t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
+  return name.trim().split(/[\s　]+/).map(part=>toHira(_kanaTk.tokenize(part).map(x=>x.reading&&x.reading!=='*'?x.reading:x.surface_form).join(''))).join(' ');
+}
 function setupAutoKana(){
   const name=document.getElementById('f-name'), kana=document.getElementById('f-kana'), hint=document.getElementById('kana-hint');
   if(!name||!kana) return;
-  let auto=!kana.value, parts=[], comp='';
-  const toHira=t=>t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
-  const show=()=>{ hint.textContent=auto?'自動入力中（直接修正もできます）':''; };
-  const apply=()=>{ if(auto) kana.value=parts.join('').replace(/\s+/g,' ').trim(); };
-  name.addEventListener('compositionstart',()=>{ comp=''; });
-  name.addEventListener('compositionupdate',e=>{ const d=toHira(e.data||''); if(d && /^[ぁ-ゖー゛゜\s　]+$/.test(d)) comp=d; });
-  name.addEventListener('compositionend',()=>{ if(comp){ parts.push(comp); comp=''; apply(); } });
-  name.addEventListener('input',e=>{
-    if(e.isComposing) return;
-    if(!name.value.trim()){ parts=[]; apply(); return; }
-    if(/[\s　]$/.test(name.value) && parts[parts.length-1]!==' '){ parts.push(' '); apply(); }
-  });
-  kana.addEventListener('input',()=>{ auto=!kana.value; if(auto) parts=[]; show(); });
+  let auto=!kana.value, timer;
+  const show=msg=>{ hint.textContent=msg ?? (auto?'漢字から自動で推測します（違っていたら直接直せます）':''); };
+  const fill=()=>{
+    if(!auto) return;
+    if(!name.value.trim()){ kana.value=''; return; }
+    if(!_kanaTk) show('読みの辞書を読み込み中…');
+    loadKanaDict().then(()=>{ if(auto){ kana.value=guessKana(name.value); show(); } })
+      .catch(()=>show('読みの推測を読み込めませんでした（手入力してください）'));
+  };
+  name.addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(fill,250); });
+  kana.addEventListener('input',()=>{ auto=!kana.value; show(); });
   show();
+  if(auto) loadKanaDict().catch(()=>{}); // フォームを開いた時点で辞書を先読み
 }
 
 // 部活：1つ選ぶと次の選択欄が出る
