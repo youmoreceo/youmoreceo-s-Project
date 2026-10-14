@@ -743,12 +743,13 @@ function viewLeads(){
 function trialBoard(){
   const today=todayStr();
   const col=cp=>{
-    const all=sortedSchedule(cp), up=all.filter(x=>x.date>=today).slice(0,8), past=all.filter(x=>x.date<today).slice(-2);
+    const all=sortedSchedule(cp), up=all.filter(x=>x.date>=today), next=up[0], rest=up.slice(1);
     const row=(x,old)=>{ const t=trialsOf(x.id); return `<div class="li" style="${old?'opacity:.55':''};align-items:flex-start"><div><b class="num">${mdw(x.date)}</b> <small style="color:var(--muted)">${esc(x.time||'')} ${esc(x.title||'')}</small>
       <div style="margin-top:3px">${t.map(c=>`<span class="chip" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('')||'<small style="color:var(--faint)">まだいません</small>'}</div></div>
       <span class="badge ${t.length?'b-blue':'b-end'}" style="font-size:13px">${old?'終了 ':''}${t.length}名</span></div>`; };
-    return `<div><div style="font-weight:700;color:var(--heading);margin-bottom:4px">${cp} <small style="color:var(--muted);font-weight:400">今後 ${all.filter(x=>x.date>=today).length}回</small></div>
-      <div class="list">${past.map(x=>row(x,true)).join('')}${up.map(x=>row(x,false)).join('')||'<div class="empty">今後の回が登録されていません</div>'}</div></div>`;
+    return `<div><div style="font-weight:700;color:var(--heading);margin-bottom:4px">${cp} <small style="color:var(--muted);font-weight:400">次回</small></div>
+      <div class="list">${next?row(next,false):'<div class="empty">今後の回が登録されていません</div>'}</div>
+      ${rest.length?`<details ${S.trialOpen?.[cp]?'open':''} ontoggle="(S.trialOpen=S.trialOpen||{})['${cp}']=this.open" style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--blue);padding:4px 0">以降の回を表示（${rest.length}回・体験 ${rest.reduce((a,x)=>a+trialsOf(x.id).length,0)}名）</summary><div class="list">${rest.map(x=>row(x,false)).join('')}</div></details>`:''}</div>`;
   };
   const noSched=!(S.master.schedule||[]).length;
   const unset=leads().filter(c=>c.stage!=='見送り' && !c.trialSession && !c.interviewDate).length;
