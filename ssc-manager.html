@@ -325,6 +325,7 @@ const DEFAULT_MASTER = {
   industries: ['投資用不動産','不動産賃貸','保険','人材','IT・SaaS','広告・メディア','金融','メーカー','商社・卸','医療・介護','士業','コンサル','コーチング','経営者'],
   sources: ['紹介','Instagram','X','LINE','イベント','LP・Web','その他'],
   // 料金プラン（設定タブで編集）。各リストの一番上が新規登録時の初期値
+  schedule: [], // SSCの年間スケジュール [{id, campus, date, time, title}]
   supportFee: 5000, // サポートメンバー報酬：紹介した在籍生徒1人あたり月額
   plans: {
     base:   [{id:'pb1', name:'1期生特別価格', amount:22000}, {id:'pb2', name:'通常', amount:44000}],
@@ -376,6 +377,14 @@ const cohortName = id => S.master.cohorts.find(c=>c.id===id)?.name || '';
 const students = () => S.customers.filter(c=>c.kind!=='lead');
 const leads = () => S.customers.filter(c=>c.kind==='lead');
 const byId = id => S.customers.find(c=>c.id===id);
+// ===== SSCスケジュール（体験の受け皿） =====
+const CAMPUSES=['東京校','大阪校'];
+const WD='日月火水木金土';
+const mdw = d => { const t=new Date(d+'T00:00:00'); return `${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})`; };
+const sessionOf = id => (S.master.schedule||[]).find(x=>x.id===id);
+const sessionLabel = x => `${x.campus} ${mdw(x.date)}${x.time?' '+x.time:''}${x.title?' '+x.title:''}`;
+const trialsOf = id => S.customers.filter(c=>c.trialSession===id && c.stage!=='見送り');
+const sortedSchedule = campus => [...(S.master.schedule||[])].filter(x=>!campus||x.campus===campus).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
 const PLAN_TYPES = [['base','基本プラン','月額'],['option','オプション','月額・任意'],['entry','入学金','初月のみ・任意']];
 // 期生に紐づくプラン → なければ基本プランの一番上
 function defaultPlan(cohortId){
@@ -713,6 +722,7 @@ function viewLeads(){
   <div class="card" style="margin-bottom:14px"><h3>今期のファネル <small>${fyLabel(fy)}・オリエン日基準</small></h3>
     <div class="funnel" style="margin:0">${f.map((v,i)=>`<div class="fstep ${i===4?'goal':''}"><div class="l">${fl[i]}</div><div class="v">${v}</div><div class="r">${i?`前段から ${pct(v,f[i-1])??'—'}%`:`今月 ${orientCount(m)}件${g.appo?' / 目標'+g.appo:''}`}</div></div>`).join('')}</div>
   </div>
+  ${trialBoard()}
   <div class="toolbar">
     <div class="seg">${[['active','進行中'],...STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>c.stage!=='見送り').length:v==='all'?ls.length:ls.filter(c=>c.stage===v).length}</span></button>`).join('')}</div>
     <input class="inp search" placeholder="名前・紹介者で検索" value="${esc(S.lf.q)}" onchange="S.lf.q=this.value;render()">
@@ -721,7 +731,7 @@ function viewLeads(){
   <div class="tbl-wrap resp"><table>
     <thead><tr><th>オリエン日</th><th>氏名</th><th>ステージ</th><th>業種</th><th>紹介者</th><th>流入経路</th><th>メモ</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map(c=>`<tr class="row ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')">
-      <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}</td>
+      <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}${sessionOf(c.trialSession)?`<small style="color:var(--blue)">体験：${esc(sessionOf(c.trialSession).campus.replace('校',''))} ${mdw(sessionOf(c.trialSession).date)}</small>`:''}</td>
       <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||'')}</small></td>
       <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value)">${STAGES.map(s=>`<option ${s===c.stage?'selected':''}>${s}</option>`).join('')}</select></td>
       <td>${esc(c.industry)||'—'}</td><td>${esc(c.referrer)||'—'}</td><td>${esc(c.source)||'—'}</td>
@@ -729,6 +739,21 @@ function viewLeads(){
       <td onclick="event.stopPropagation()">${c.stage!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
     </tr>`).join(''):'<tr><td colspan="8"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
   <div class="cards">${rows.map(c=>`<div class="mcard ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge b-blue">${esc(c.stage)}</span></div><div class="meta">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
+}
+function trialBoard(){
+  const today=todayStr();
+  const col=cp=>{
+    const all=sortedSchedule(cp), up=all.filter(x=>x.date>=today).slice(0,8), past=all.filter(x=>x.date<today).slice(-2);
+    const row=(x,old)=>{ const t=trialsOf(x.id); return `<div class="li" style="${old?'opacity:.55':''};align-items:flex-start"><div><b class="num">${mdw(x.date)}</b> <small style="color:var(--muted)">${esc(x.time||'')} ${esc(x.title||'')}</small>
+      <div style="margin-top:3px">${t.map(c=>`<span class="chip" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('')||'<small style="color:var(--faint)">まだいません</small>'}</div></div>
+      <span class="badge ${t.length?'b-blue':'b-end'}" style="font-size:13px">${old?'終了 ':''}${t.length}名</span></div>`; };
+    return `<div><div style="font-weight:700;color:var(--heading);margin-bottom:4px">${cp} <small style="color:var(--muted);font-weight:400">今後 ${all.filter(x=>x.date>=today).length}回</small></div>
+      <div class="list">${past.map(x=>row(x,true)).join('')}${up.map(x=>row(x,false)).join('')||'<div class="empty">今後の回が登録されていません</div>'}</div></div>`;
+  };
+  const noSched=!(S.master.schedule||[]).length;
+  const unset=leads().filter(c=>c.stage!=='見送り' && !c.trialSession && !c.interviewDate).length;
+  return `<div class="card" style="margin-bottom:14px"><h3>体験の予定 <small>${unset?`体験日未定 ${unset}名 ・ `:''}回ごとの体験人数</small></h3>
+    ${noSched?`<div class="empty">SSCのスケジュールがまだありません。<a href="#" onclick="go('settings');return false">設定 → SSCスケジュール</a>で東京校・大阪校の回を登録すると、ここに回ごとの体験人数が出ます。</div>`:`<div class="grid two">${CAMPUSES.map(col).join('')}</div>`}</div>`;
 }
 async function setStage(id,v){
   const c=clone(byId(id)); if(v==='見送り') c.lostAt=STAGES.indexOf(c.stage); c.stage=v;
@@ -1195,6 +1220,29 @@ function viewSettings(){
       <div class="hint" style="margin-bottom:8px">左から：期の名前 ／ 開講日 ／ 基本プラン</div>
       <div class="add-row"><input class="inp" id="add-cohorts" placeholder="例：${M.cohorts.length+1}期生" onkeydown="if(event.key==='Enter')addItem('cohorts')"><button class="btn primary" onclick="addItem('cohorts')">追加</button></div></div>
     ${listBlock('industries','業種','生徒の業種の選択肢。',M.industries,it=>all.filter(c=>c.industry===it).length)}
+    <div class="card" style="grid-column:1/-1"><h3>SSCスケジュール <small>東京校・大阪校の年間の回。オリエン・見込みの「体験日」で選べます</small></h3>
+      <div class="grid two">${CAMPUSES.map(cp=>{ const list=sortedSchedule(cp); return `<div>
+        <div style="font-weight:700;color:var(--heading);margin-bottom:8px">${cp} <small style="color:var(--muted);font-weight:400">${list.length}回</small></div>
+        <div class="set-list" style="max-height:360px;overflow:auto">${list.map(x=>`<div class="set-item ${x.date<todayStr()?'arch':''}">
+          <input class="inp" type="date" style="flex:1.3" value="${x.date}" onchange="setSched('${x.id}','date',this.value)">
+          <input class="inp" style="flex:.8" value="${esc(x.time||'')}" placeholder="時間" onchange="setSched('${x.id}','time',this.value)">
+          <input class="inp" style="flex:1.4" value="${esc(x.title||'')}" placeholder="内容（例：第3回）" onchange="setSched('${x.id}','title',this.value)">
+          <span class="cnt">体験${trialsOf(x.id).length}</span>
+          <button class="icon-btn" title="削除" onclick="delSched('${x.id}')">✕</button></div>`).join('')||'<div class="empty">まだありません</div>'}</div>
+        <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px">
+          <div class="add-row" style="flex-wrap:wrap">
+            <input class="inp" type="date" id="sc-date-${cp}" style="flex:1 1 140px">
+            <input class="inp" id="sc-time-${cp}" placeholder="16:00〜18:00" style="flex:1 1 110px">
+            <input class="inp" id="sc-title-${cp}" placeholder="内容（任意）" style="flex:1 1 120px">
+          </div>
+          <div class="add-row" style="margin-top:6px;align-items:center;flex-wrap:wrap">
+            <select class="inp" id="sc-rep-${cp}" style="flex:1 1 120px"><option value="0">1回だけ</option><option value="7">毎週</option><option value="14">隔週</option><option value="m">毎月（同じ日）</option></select>
+            <input class="inp num" type="number" min="1" max="60" id="sc-n-${cp}" value="1" style="flex:0 0 70px"><span style="font-size:12px;color:var(--muted)">回分</span>
+            <button class="btn primary" onclick="addSched('${cp}')">追加</button>
+          </div></div>
+        <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--blue)">まとめて貼り付けて登録</summary>
+          <textarea class="inp" id="sc-bulk-${cp}" style="margin-top:6px;min-height:120px;font-size:13px" placeholder="1行に1回。例：&#10;9/10 19:30〜21:30 営業課題壁打ち会（オンライン）&#10;2026/9/28 19:30〜21:30 90日目標設定会"></textarea>
+          <button class="btn sm primary" style="margin-top:6px" onclick="bulkSched('${cp}')">この内容で登録</button></details></div>`; }).join('')}</div></div>
     ${listBlock('sources','流入経路','どこから来たか（紹介・SNSなど）。紹介者とは別に集計できます。',M.sources,it=>all.filter(c=>c.source===it).length)}
     <div class="card"><h3>サポートメンバー報酬</h3><p class="hint" style="margin:-6px 0 12px">紹介した生徒が在籍している間、1人につき毎月支払う金額。利益管理で経費と一緒に差し引かれます。</p>
       <div class="add-row" style="align-items:center"><input class="inp num" type="number" min="0" style="max-width:160px" value="${M.supportFee??5000}" onchange="S.master.supportFee=Number(this.value)||0;saveMaster()"><span style="color:var(--muted)">円 ／ 人・月</span></div></div>
@@ -1220,6 +1268,44 @@ function addItem(key){
   else if(key==='cohorts'){ const last=M.cohorts[M.cohorts.length-1]; M.cohorts.push({id:uid(),name:v,start:'',planId:last?.planId||''}); }
   else { if(M[key].includes(v)) return toast('同じ名前があります',true); M[key].push(v); }
   saveMaster(); render(); setTimeout(()=>document.getElementById('add-'+key)?.focus(),0);
+}
+function addSched(cp){
+  const g=k=>document.getElementById(`sc-${k}-${cp}`).value.trim();
+  const d0=g('date'); if(!d0) return toast('日付を入力してください',true);
+  const rep=g('rep'), n=rep==='0'?1:Math.min(60,Math.max(1,Number(g('n'))||1));
+  const base=new Date(d0+'T00:00:00'), out=[];
+  for(let i=0;i<n;i++){
+    const t=new Date(base); if(rep==='m') t.setMonth(t.getMonth()+i); else t.setDate(t.getDate()+i*Number(rep));
+    const ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    out.push({id:uid(),campus:cp,date:ds,time:g('time'),title:g('title')});
+  }
+  S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); toast(`${cp}に${out.length}回追加しました`); render();
+}
+// 「9/10 19:30〜21:30 タイトル」形式の行をまとめて登録（年が無ければ今期の9月〜8月で補う）
+function bulkSched(cp){
+  const fy=fyOf(curYM()), out=[], bad=[];
+  document.getElementById('sc-bulk-'+cp).value.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const m=line.match(/^(?:(\d{4})[\/\-年.])?(\d{1,2})[\/\-月.](\d{1,2})日?(?:\s*[（(][^）)]*[）)])?\s*(.*)$/);
+    if(!m) return bad.push(line);
+    const mo=Number(m[2]), d=Number(m[3]), y=m[1]?Number(m[1]):(mo>=9?fy:fy+1);
+    let rest=m[4]||'', time='';
+    const t=rest.match(/^(\d{1,2}:\d{2}(?:\s*[〜~\-－–]\s*\d{1,2}:\d{2})?)\s*[|｜]?\s*/);
+    if(t){ time=t[1].replace(/\s*[~\-－–]\s*/,'〜'); rest=rest.slice(t[0].length); }
+    out.push({id:uid(),campus:cp,date:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time,title:rest.trim()});
+  });
+  if(!out.length) return toast('読み取れる行がありませんでした',true);
+  const dup=out.filter(x=>(S.master.schedule||[]).some(s=>s.campus===cp&&s.date===x.date));
+  if(!confirm(`${cp}に ${out.length}回 を登録します。${dup.length?`\n（うち${dup.length}回は同じ日付がすでにあります）`:''}${bad.length?`\n読み取れなかった行：\n${bad.join('\n')}`:''}`)) return;
+  S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); render();
+}
+function setSched(id,k,v){ const x=sessionOf(id); if(!x) return; x[k]=v.trim(); saveMaster();
+  if(k==='date') S.customers.filter(c=>c.trialSession===id).forEach(c=>{ const cc=clone(c); cc.interviewDate=x.date; Store.saveCustomer(cc).catch(()=>{}); }); }
+function delSched(id){
+  const x=sessionOf(id), n=trialsOf(id).length;
+  if(!confirm(`${sessionLabel(x)} を削除しますか？${n?`\nこの回に体験予定の ${n}名 は「体験日未定」に戻ります。`:''}`)) return;
+  S.master.schedule=S.master.schedule.filter(s=>s.id!==id);
+  S.customers.filter(c=>c.trialSession===id).forEach(c=>{ const cc=clone(c); cc.trialSession=''; cc.interviewDate=''; Store.saveCustomer(cc).catch(()=>{}); });
+  saveMaster(); render();
 }
 function addPlan(t){
   const n=document.getElementById('plan-n-'+t).value.trim(), a=document.getElementById('plan-a-'+t).value;
@@ -1300,7 +1386,7 @@ function drawForm(){
         <div class="fl"><label>ステージ</label>${sel('f-stage',STAGES,c.stage)}</div>
         <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}<div class="hint">空のままなら「日程未定」</div></div>
         <div class="fl"><label>時間</label>${txt('f-orientTime',c.orientTime,'例：19:00')}</div>
-        <div class="fl"><label>体験日</label>${txt('f-interviewDate',c.interviewDate,'','date')}</div>
+        <div class="fl w2"><label>体験日（SSCの回）</label>${trialSelect(c)}<div class="hint">回の追加は 設定 → SSCスケジュール</div></div>
       </div></div>`:''}
       <div class="sec"><div class="sec-t">基本情報</div><div class="fg">
         <div class="fl"><label>氏名 <span class="req">*</span></label>${txt('f-name',c.name,'山田 太郎')}</div>
@@ -1348,6 +1434,17 @@ function drawForm(){
   setupAutoKana();
   if(!c.id) setTimeout(()=>document.getElementById('f-name')?.focus(),30);
 }
+// 体験日：設定のスケジュールから選ぶ（過去の回は選択中のものだけ表示）
+function trialSelect(c){
+  const today=todayStr(), cur=c.trialSession||'';
+  const legacy=!cur && c.interviewDate;
+  const groups=CAMPUSES.map(cp=>{
+    const list=sortedSchedule(cp).filter(x=>x.date>=today || x.id===cur);
+    return list.length?`<optgroup label="${cp}">${list.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(sessionLabel(x))}（体験 ${trialsOf(x.id).filter(t=>t.id!==c.id).length}名）</option>`).join('')}</optgroup>`:'';
+  }).join('');
+  return `<select class="inp" id="f-trialSession"><option value="">未定</option>${legacy?`<option value="__legacy__" selected>${fmtDate(c.interviewDate)}（スケジュール外）</option>`:''}${groups}</select>`;
+}
+
 // 業種：リストから選ぶ or 「直接入力」で自由に書く
 function industryField(cur){
   const list=S.master.industries, custom=!!cur && !list.includes(cur);
@@ -1460,6 +1557,8 @@ function readForm(){
     D.plan={baseId:b.id,baseName:b.name,base:b.amount,advisor:o.on,optId:o.id,optName:o.name,advisorFee:o.amount,entryId:e.id,entryName:e.name,entryFee:e.amount}; }
   if(document.getElementById('f-ck-contract')) CHECKS.forEach(([k])=>D.checks[k]=document.getElementById('f-ck-'+k).checked);
   const ta=document.getElementById('f-note'); if(ta) D.note=ta.value;
+  const ts=document.getElementById('f-trialSession');
+  if(ts && ts.value!=='__legacy__'){ const x=sessionOf(ts.value); D.trialSession=ts.value; D.interviewDate=x?x.date:''; }
 }
 async function saveForm(){
   readForm();
