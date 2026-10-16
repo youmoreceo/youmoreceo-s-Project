@@ -2201,6 +2201,29 @@ function openModal(type, data){
         </div>
       </div>
 
+      <div id="front-result-wrap" style="display:${svcs.includes('フロントコーチング')?'block':'none'};margin-bottom:12px">
+        <div style="background:rgba(124,58,237,0.07);border-radius:8px;padding:12px 14px;border-left:3px solid #7c3aed">
+          <div class="form-group" style="margin-bottom:8px"><label style="color:#7c3aed;font-weight:600">📋 フロントコーチングの結果</label>
+            <select id="f-front-result" onchange="onFrontResultChange()">
+              <option value="">継続中（未判断）</option>
+              <option value="transitioned" ${c.frontResult==='transitioned'?'selected':''}>✅ 長期1on1コーチングへ移行した</option>
+              <option value="ended" ${c.frontResult==='ended'?'selected':''}>× 契約終了（移行なし）</option>
+            </select>
+          </div>
+          <div id="front-transition-detail" style="display:${c.frontResult==='transitioned'?'block':'none'}">
+            <div class="form-row">
+              <div class="form-group"><label>長期1on1 金額（円）</label><input id="f-lt-price" type="number" value="${c.price||''}" placeholder="300000"></div>
+              <div class="form-group"><label>契約月数</label><input id="f-lt-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>契約開始日</label><input id="f-lt-cstart" type="date" value="${c.contractStart||''}"></div>
+              <div class="form-group"><label>契約終了日</label><input id="f-lt-cend" type="date" value="${c.contractEnd||''}"></div>
+            </div>
+            <div class="form-group"><label>売上換算日</label><input id="f-lt-rdate" type="date" value="${c.revenueDate||''}"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="months-fields" style="display:none">
         <div class="form-row">
           <div id="longterm-months-wrap" style="display:none" class="form-group"><label>長期1on1 契約月数</label><input id="f-longterm-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
@@ -2208,6 +2231,7 @@ function openModal(type, data){
         </div>
       </div>
 
+      <div id="front-no-result-fields" style="display:${svcs.includes('フロントコーチング')&&!c.frontResult?'block':(!svcs.includes('フロントコーチング'))?'block':'none'}">
       <div class="form-group"><label>契約金額（円）</label><input id="f-price" type="number" value="${c.price||''}" placeholder="300000"></div>
 
       <div class="form-row">
@@ -2215,6 +2239,7 @@ function openModal(type, data){
         <div class="form-group"><label>契約終了日</label><input id="f-cend" type="date" value="${c.contractEnd||''}"></div>
       </div>
       <div class="form-group"><label>売上換算日 <span style="font-size:11px;color:var(--text3)">（この日付で売上管理に自動反映）</span></label><input id="f-rdate" type="date" value="${c.revenueDate||''}"></div>
+      </div><!-- /front-no-result-fields -->
 
       <div class="form-group"><label>流入ルート</label>
         <select id="f-inflow" onchange="onInflowChange('f-inflow','f-inflow-detail','f-inflow-detail-wrap')">
@@ -2467,6 +2492,25 @@ function toggleSvcDetail(){
   if(mf)mf.style.display=(lt||biz)?'block':'none';
 }
 
+function onFrontResultChange(){
+  const val = document.getElementById('f-front-result')?.value || '';
+  const detail = document.getElementById('front-transition-detail');
+  const noResultFields = document.getElementById('front-no-result-fields');
+  const statusEl = document.getElementById('f-status');
+  if(val === 'transitioned'){
+    if(detail) detail.style.display = 'block';
+    if(noResultFields) noResultFields.style.display = 'none';
+    if(statusEl) statusEl.value = '契約中';
+  } else if(val === 'ended'){
+    if(detail) detail.style.display = 'none';
+    if(noResultFields) noResultFields.style.display = 'none';
+    if(statusEl) statusEl.value = '契約終了';
+  } else {
+    if(detail) detail.style.display = 'none';
+    if(noResultFields) noResultFields.style.display = 'block';
+  }
+}
+
 function showModal(html){
   document.getElementById('modal-container').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;
 }
@@ -2477,21 +2521,42 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 async function saveCustomer(){
   const name=document.getElementById('f-name').value.trim();
   if(!name)return alert('氏名を入力してください');
-  const services=SERVICES.filter(s=>document.getElementById('svc-'+svcKey(s))?.checked);
+  const frontResult = document.getElementById('f-front-result')?.value || '';
+  let services=SERVICES.filter(s=>document.getElementById('svc-'+svcKey(s))?.checked);
+  // 移行の場合: フロントコーチング→長期1on1コーチングに切り替え
+  if(frontResult === 'transitioned'){
+    services = services.filter(s=>s!=='フロントコーチング');
+    if(!services.includes('長期1on1コーチング')) services.push('長期1on1コーチング');
+  }
   const inflow=document.getElementById('f-inflow').value;
   const id=editingId||genId();
-  const revenueDate=document.getElementById('f-rdate').value;
-  const price=Number(document.getElementById('f-price').value)||null;
+  // 移行時は長期1on1専用フィールドから、それ以外は通常フィールドから取得
+  const revenueDate = frontResult==='transitioned'
+    ? (document.getElementById('f-lt-rdate')?.value||'')
+    : (document.getElementById('f-rdate')?.value||'');
+  const price = frontResult==='transitioned'
+    ? (Number(document.getElementById('f-lt-price')?.value)||null)
+    : (Number(document.getElementById('f-price')?.value)||null);
+  const contractStart = frontResult==='transitioned'
+    ? (document.getElementById('f-lt-cstart')?.value||'')
+    : (document.getElementById('f-cstart')?.value||'');
+  const contractEnd = frontResult==='transitioned'
+    ? (document.getElementById('f-lt-cend')?.value||'')
+    : (document.getElementById('f-cend')?.value||'');
+  const longtermMonths = frontResult==='transitioned'
+    ? (Number(document.getElementById('f-lt-months')?.value)||null)
+    : (services.includes('長期1on1コーチング')?Number(document.getElementById('f-longterm-months')?.value)||null:null);
   const obj={
     id,
     name,
     gender:document.getElementById('f-gender').value,
     services,
     price,
-    longtermMonths:services.includes('長期1on1コーチング')?Number(document.getElementById('f-longterm-months')?.value)||null:null,
+    frontResult: services.includes('フロントコーチング')||frontResult ? frontResult : undefined,
+    longtermMonths,
     bizMonths:services.includes('SSC')?Number(document.getElementById('f-biz-months')?.value)||null:null,
-    contractStart:document.getElementById('f-cstart').value,
-    contractEnd:document.getElementById('f-cend').value,
+    contractStart,
+    contractEnd,
     revenueDate,
     inflow,
     inflowDetail:document.getElementById('f-inflow-detail')?.value||'',
@@ -3525,7 +3590,7 @@ function openSessionModal(id){
         <div class="form-group"><label>クライアント *</label>
           <select id="sf-client">
             <option value="">選択してください</option>
-            ${db.customers.map(c=>`<option value="${c.id}" ${(s.clientId===c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}
+            ${db.customers.filter(c=>(c.status||'契約中')==='契約中'||c.id===s.clientId).map(c=>`<option value="${c.id}" ${(s.clientId===c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group"><label>日付 *</label><input id="sf-date" type="date" value="${s.date||today()}"></div>
@@ -3598,7 +3663,7 @@ function openSessionDetail(id){
 }
 
 function openTranscriptModal(){
-  const clientOptions = db.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const clientOptions = db.customers.filter(c=>(c.status||'契約中')==='契約中').map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   showModal(`
     <div class="modal-header">
       <h3>🎙️ 議事録からセッション作成</h3>
