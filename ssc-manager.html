@@ -171,7 +171,7 @@ tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .inline-sel{border:1px solid var(--rule);background:var(--surface);border-radius:7px;padding:3px 6px;font-size:12px}
 
 /* Funnel */
-.funnel{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.funnel{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .fstep{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;position:relative}
 .fstep .l{font-size:12px;color:var(--muted)}
 .fstep .v{font-family:var(--num);font-size:22px;font-weight:700;color:var(--heading)}
@@ -284,6 +284,7 @@ tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
       <input class="inp" id="l-pass" type="password" autocomplete="current-password" required>
       <button class="btn primary" id="l-btn" style="width:100%;justify-content:center;margin-top:18px;padding:11px">ログイン</button>
       <div class="login-err" id="l-err"></div>
+      <div style="text-align:center;margin-top:6px"><a href="#" style="font-size:11px;color:var(--faint)" onclick="resetAuth();return false">ログインできないときはこちら（ログイン情報をリセット）</a></div>
     </form>
   </div>
 </div>
@@ -313,7 +314,13 @@ const sb = DEMO ? null : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STATUSES = ['契約中','休止中','契約終了'];
 const STATUS_BADGE = {'契約中':'b-on','休止中':'b-pause','契約終了':'b-end'};
-const STAGES = ['オリエン予約','オリエン参加','選考・面接','合格','見送り'];
+// ステージ：見送り以外は日付から自動で決まる（オリエン日→面談予定、体験日→体験予定）
+const STAGES = ['オリエン面談未調整','オリエン面談予定','体験予定','入学','見送り'];
+const LEAD_STAGES = ['オリエン面談未調整','オリエン面談予定','体験予定','見送り'];
+const STAGE_BADGE = {'オリエン面談未調整':'b-pause','オリエン面談予定':'b-blue','体験予定':'b-on','入学':'b-on','見送り':'b-end'};
+function autoStage(c){ return (c.trialSession||c.interviewDate) ? '体験予定' : c.orientDate ? 'オリエン面談予定' : 'オリエン面談未調整'; }
+function stageOf(c){ return c.kind!=='lead' ? '入学' : c.stage==='見送り' ? '見送り' : autoStage(c); }
+const stageRank = c => { const s=stageOf(c); return s==='見送り' ? (c.lostAt??STAGES.indexOf(autoStage(c))) : STAGES.indexOf(s); };
 const GENDERS = ['男性','女性','その他'];
 const PAY_METHODS = ['クレジットカード','口座振替','銀行振込','その他'];
 const CHECKS = [['contract','契約書'],['payment','決済'],['line','LINE']];
@@ -383,7 +390,7 @@ const WD='日月火水木金土';
 const mdw = d => { const t=new Date(d+'T00:00:00'); return `${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})`; };
 const sessionOf = id => (S.master.schedule||[]).find(x=>x.id===id);
 const sessionLabel = x => `${x.campus} ${mdw(x.date)}${x.time?' '+x.time:''}${x.title?' '+x.title:''}`;
-const trialsOf = id => S.customers.filter(c=>c.trialSession===id && c.stage!=='見送り');
+const trialsOf = id => S.customers.filter(c=>c.trialSession===id && stageOf(c)!=='見送り');
 const sortedSchedule = campus => [...(S.master.schedule||[])].filter(x=>!campus||x.campus===campus).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
 const PLAN_TYPES = [['base','基本プラン','月額'],['option','オプション','月額・任意'],['entry','入学金','初月のみ・任意']];
 // 期生に紐づくプラン → なければ基本プランの一番上
@@ -511,9 +518,19 @@ function confirmMoney(title, rows, note=''){
 async function run(fn, okMsg){ try{ loading(true); const r=await fn(); if(okMsg) toast(okMsg); return r; } catch(e){ console.error(e); toast('保存に失敗しました：'+(e.message||e),true); throw e; } finally{ loading(false); } }
 
 // ===================== 認証 =====================
+// ブラウザに残ったログイン情報が壊れて固まったとき用：sb- で始まる保存データを消して読み込み直す
+function resetAuth(){
+  try{ Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k)); sessionStorage.setItem('ssc_auth_reset','1'); }catch(e){}
+  location.reload();
+}
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
 async function init(){
   if(DEMO){ document.getElementById('user-email').textContent='デモモード'; return showApp(); }
-  const {data:{session}} = await sb.auth.getSession();
+  let reset=false; try{ reset=sessionStorage.getItem('ssc_auth_reset'); sessionStorage.removeItem('ssc_auth_reset'); }catch(e){}
+  let session=null;
+  try{ ({data:{session}} = await withTimeout(sb.auth.getSession(),8000)); }
+  catch(e){ if(!reset) return resetAuth(); }
+  if(reset && !session) document.getElementById('l-err').textContent='ログイン情報をリセットしました。もう一度ログインしてください。';
   if(session) showApp(session.user.email); else showLogin();
   sb.auth.onAuthStateChange((ev,session)=>{ if(ev==='SIGNED_OUT') showLogin(); if(ev==='SIGNED_IN' && document.getElementById('app').style.display!=='block') showApp(session.user.email); });
 }
@@ -521,9 +538,14 @@ function showLogin(){ document.getElementById('app').style.display='none'; docum
 async function showApp(email){
   document.getElementById('login').style.display='none';
   if(email) document.getElementById('user-email').textContent=email;
-  try{ loading(true); await Store.load(); }
+  try{ loading(true); await withTimeout(Store.load(),20000); }
   catch(e){
     loading(false);
+    if(e.message==='timeout'||/JWT|token|auth/i.test(e.message||'')){
+      document.getElementById('app').style.display='block';
+      document.getElementById('main').innerHTML=`<div class="card"><h3>読み込みに時間がかかっています</h3><p style="color:var(--muted);margin-bottom:12px">ブラウザに残ったログイン情報が原因のことがあります。下のボタンでログインし直してください（データは消えません）。</p><button class="btn primary" onclick="resetAuth()">ログインし直す</button> <button class="btn" onclick="location.reload()">もう一度読み込む</button></div>`;
+      return;
+    }
     const missing = /ssc_|relation|schema cache/i.test(e.message||'');
     document.getElementById('app').style.display='block';
     document.getElementById('main').innerHTML=`<div class="card"><h3>データを読み込めませんでした</h3><p style="color:var(--muted)">${missing?'Supabase に SSC 用のテーブルがまだ作られていないようです。セットアップ用 SQL を SQL Editor で実行してから再読み込みしてください。':esc(e.message)}</p></div>`;
@@ -558,7 +580,7 @@ const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒�
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
-  const upcoming = leads().filter(c=>['オリエン予約','オリエン参加','選考・面接','合格'].includes(c.stage)).length;
+  const upcoming = leads().filter(c=>stageOf(c)!=='見送り').length;
   const badge = {pay:unpaid, leads:upcoming};
   document.getElementById('nav').innerHTML = VIEWS.map(([k,l,sh])=>`<button class="${S.view===k?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span class="lg">${l}</span><span class="sh">${sh}</span>${badge[k]?`<span class="cnt">${badge[k]}</span>`:''}</button>`).join('');
 }
@@ -584,7 +606,7 @@ function viewDash(){
   const or=orientCount(m);
   const todo=st.filter(c=>c.status!=='契約終了' && incomplete(c).length);
   const unpaid=st.filter(c=>billOf(c,m)>paidOf(c.id,m));
-  const up=leads().filter(c=>c.orientDate && c.orientDate>=todayStr() && c.stage==='オリエン予約').sort((a,b)=>a.orientDate.localeCompare(b.orientDate)).slice(0,6);
+  const up=leads().filter(c=>c.orientDate && c.orientDate>=todayStr() && stageOf(c)!=='見送り').sort((a,b)=>a.orientDate.localeCompare(b.orientDate)).slice(0,6);
 
   const kp=(l,v,s,bar)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}${bar!=null?`<div class="bar ${bar>=100?'ok':''}"><i style="width:${Math.min(100,bar)}%"></i></div>`:''}</div>`;
 
@@ -704,27 +726,29 @@ function exportCSV(){
 // ===================== オリエン・見込み =====================
 function viewLeads(){
   const ls=leads(), q=S.lf.q.trim().toLowerCase();
-  let rows=ls.filter(c=>(S.lf.stage==='active'?c.stage!=='見送り':S.lf.stage==='all'?true:c.stage===S.lf.stage) && (!q||[c.name,c.kana,c.company,c.referrer,c.note].join(' ').toLowerCase().includes(q)));
+  if(S.lf.stage!=='active'&&S.lf.stage!=='all'&&!LEAD_STAGES.includes(S.lf.stage)) S.lf.stage='active';
+  let rows=ls.filter(c=>(S.lf.stage==='active'?stageOf(c)!=='見送り':S.lf.stage==='all'?true:stageOf(c)===S.lf.stage) && (!q||[c.name,c.kana,c.company,c.referrer,c.note].join(' ').toLowerCase().includes(q)));
   // オリエン日が未定の人を一番上に、あとは新しい日付順
   rows.sort((a,b)=>(!!a.orientDate-!!b.orientDate) || (b.orientDate||'').localeCompare(a.orientDate||''));
-  const undecided=rows.filter(c=>!c.orientDate && c.stage!=='見送り').length;
+  const undecided=rows.filter(c=>!c.orientDate && stageOf(c)!=='見送り').length;
   // ファネル（今期）
   const fy=fyOf(curYM()), fyM=fyMonths(fy);
-  const inFY=c=>c.orientDate && fyM.includes(c.orientDate.slice(0,7));
+  // 今期に登録 or オリエンした人を対象に、どこまで進んだかを数える
+  const inFY=c=>{ const d=c.orientDate||(c._created||'').slice(0,10); return d && fyM.includes(d.slice(0,7)) && (c.kind==='lead'||c.orientDate||c.trialSession); };
   const all=S.customers.filter(inFY);
-  const reach=i=>all.filter(c=>c.kind!=='lead' || (c.stage!=='見送り' && STAGES.indexOf(c.stage)>=i) || (c.stage==='見送り' && (c.lostAt??0)>=i)).length;
-  const f=[reach(0),reach(1),reach(2),reach(3),all.filter(c=>c.kind!=='lead').length];
-  const fl=['オリエン予約','オリエン参加','選考・面接','合格','入学'];
+  const reach=i=>all.filter(c=>stageRank(c)>=i).length;
+  const f=[all.length,reach(1),reach(2),reach(3)];
+  const fl=['見込み登録','オリエン面談予定','体験予定','入学'];
   const m=curYM(), g=goalOf(m);
   return `
   <div class="head"><div><h2>オリエン・見込み</h2><p>オリエンテーション予約から入学までを管理。「入学登録」で生徒一覧へ移ります。</p></div>
     <div class="head-actions"><button class="btn primary" onclick="openCustomer(null,'lead')">＋ オリエン予約を登録</button></div></div>
-  <div class="card" style="margin-bottom:14px"><h3>今期のファネル <small>${fyLabel(fy)}・オリエン日基準</small></h3>
-    <div class="funnel" style="margin:0">${f.map((v,i)=>`<div class="fstep ${i===4?'goal':''}"><div class="l">${fl[i]}</div><div class="v">${v}</div><div class="r">${i?`前段から ${pct(v,f[i-1])??'—'}%`:`今月 ${orientCount(m)}件${g.appo?' / 目標'+g.appo:''}`}</div></div>`).join('')}</div>
+  <div class="card" style="margin-bottom:14px"><h3>今期のファネル <small>${fyLabel(fy)}</small></h3>
+    <div class="funnel" style="margin:0">${f.map((v,i)=>`<div class="fstep ${i===3?'goal':''}"><div class="l">${fl[i]}</div><div class="v">${v}</div><div class="r">${i?`前段から ${pct(v,f[i-1])??'—'}%`:`今月 ${orientCount(m)}件${g.appo?' / 目標'+g.appo:''}`}</div></div>`).join('')}</div>
   </div>
   ${trialBoard()}
   <div class="toolbar">
-    <div class="seg">${[['active','進行中'],...STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>c.stage!=='見送り').length:v==='all'?ls.length:ls.filter(c=>c.stage===v).length}</span></button>`).join('')}</div>
+    <div class="seg">${[['active','進行中'],...LEAD_STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>stageOf(c)!=='見送り').length:v==='all'?ls.length:ls.filter(c=>stageOf(c)===v).length}</span></button>`).join('')}</div>
     <input class="inp search" placeholder="名前・紹介者で検索" value="${esc(S.lf.q)}" onchange="S.lf.q=this.value;render()">
   </div>
   ${undecided?`<div class="warn" style="margin:0 0 10px">⚠ オリエン日が未定の人が ${undecided}名 います（一覧の一番上・黄色の行）。日程が決まったら入力してください。</div>`:''}
@@ -733,12 +757,12 @@ function viewLeads(){
     <tbody>${rows.length?rows.map(c=>`<tr class="row ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')">
       <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}${sessionOf(c.trialSession)?`<small style="color:var(--blue)">体験：${esc(sessionOf(c.trialSession).campus.replace('校',''))} ${mdw(sessionOf(c.trialSession).date)}</small>`:''}</td>
       <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||'')}</small></td>
-      <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value)">${STAGES.map(s=>`<option ${s===c.stage?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value,this)">${STAGES.map(s=>`<option ${s===stageOf(c)?'selected':''}>${s}</option>`).join('')}</select></td>
       <td>${esc(c.industry)||'—'}</td><td>${esc(c.referrer)||'—'}</td><td>${esc(c.source)||'—'}</td>
       <td class="wrap" style="max-width:220px;color:var(--muted)">${esc((c.note||'').slice(0,40))}</td>
-      <td onclick="event.stopPropagation()">${c.stage!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
+      <td onclick="event.stopPropagation()">${stageOf(c)!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
     </tr>`).join(''):'<tr><td colspan="8"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
-  <div class="cards">${rows.map(c=>`<div class="mcard ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge b-blue">${esc(c.stage)}</span></div><div class="meta">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
+  <div class="cards">${rows.map(c=>`<div class="mcard ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge ${STAGE_BADGE[stageOf(c)]}">${esc(stageOf(c))}</span></div><div class="meta">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
 }
 function trialBoard(){
   const today=todayStr();
@@ -752,12 +776,19 @@ function trialBoard(){
       ${rest.length?`<details ${S.trialOpen?.[cp]?'open':''} ontoggle="(S.trialOpen=S.trialOpen||{})['${cp}']=this.open" style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--blue);padding:4px 0">以降の回を表示（${rest.length}回・体験 ${rest.reduce((a,x)=>a+trialsOf(x.id).length,0)}名）</summary><div class="list">${rest.map(x=>row(x,false)).join('')}</div></details>`:''}</div>`;
   };
   const noSched=!(S.master.schedule||[]).length;
-  const unset=leads().filter(c=>c.stage!=='見送り' && !c.trialSession && !c.interviewDate).length;
+  const unset=leads().filter(c=>stageOf(c)!=='見送り' && !c.trialSession && !c.interviewDate).length;
   return `<div class="card" style="margin-bottom:14px"><h3>体験の予定 <small>${unset?`体験日未定 ${unset}名 ・ `:''}回ごとの体験人数</small></h3>
     ${noSched?`<div class="empty">SSCのスケジュールがまだありません。<a href="#" onclick="go('settings');return false">設定 → SSCスケジュール</a>で東京校・大阪校の回を登録すると、ここに回ごとの体験人数が出ます。</div>`:`<div class="grid two">${CAMPUSES.map(col).join('')}</div>`}</div>`;
 }
-async function setStage(id,v){
-  const c=clone(byId(id)); if(v==='見送り') c.lostAt=STAGES.indexOf(c.stage); c.stage=v;
+// 見送り・入学は手動。それ以外は日付で自動なので、選んでも日付どおりに戻る
+async function setStage(id,v,el){
+  const c=clone(byId(id)), auto=autoStage(c);
+  if(v==='入学'){ if(el) el.value=stageOf(c); return enroll(id); }
+  if(v==='見送り'){ c.lostAt=STAGES.indexOf(auto); c.stage='見送り'; }
+  else {
+    c.stage='';
+    if(v!==auto){ if(el) el.value=auto; toast(v==='オリエン面談予定'?'オリエン日を入れると自動で「オリエン面談予定」になります':v==='体験予定'?'体験日を選ぶと自動で「体験予定」になります':'オリエン日・体験日を消すと「未調整」に戻ります',true); if(byId(id).stage!=='見送り') return; }
+  }
   await run(()=>Store.saveCustomer(c),'ステージを更新しました'); render();
 }
 function enroll(id){ openCustomer(id); toEnroll(); }
@@ -1344,7 +1375,7 @@ function backup(){
 let D=null; // 編集中の下書き
 function newRecord(kind){
   const M=S.master, k=M.cohorts[M.cohorts.length-1];
-  if(kind==='lead') return {kind:'lead',stage:'オリエン予約',orientDate:'',checks:{},clubs:[],pauses:[]};
+  if(kind==='lead') return {kind:'lead',stage:'',orientDate:'',checks:{},clubs:[],pauses:[]};
   return {kind:'student',status:'契約中',cohort:k?.id||'',startDate:(k?.start && k.start>=todayStr())?k.start:todayStr(),
     plan:defaultPlan(k?.id),
     payMethod:'クレジットカード',checks:{},clubs:[],pauses:[]};
@@ -1380,11 +1411,11 @@ function drawForm(){
   }
   document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal">
     <div class="modal-h"><h3>${c.id&&!c._enrolling?esc(c.name):c._enrolling?'入学登録：'+esc(c.name):isLead?'オリエン予約を登録':'生徒を登録'}</h3>
-      <div style="display:flex;gap:8px;align-items:center">${!isLead&&c.status?`<span class="badge ${STATUS_BADGE[c.status]}">${c.status}</span>`:''}${isLead?`<span class="badge b-blue">${esc(c.stage)}</span>`:''}<button class="icon-btn" onclick="closeModal()">✕</button></div></div>
+      <div style="display:flex;gap:8px;align-items:center">${!isLead&&c.status?`<span class="badge ${STATUS_BADGE[c.status]}">${c.status}</span>`:''}${isLead?`<span class="badge ${STAGE_BADGE[stageOf(c)]}">${esc(stageOf(c))}</span>`:''}<button class="icon-btn" onclick="closeModal()">✕</button></div></div>
     <div class="modal-b">
       ${summary}
       ${isLead?`<div class="sec"><div class="sec-t">オリエンテーション</div><div class="fg">
-        <div class="fl"><label>ステージ</label>${sel('f-stage',STAGES,c.stage)}</div>
+        <div class="fl"><label>ステージ</label><select class="inp" id="f-stage"><option value="" ${c.stage!=='見送り'?'selected':''}>自動（日付で判定）：${autoStage(c)}</option><option value="見送り" ${c.stage==='見送り'?'selected':''}>見送り</option></select><div class="hint">オリエン日→面談予定、体験日→体験予定に自動で進みます</div></div>
         <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}<div class="hint">空のままなら「日程未定」</div></div>
         <div class="fl"><label>時間</label>${txt('f-orientTime',c.orientTime,'例：19:00')}</div>
         <div class="fl w2"><label>体験日（SSCの回）</label>${trialSelect(c)}<div class="hint">回の追加は 設定 → SSCスケジュール</div></div>
@@ -1424,7 +1455,7 @@ function drawForm(){
     </div>
     <div class="modal-f">
       ${c.id&&!c._enrolling?`<button class="btn danger" onclick="delCustomer()">削除</button>`:'<span></span>'}
-      <div class="r">${isLead&&c.stage!=='見送り'?`<button class="btn accent" onclick="toEnroll()">入学登録へ →</button>`:''}<button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveForm()">保存</button></div>
+      <div class="r">${isLead&&stageOf(c)!=='見送り'?`<button class="btn accent" onclick="toEnroll()">入学登録へ →</button>`:''}<button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveForm()">保存</button></div>
     </div>
   </div></div>`;
   if(!isLead){
@@ -1570,6 +1601,7 @@ async function saveForm(){
     if(D.pauses.some(p=>!p.from || (p.to && p.to<p.from))) return toast('休止期間の月を確認してください',true);
     if(D.status==='休止中' && !D.pauses.some(p=>!p.to || p.to>=curYM())) D.pauses.push({from:curYM(),to:''});
   }
+  if(D.kind==='lead' && D.stage==='見送り' && byId(D.id)?.stage!=='見送り') D.lostAt=STAGES.indexOf(autoStage(D));
   const {_enrolling,...rec}=D; const wasEnroll=_enrolling;
   const old=rec.id && !wasEnroll ? byId(rec.id) : null;
   if(old && old.kind!=='lead' && rec.kind!=='lead'){
