@@ -2212,7 +2212,10 @@ function openModal(type, data){
           </div>
           <div id="front-transition-detail" style="display:${c.frontResult==='transitioned'?'block':'none'}">
             <div class="form-row">
-              <div class="form-group"><label>長期1on1 金額（円）</label><input id="f-lt-price" type="number" value="${c.price||''}" placeholder="300000"></div>
+              <div class="form-group"><label>フロントコーチング 金額（円）</label><input id="f-front-price" type="number" value="${c.frontPrice||''}" placeholder="例: 44000"></div>
+              <div class="form-group"><label>長期1on1 金額（円）</label><input id="f-lt-price" type="number" value="${c.longtermPrice||c.price||''}" placeholder="例: 300000"></div>
+            </div>
+            <div class="form-row">
               <div class="form-group"><label>契約月数</label><input id="f-lt-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
             </div>
             <div class="form-row">
@@ -2232,7 +2235,7 @@ function openModal(type, data){
       </div>
 
       <div id="front-no-result-fields" style="display:${svcs.includes('フロントコーチング')&&!c.frontResult?'block':(!svcs.includes('フロントコーチング'))?'block':'none'}">
-      <div class="form-group"><label>契約金額（円）</label><input id="f-price" type="number" value="${c.price||''}" placeholder="300000"></div>
+      <div class="form-group"><label>${svcs.includes('フロントコーチング')?'フロントコーチング 金額（円）':'契約金額（円）'}</label><input id="f-price" type="number" value="${c.price||''}" placeholder="300000"></div>
 
       <div class="form-row">
         <div class="form-group"><label>契約開始日</label><input id="f-cstart" type="date" value="${c.contractStart||''}"></div>
@@ -2534,9 +2537,14 @@ async function saveCustomer(){
   const revenueDate = frontResult==='transitioned'
     ? (document.getElementById('f-lt-rdate')?.value||'')
     : (document.getElementById('f-rdate')?.value||'');
-  const price = frontResult==='transitioned'
+  const frontPrice = frontResult==='transitioned'
+    ? (Number(document.getElementById('f-front-price')?.value)||null)
+    : (frontResult===''||frontResult==='ended') ? (Number(document.getElementById('f-price')?.value)||null) : null;
+  const longtermPrice = frontResult==='transitioned'
     ? (Number(document.getElementById('f-lt-price')?.value)||null)
-    : (Number(document.getElementById('f-price')?.value)||null);
+    : null;
+  // price = 売上自動反映に使う金額（移行時は長期1on1金額、それ以外はフロント金額）
+  const price = frontResult==='transitioned' ? longtermPrice : (Number(document.getElementById('f-price')?.value)||null);
   const contractStart = frontResult==='transitioned'
     ? (document.getElementById('f-lt-cstart')?.value||'')
     : (document.getElementById('f-cstart')?.value||'');
@@ -2552,6 +2560,8 @@ async function saveCustomer(){
     gender:document.getElementById('f-gender').value,
     services,
     price,
+    frontPrice,
+    longtermPrice,
     frontResult: services.includes('フロントコーチング')||frontResult ? frontResult : undefined,
     longtermMonths,
     bizMonths:services.includes('SSC')?Number(document.getElementById('f-biz-months')?.value)||null:null,
