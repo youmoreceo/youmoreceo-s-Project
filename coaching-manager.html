@@ -2555,10 +2555,6 @@ async function saveCustomer(){
   }
   const inflow=document.getElementById('f-inflow').value;
   const id=editingId||genId();
-  // 移行時は長期1on1専用フィールドから、それ以外は通常フィールドから取得
-  const revenueDate = frontResult==='transitioned'
-    ? (document.getElementById('f-lt-rdate')?.value||'')
-    : (document.getElementById('f-rdate')?.value||'');
   const frontPrice = frontResult==='transitioned'
     ? (Number(document.getElementById('f-front-price')?.value)||null)
     : (Number(document.getElementById('f-price')?.value)||null);
