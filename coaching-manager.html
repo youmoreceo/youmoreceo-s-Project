@@ -1972,8 +1972,12 @@ function renderCustomers() {
       <td class="text-xs text-muted">${c.gender||''}</td>
       <td>${(c.services||[]).map(s=>`<span class="badge ${SVC_BADGE[s]||'badge-gray'}" style="margin:1px;font-size:10px">${s}</span>`).join('')}</td>
       <td class="text-xs text-muted">${c.contractStart||''} ${c.contractEnd?'〜 '+c.contractEnd:''}</td>
-      <td class="text-xs text-muted">${c.revenueDate||''}</td>
-      <td class="fw-500">${paid>0?fmtY(paid):'—'}</td>
+      <td class="text-xs text-muted">${c.frontResult==='transitioned'
+        ? `<div>${c.frontRevenueDate||'—'} <span style="font-size:10px;color:#7c3aed">F</span></div><div>${c.longtermRevenueDate||'—'} <span style="font-size:10px;color:#2563eb">長</span></div>`
+        : (c.revenueDate||'')}</td>
+      <td class="fw-500">${c.frontResult==='transitioned'
+        ? `<div>${c.frontPrice?fmtY(c.frontPrice):'—'} <span style="font-size:10px;color:#7c3aed;font-weight:400">F</span></div><div>${c.longtermPrice?fmtY(c.longtermPrice):'—'} <span style="font-size:10px;color:#2563eb;font-weight:400">長</span></div>`
+        : (paid>0?fmtY(paid):'—')}</td>
       <td><span class="badge ${statusColor}">${c.status||'契約中'}</span></td>
       <td style="text-align:center">${c.hasInvoice?'✅':'—'}</td>
       <td onclick="event.stopPropagation()"><div class="flex gap-2"><button class="btn btn-sm" onclick="editCustomer('${c.id}')">編集</button><button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">削除</button></div></td>
@@ -2211,9 +2215,15 @@ function openModal(type, data){
             </select>
           </div>
           <div id="front-transition-detail" style="display:${c.frontResult==='transitioned'?'block':'none'}">
+            <div style="font-size:11px;font-weight:700;color:#7c3aed;margin:8px 0 4px">フロントコーチング</div>
             <div class="form-row">
-              <div class="form-group"><label>フロントコーチング 金額（円）</label><input id="f-front-price" type="number" value="${c.frontPrice||''}" placeholder="例: 44000"></div>
-              <div class="form-group"><label>長期1on1 金額（円）</label><input id="f-lt-price" type="number" value="${c.longtermPrice||c.price||''}" placeholder="例: 300000"></div>
+              <div class="form-group"><label>金額（円）</label><input id="f-front-price" type="number" value="${c.frontPrice||''}" placeholder="例: 44000"></div>
+              <div class="form-group"><label>売上換算日</label><input id="f-front-rdate" type="date" value="${c.frontRevenueDate||''}"></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#2563eb;margin:8px 0 4px">長期1on1コーチング</div>
+            <div class="form-row">
+              <div class="form-group"><label>金額（円）</label><input id="f-lt-price" type="number" value="${c.longtermPrice||c.price||''}" placeholder="例: 300000"></div>
+              <div class="form-group"><label>売上換算日</label><input id="f-lt-rdate" type="date" value="${c.longtermRevenueDate||c.revenueDate||''}"></div>
             </div>
             <div class="form-row">
               <div class="form-group"><label>契約月数</label><input id="f-lt-months" type="number" min="1" value="${esc(c.longtermMonths||'')}" placeholder="例: 6"></div>
@@ -2222,7 +2232,6 @@ function openModal(type, data){
               <div class="form-group"><label>契約開始日</label><input id="f-lt-cstart" type="date" value="${c.contractStart||''}"></div>
               <div class="form-group"><label>契約終了日</label><input id="f-lt-cend" type="date" value="${c.contractEnd||''}"></div>
             </div>
-            <div class="form-group"><label>売上換算日</label><input id="f-lt-rdate" type="date" value="${c.revenueDate||''}"></div>
           </div>
         </div>
       </div>
@@ -2539,12 +2548,19 @@ async function saveCustomer(){
     : (document.getElementById('f-rdate')?.value||'');
   const frontPrice = frontResult==='transitioned'
     ? (Number(document.getElementById('f-front-price')?.value)||null)
-    : (frontResult===''||frontResult==='ended') ? (Number(document.getElementById('f-price')?.value)||null) : null;
+    : (Number(document.getElementById('f-price')?.value)||null);
   const longtermPrice = frontResult==='transitioned'
     ? (Number(document.getElementById('f-lt-price')?.value)||null)
     : null;
-  // price = 売上自動反映に使う金額（移行時は長期1on1金額、それ以外はフロント金額）
-  const price = frontResult==='transitioned' ? longtermPrice : (Number(document.getElementById('f-price')?.value)||null);
+  const frontRevenueDate = frontResult==='transitioned'
+    ? (document.getElementById('f-front-rdate')?.value||'')
+    : '';
+  const longtermRevenueDate = frontResult==='transitioned'
+    ? (document.getElementById('f-lt-rdate')?.value||'')
+    : '';
+  // price / revenueDate = 売上自動反映用（移行時は長期、それ以外はフロント）
+  const price = frontResult==='transitioned' ? longtermPrice : frontPrice;
+  const revenueDate = frontResult==='transitioned' ? longtermRevenueDate : (document.getElementById('f-rdate')?.value||'');
   const contractStart = frontResult==='transitioned'
     ? (document.getElementById('f-lt-cstart')?.value||'')
     : (document.getElementById('f-cstart')?.value||'');
@@ -2562,6 +2578,8 @@ async function saveCustomer(){
     price,
     frontPrice,
     longtermPrice,
+    frontRevenueDate,
+    longtermRevenueDate,
     frontResult: services.includes('フロントコーチング')||frontResult ? frontResult : undefined,
     longtermMonths,
     bizMonths:services.includes('SSC')?Number(document.getElementById('f-biz-months')?.value)||null:null,
@@ -2583,22 +2601,33 @@ async function saveCustomer(){
   if(editingId) db.customers=db.customers.map(c=>c.id===editingId?{...obj,_created_at:c._created_at||_now}:c);
   else db.customers.push({...obj,_created_at:_now});
 
-  // 売上換算日と金額があれば売上管理に自動反映
-  // 既存の自動生成売上（auto_appt_* も含む）を探して重複を防ぐ
-  const existingAutoSale = db.sales.find(s => s.autoGenerated && s.customerId === id);
-  if(revenueDate && price){
-    const saleId = existingAutoSale ? existingAutoSale.id : 'auto_'+id;
-    const saleObj={id:saleId, customerId:id, customerName:name,
-      date:revenueDate, amount:price,
-      service:services[0]||'その他', memo:'顧客管理から自動登録', autoGenerated:true};
+  // 売上管理に自動反映（移行時はフロント・長期の2件、それ以外は1件）
+  async function upsertAutoSale(saleId, date, amount, service){
+    if(!date || !amount) return;
+    const saleObj={id:saleId, customerId:id, customerName:name, date, amount, service, memo:'顧客管理から自動登録', autoGenerated:true};
     await sb.from('sales').upsert({id:saleId, data:saleObj});
     const idx=db.sales.findIndex(s=>s.id===saleId);
     if(idx>=0) db.sales[idx]=saleObj; else db.sales.push(saleObj);
-  } else if(editingId){
-    // 売上換算日や金額が消えた場合は自動生成した売上も削除
-    if(existingAutoSale){
-      await sb.from('sales').delete().eq('id', existingAutoSale.id);
-      db.sales = db.sales.filter(s => s.id !== existingAutoSale.id);
+  }
+  async function deleteAutoSale(saleId){
+    const exists=db.sales.find(s=>s.id===saleId);
+    if(!exists) return;
+    await sb.from('sales').delete().eq('id', saleId);
+    db.sales=db.sales.filter(s=>s.id!==saleId);
+  }
+  if(frontResult==='transitioned'){
+    // フロント売上
+    await upsertAutoSale('auto_front_'+id, frontRevenueDate, frontPrice, 'フロントコーチング');
+    // 長期1on1売上
+    await upsertAutoSale('auto_lt_'+id, longtermRevenueDate, longtermPrice, '長期1on1コーチング');
+    // 旧auto_idがあれば削除
+    await deleteAutoSale('auto_'+id);
+  } else {
+    const existingAutoSale = db.sales.find(s => s.autoGenerated && s.customerId === id && s.id==='auto_'+id);
+    if(revenueDate && price){
+      await upsertAutoSale('auto_'+id, revenueDate, price, services[0]||'その他');
+    } else if(editingId && existingAutoSale){
+      await deleteAutoSale('auto_'+id);
     }
   }
 
