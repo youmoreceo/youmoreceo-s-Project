@@ -2432,6 +2432,8 @@ function openModal(type, data){
         </tr></tfoot>
       </table>
       <div class="form-group" style="margin-top:16px"><label>アポイント数目標（件）</label><input id="f-appts" type="number" value="${goal.appointments||''}"></div>
+      <div class="form-group"><label>契約数目標（件）</label><input id="f-contracts-goal" type="number" value="${goal.contractsGoal||''}"></div>
+      <div class="form-group"><label>長期移行数目標（件）</label><input id="f-transitions-goal" type="number" value="${goal.transitionsGoal||''}"></div>
       <div class="form-group"><label>提案回数目標（件）</label><input id="f-proposals" type="number" value="${goal.proposals||''}"></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveMonthGoal('${key}')">保存</button></div>`);
@@ -2782,6 +2784,8 @@ async function saveMonthGoal(key){
     lab:{count:labCount,total:labCount*10000},
     totalSales,
     appointments:Number(document.getElementById('f-appts').value)||0,
+    contractsGoal:Number(document.getElementById('f-contracts-goal').value)||0,
+    transitionsGoal:Number(document.getElementById('f-transitions-goal').value)||0,
     proposals:Number(document.getElementById('f-proposals').value)||0,
   };
   const {error}=await sb.from('goals').upsert({period_key:key, data});
