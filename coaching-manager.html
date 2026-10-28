@@ -2312,6 +2312,14 @@ function openModal(type, data){
     const inf=a.inflow||'';
     showModal(`<div class="modal-header"><h3>${editingId?'アポイントを編集':'アポイントを追加'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
+      <div style="background:rgba(99,102,241,0.06);border:1px dashed var(--accent);border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">🎙️ 議事録・メモから自動入力</div>
+        <textarea id="f-appo-transcript" rows="4" placeholder="アポ前後のメモ・議事録・会話録をここに貼り付けると、氏名・役職・事業内容・地域・備考を自動で入力します..." style="width:100%;font-size:12px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg);color:var(--text);box-sizing:border-box"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <button class="btn btn-primary" id="appo-extract-btn" onclick="extractAppoFromTranscript()" style="font-size:12px;padding:6px 14px">✨ AIで読み取る</button>
+          <span id="appo-extract-status" style="font-size:12px;color:var(--text3)"></span>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>氏名 *</label><input id="f-name" value="${esc(a.name||'')}"></div>
         <div class="form-group"><label>役職</label><input id="f-title" value="${esc(a.title||'')}"></div>
@@ -2656,6 +2664,71 @@ async function saveSale(){
   if(editingId) db.sales=db.sales.map(s=>s.id===editingId?obj:s);
   else db.sales.push(obj);
   closeModal(); renderSales();
+}
+
+async function extractAppoFromTranscript(){
+  const text = document.getElementById('f-appo-transcript')?.value?.trim();
+  if(!text) return alert('テキストを入力してください');
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if(!apiKey) return alert('Claude APIキーが設定されていません。財務コンサルページから設定してください。');
+
+  const btn = document.getElementById('appo-extract-btn');
+  const statusEl = document.getElementById('appo-extract-status');
+  btn.disabled = true;
+  statusEl.textContent = '🤖 解析中...';
+
+  const prompt = `以下のテキストからアポイントの相手の情報を読み取り、JSON形式のみで返してください（説明文不要）。
+
+テキスト:
+${text}
+
+形式:
+{
+  "name": "氏名（フルネームで。不明なら空文字）",
+  "title": "役職・肩書き（不明なら空文字）",
+  "business": "事業内容・業種（不明なら空文字）",
+  "region": "地域（東京・大阪・オンラインなど。不明なら空文字）",
+  "notes": "備考・メモとして残すべき情報（課題・背景・会話で分かったことなど。200文字以内）"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error?.message || '解析失敗');
+
+    const raw = json.content?.[0]?.text || '';
+    const cleaned = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('JSONが見つかりません');
+    const d = JSON.parse(match[0]);
+
+    if(d.name)     { const el=document.getElementById('f-name');     if(el && !el.value) el.value=d.name; else if(el) el.value=d.name; }
+    if(d.title)    { const el=document.getElementById('f-title');    if(el) el.value=d.title; }
+    if(d.business) { const el=document.getElementById('f-business'); if(el) el.value=d.business; }
+    if(d.region)   { const el=document.getElementById('f-region');   if(el) el.value=d.region; }
+    if(d.notes)    { const el=document.getElementById('f-notes');    if(el && !el.value) el.value=d.notes; }
+
+    statusEl.textContent = '✅ 読み取り完了！内容を確認してください。';
+    statusEl.style.color = 'var(--success, #16a34a)';
+  } catch(e) {
+    statusEl.textContent = '❌ ' + e.message;
+    statusEl.style.color = 'var(--danger, #dc2626)';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function saveAppointment(){
