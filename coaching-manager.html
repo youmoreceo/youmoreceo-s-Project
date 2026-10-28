@@ -2710,12 +2710,20 @@ ${text}
     if(!res.ok) throw new Error(json.error?.message || '解析失敗');
 
     const raw = json.content?.[0]?.text || '';
-    const cleaned = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if(!match) throw new Error('JSONが見つかりません');
-    // JSONコメント（// ...）を除去してからパース
-    const jsonStr = match[0].replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    const d = JSON.parse(jsonStr);
+    console.log('[appo-extract] raw:', raw);
+    // ブレース対応で正確にJSONブロックを抽出
+    const cleaned = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'');
+    let d;
+    const start = cleaned.indexOf('{');
+    if(start === -1) throw new Error('JSONが見つかりません');
+    let depth = 0, end = -1;
+    for(let i = start; i < cleaned.length; i++){
+      if(cleaned[i]==='{') depth++;
+      else if(cleaned[i]==='}'){depth--; if(depth===0){end=i;break;}}
+    }
+    if(end === -1) throw new Error('JSONが閉じていません');
+    const jsonStr = cleaned.slice(start, end+1).replace(/\/\/[^\n]*/g,'');
+    d = JSON.parse(jsonStr);
 
     if(d.name)     { const el=document.getElementById('f-name');     if(el && !el.value) el.value=d.name; else if(el) el.value=d.name; }
     if(d.title)    { const el=document.getElementById('f-title');    if(el) el.value=d.title; }
