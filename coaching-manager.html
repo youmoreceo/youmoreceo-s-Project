@@ -3967,7 +3967,7 @@ let installmentsData = [];
 function syncChecklistFromDOM(){
   const el = document.getElementById('checklist-editor');
   if(!el) return;
-  el.querySelectorAll('input[data-cl-section]').forEach(inp=>{
+  el.querySelectorAll('input[data-cl-section]:not([data-cl-item])').forEach(inp=>{
     const si = +inp.dataset.clSection;
     if(appoChecklist[si]) appoChecklist[si].section = inp.value;
   });
