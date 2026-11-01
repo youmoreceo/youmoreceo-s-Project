@@ -1069,7 +1069,7 @@ function openVenue(id){
   document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:640px">
     <div class="modal-h"><h3>${id?esc(v.name||'場所'):'場所を追加'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
-      <div class="fl w3"><label>予約リンク</label><input class="inp" id="vn-url" type="url" value="${esc(v.url||'')}" placeholder="https://..."></div>
+      <div class="fl w3"><label>予約リンク</label><div class="add-row"><input class="inp" id="vn-url" type="url" value="${esc(v.url||'')}" placeholder="https://..." oninput="clearTimeout(window._vnT);window._vnT=setTimeout(()=>fetchVenue(false),700)"><button class="btn" type="button" onclick="fetchVenue(true)">読み取る</button></div><div class="hint" id="vn-hint">${S.master.venueApi?'リンクを入れると、収容人数・料金・最寄駅を自動で読み取ります（部屋ごとの詳細ページのリンクがおすすめ）':'自動読み取りは 設定 → 場所の自動読み取り でURLを登録すると使えます'}</div></div>
       ${f('name','場所の名前','text','例：心斎橋 〇〇会議室')}
       <div class="fl"><label>エリア</label><select class="inp" id="vn-area">${[...CAMPUSES,'その他'].map(a=>`<option ${a===v.area?'selected':''}>${a}</option>`).join('')}</select></div>
       ${f('capacity','収容人数（名）','number','','min="0"')}
@@ -1081,6 +1081,20 @@ function openVenue(id){
     </div></div>
     <div class="modal-f">${id?`<button class="btn danger" onclick="delVenue('${id}')">削除</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveVenue('${id||''}')">保存</button></div></div>
   </div></div>`;
+}
+// 予約ページを Apps Script（ウェブアプリ）経由で読み、空欄だけ埋める。force=true なら上書き
+async function fetchVenue(force){
+  const url=document.getElementById('vn-url')?.value.trim(), hint=document.getElementById('vn-hint'), api=S.master.venueApi;
+  if(!api || !/^https?:\/\//.test(url||'')) return;
+  hint.textContent='ページを読み取り中…';
+  try{
+    const r=await withTimeout(fetch(api+'?url='+encodeURIComponent(url)).then(x=>x.json()),20000);
+    if(!r.ok) return hint.textContent='読み取れませんでした：'+(r.error||'');
+    const set=(k,v)=>{ const el=document.getElementById('vn-'+k); if(el && v!=null && v!=='' && (force||!el.value)) el.value=v; };
+    set('name',r.name); set('capacity',r.capacity); set('price',r.price); set('station',r.station); set('walk',r.walk);
+    const got=[r.capacity&&'収容人数',r.price&&'料金',r.station&&'最寄駅',r.walk&&'駅からの時間'].filter(Boolean);
+    hint.innerHTML=(got.length?`✅ ${got.join('・')}を読み取りました。`:'⚠ 項目を読み取れませんでした。手入力してください。')+(r.priceNote?`<br>料金は目安：${esc(r.priceNote)}（夜間料金などは予約ページで確認してください）`:'')+(r.multiple?'<br>⚠ 複数の部屋が載った一覧ページのようです。部屋ごとの詳細ページのリンクを入れると正確です。':'');
+  }catch(e){ hint.textContent='読み取りに失敗しました（時間をおいて「読み取る」を押してください）'; }
 }
 async function saveVenue(id){
   const g=k=>document.getElementById('vn-'+k).value.trim();
@@ -1402,6 +1416,8 @@ function viewSettings(){
           <textarea class="inp" id="sc-bulk-${cp}" style="margin-top:6px;min-height:120px;font-size:13px" placeholder="1行に1回。例：&#10;9/10 19:30〜21:30 営業課題壁打ち会（オンライン）&#10;2026/9/28 19:30〜21:30 90日目標設定会"></textarea>
           <button class="btn sm primary" style="margin-top:6px" onclick="bulkSched('${cp}')">この内容で登録</button></details></div>`; }).join('')}</div></div>
     ${listBlock('sources','流入経路','どこから来たか（紹介・SNSなど）。紹介者とは別に集計できます。',M.sources,it=>all.filter(c=>c.source===it).length)}
+    <div class="card"><h3>場所の自動読み取り</h3><p class="hint" style="margin:-6px 0 12px">場所候補で予約リンクを入れたときに、収容人数・料金・最寄駅を読み取るためのApps ScriptのURL（…/exec）。</p>
+      <input class="inp" value="${esc(M.venueApi||'')}" placeholder="https://script.google.com/macros/s/…/exec" onchange="S.master.venueApi=this.value.trim();saveMaster()"></div>
     <div class="card"><h3>サポートメンバー報酬</h3><p class="hint" style="margin:-6px 0 12px">紹介した生徒が在籍している間、1人につき毎月支払う金額。利益管理で経費と一緒に差し引かれます。</p>
       <div class="add-row" style="align-items:center"><input class="inp num" type="number" min="0" style="max-width:160px" value="${M.supportFee??5000}" onchange="S.master.supportFee=Number(this.value)||0;saveMaster()"><span style="color:var(--muted)">円 ／ 人・月</span></div></div>
     <div class="card"><h3>料金プラン</h3><p class="hint" style="margin:-6px 0 12px">ここに登録した料金が、生徒登録のプルダウンに出ます。各欄の一番上が新規登録時の初期値（期生にプランがあればそちら優先）。金額を変えても、登録済みの生徒の金額はそのままです。</p>
