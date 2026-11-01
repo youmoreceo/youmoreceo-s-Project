@@ -351,6 +351,7 @@ const S = {
   payMonth: curYM(),
   goalFY: fyOf(curYM()),
   marketing: { support:[], candidates:[], keyman:[], seminars:[], schools:[] },
+  skStudent: '', skTerm: '',
   expenses: [],
   profitMonth: curYM(),
   profitBase: 'paid',
@@ -554,6 +555,7 @@ async function showApp(email){
   loading(false);
   document.getElementById('app').style.display='block';
   render();
+  ensureStudentNos();
 }
 async function doLogin(){
   const email=document.getElementById('l-email').value.trim(), password=document.getElementById('l-pass').value;
@@ -572,11 +574,12 @@ const ICONS = {
   leads:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
   pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  skills:'<path d="M12 2l3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1z"/>',
   profit:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['skills','スキル評価','スキル'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
@@ -589,7 +592,7 @@ function render(){
   renderNav();
   const main=document.getElementById('main');
   const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
-  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,settings:viewSettings}[S.view])();
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,skills:viewSkills,settings:viewSettings}[S.view])();
   if(S.view==='goals') updGoalCells();
   if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
 }
@@ -687,7 +690,7 @@ function viewStudents(){
   <div class="tbl-wrap resp"><table>
     <thead><tr>${th('name','氏名')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
     <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
-      <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||c.kana||'')}</small></td>
+      <td><span class="nm">${esc(c.name)}</span><small>${c.studentNo?`<b style="color:var(--blue)">${esc(c.studentNo)}</b> `:''}${esc(c.company||c.kana||'')}</small></td>
       <td>${esc(cohortName(c.cohort))||'—'}</td>
       <td><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></td>
       <td class="num">${fmtDate(c.startDate)}${c.status==='契約終了'&&c.endDate?`<small>〜${fmtDate(c.endDate)}</small>`:''}</td>
@@ -963,6 +966,78 @@ function setGoal(m,k,v){
   S.goals[m]=g; updGoalCells();
   clearTimeout(goalTimer);
   goalTimer=setTimeout(async()=>{ try{ await Store.saveSetting('goals'); toast('目標を保存しました'); }catch(e){ toast('保存に失敗しました：'+e.message,true); } },800);
+}
+
+const SKILL_DATA={"skills":[{"id":"S01","area":"主体的実行力","name":"目標設定力","sub":"目標の言語化／達成基準／期限／優先順位","goal":"自分が目指す成果を明確にし、達成基準と期限を設定できる","evidence":"目標設定シート・期限・達成指標・優先順位の説明"},{"id":"S02","area":"主体的実行力","name":"内省・改善力","sub":"自己分析／振り返り","goal":"自分の成果・行動・強みと課題を振り返り、次の改善行動を特定できる","evidence":"自己分析シート・商談振り返り・改善前後の比較"},{"id":"S03","area":"主体的実行力","name":"解釈力","sub":"リフレーミング力／ポジティブ力","goal":"事実と解釈を区別し、複数の見方から建設的な次の行動を選べる","evidence":"失敗事例の再解釈ワーク・状況別の行動選択"},{"id":"S04","area":"対人協働力","name":"質問力","sub":"質問設計／確認質問／深掘り質問","goal":"相手の状況・意図を確かめ、目的に沿った質問で必要な情報を引き出せる","evidence":"質問ロープレ・深掘りの流れ・確認質問の内容"},{"id":"S05","area":"対人協働力","name":"伝達力","sub":"プレゼン力／ストーリー／面白い話し方","goal":"聞き手に合わせて、自分の考えや価値を分かりやすく印象に残る形で伝えられる","evidence":"自己紹介録画・提案ロープレ・第三者理解度"},{"id":"S06","area":"対人協働力","name":"協業構築力","sub":"相互メリット発見／協業アイデアの構想／協業提案・合意／共同実行","goal":"相手の課題と双方の強み・資源を組み合わせ、相互利益のある協業を提案して実行に移せる","evidence":"相互メリットの整理／具体的協業案／合意内容／実施記録"},{"id":"S07","area":"他者の課題解決力","name":"課題発見・分析力","sub":"現状分析／理想と課題の把握／仮説思考／事業分析","goal":"相手の理想と現状の差を把握し、根拠をもって優先課題を特定できる","evidence":"ケース分析・仮説検証・模擬ヒアリング"},{"id":"S08","area":"他者の課題解決力","name":"構造化・言語化力","sub":"要素分解／因果関係の整理／論理的思考／本質の特定／分かりやすい言語化","goal":"複雑な問題を要素に分け、関係を整理し、要点を簡潔に説明できる","evidence":"課題構造図・説明ワーク・発表の明瞭性"},{"id":"S09","area":"他者の課題解決力","name":"解決策立案・提案力","sub":"解決策の発想／提案内容の具体化","goal":"相手の課題に合う解決策を考え、効果や実行方法を具体的に提案できる","evidence":"ケース提案書・実現性の説明・提案ロープレ"},{"id":"S10","area":"主体的実行力","name":"実行力","sub":"行動設計／選択と集中／タスク管理／習慣化","goal":"目標を具体的な行動に落とし込み、優先順位をつけて継続実行できる","evidence":"週次行動計画・実行率・継続記録"},{"id":"S11","area":"対人協働力","name":"傾聴力","sub":"最後まで聴く／要約と確認／事実と解釈の区別（解釈しない力）","goal":"判断を急がず相手の話を受け止め、発言の意味を要約・確認できる","evidence":"模擬対話／要約の精度／遮らず聴けたか"},{"id":"S12","area":"対人協働力","name":"他者理解力","sub":"相手の価値観／理想／制約／優先順位の理解","goal":"相手が大切にしていることと判断の背景を理解し、関わり方を調整できる","evidence":"価値観ヒアリングの確認・相手による理解度評価"}],"levels":{"S01":{"1":"目標が曖昧で、何が達成か説明できない","2":"目標は言えるが、期限・達成基準が明確ではない","3":"期限と測定可能な達成基準を伴う目標を設定できる","4":"成果の価値・優先順位・制約条件を整理し、現実の行動とつながる目標を設計できる","5":"目標の難易度と価値を判断し、成果に応じた検証・再設定の基準まで決められる"},"S02":{"1":"成果・失敗を感想で捉え、行動を振り返れていない","2":"支援があれば自分の行動と結果を書き出せる","3":"事実をもとに強み・課題を整理し、次に直す行動を決められる","4":"課題の原因仮説を立て、改善前後を比較して修正できる","5":"複数の改善サイクルを記録し、自律的に再現できる"},"S03":{"1":"失敗時に1つの解釈に固執し、次の行動が止まる","2":"他者の問いかけがあれば別の捉え方を考えられる","3":"事実と解釈を分け、複数の見方から行動を選択できる","4":"困難な状況でも根拠ある再解釈を行い、具体的な再挑戦につなげられる","5":"状況に応じた建設的な解釈と行動選択を継続し、他者にも共有できる"},"S04":{"1":"一方的に話し、必要なことを質問できない","2":"質問はできるが、表面的な事実確認で止まる","3":"目的に沿って質問し、現状や理想を具体的に把握できる","4":"相手の答えに応じて深掘りし、前提や背景を確かめられる","5":"相手の考えを整理しやすい質問を組み立て、本人の言葉で気づきを明確化できる"},"S05":{"1":"話の要点が伝わらず、聞き手が何を理解すべきか分からない","2":"伝えたい内容は話せるが、順序・例・長さの調整が難しい","3":"相手に合わせて要点・根拠・具体例を分かりやすく伝えられる","4":"ストーリー・比喩・間などを使い、理解と関心を高められる","5":"相手の反応・質問に応じて表現を変え、納得と次の行動につなげられる"},"S06":{"1":"自分への紹介や協力を求めるだけで、相手の利益を確認しない","2":"相手の課題を把握できても、双方に価値のある協業案を作れない","3":"相手の課題と双方の強みを組み合わせ、具体的な協業案を提示できる","4":"双方のメリットを説明して合意を取り、役割と行動を定め実施できる","5":"協業成果を検証・改善し、互いに利益のある連携を継続できる"},"S07":{"1":"相手の話を聞いてすぐ解決策を出し、課題を確認しない","2":"現状と理想は聞けるが、課題や原因を曖昧に捉えている","3":"理想と現状の差・影響を把握し、優先課題の仮説を立てられる","4":"情報・事実を用いて仮説を検証し、主要原因を特定できる","5":"複数の課題を比較し、根拠・優先順位を示して本質課題を定められる"},"S08":{"1":"情報が並列で、要点・関係性を説明できない","2":"情報を項目ごとに分けられるが、関係や論点が曖昧","3":"要素分解・因果関係・結論を整理し、簡潔に説明できる","4":"前提や根拠を確かめつつ、本質的な論点を分かりやすく示せる","5":"複雑な事象も筋道立てて説明し、他者の判断に使える形にまとめられる"},"S09":{"1":"課題の確認が不十分なまま、一般的な解決策を勧める","2":"解決案は思いつくが、相手の課題とのつながりや具体性が弱い","3":"課題に対応した解決策を考え、実行内容を具体的に提案できる","4":"効果・負担・代替策を比較し、相手に合う提案を組み立てられる","5":"提案の根拠・優先順位・実行条件を説明し、合意を得られる"},"S10":{"1":"やるべき行動が決まらず、着手が続かない","2":"行動案はあるが、期限・優先順位・頻度が定まっていない","3":"優先行動を週次計画に落とし、期限を守って実行できる","4":"障害を予測して対処し、重要行動の実行を継続できる","5":"他の仕事と両立しながら実行を習慣化し、安定した行動量を維持できる"},"S11":{"1":"相手の話を遮ったり、自分の解釈で決めつけたりする","2":"最後まで聞けるが、自分の解釈と相手の発言を混同しやすい","3":"相手の話を遮らず、要約・確認して意味を正しく把握できる","4":"推測を保留し、事実と解釈を区別して丁寧に確認できる","5":"相手の言葉と感情を尊重しながら、安心して深く話せる聞き方を継続できる"},"S12":{"1":"相手の価値観や状況を確かめず、自分の基準で判断する","2":"相手の現状は知っているが、何を大切にしているか説明できない","3":"相手の希望・価値観・制約を本人の言葉で確認し説明できる","4":"相手の立場や優先順位の背景を理解し、適した関わり方に調整できる","5":"本人による理解確認を踏まえ、異なる価値観や背景の相手にも理解を深め続けられる"}}};
+// ===================== スキル評価 =====================
+// 評価は生徒ごとに c.evals に保存：{term:'2026H2', point:'開始時', skill:'S01', self, selfNote, selfAt, inst, instNote, next, teacher, url, date}
+// スプシ「SSC｜スキル評価・成長ポートフォリオ」へは Apps Script が10分ごとに反映（生徒→03、講師評価→07）
+const SKILLS=SKILL_DATA.skills, SK_LEVELS=SKILL_DATA.levels;
+const SK_POINTS=['開始時','中間','終了時'];
+const SK_AREAS=[...new Set(SKILLS.map(x=>x.area))];
+const termOf = d => { const [y,m]=d.split('-').map(Number); return y+(m>=7?'H2':'H1'); };
+const termList = () => { const cur=termOf(todayStr()), out=new Set(['2026H2',cur]); let [y,h]=[Number(cur.slice(0,4)),cur.slice(4)]; out.add(h==='H1'?y+'H2':(y+1)+'H1'); students().forEach(c=>(c.evals||[]).forEach(e=>out.add(e.term))); return [...out].sort(); };
+function nextStudentNo(){ const n=students().map(c=>Number((c.studentNo||'').replace(/\D/g,''))||0); return 'SSC'+String(Math.max(0,...n)+1).padStart(3,'0'); }
+// 生徒IDがまだ無い生徒に、契約開始日の古い順で SSC001〜 を振る
+async function ensureStudentNos(){
+  const miss=students().filter(c=>!c.studentNo).sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||'')||(a._created||'').localeCompare(b._created||''));
+  for(const c of miss){ const cc=clone(c); cc.studentNo=nextStudentNo(); try{ await Store.saveCustomer(cc); }catch(e){ return; } }
+  if(miss.length && ['students','skills'].includes(S.view)) render();
+}
+const evalOf = (c,term,point,skill) => (c.evals||[]).find(e=>e.term===term&&e.point===point&&e.skill===skill);
+function viewSkills(){
+  if(!S.skTerm) S.skTerm=termOf(todayStr());
+  const list=students().filter(c=>c.status!=='契約終了').sort((a,b)=>(a.studentNo||'').localeCompare(b.studentNo||''));
+  const c=byId(S.skStudent), t=S.skTerm;
+  const head=`<div class="head"><div><h2>スキル評価</h2><p>12スキル×5段階。講師評価はここで入力、自己評価はGoogleフォームから自動で入ります。スプシには10分ごとに反映。</p></div></div>
+  <div class="toolbar">
+    <select class="inp" style="max-width:280px" onchange="S.skStudent=this.value;render()"><option value="">— 全員の状況 —</option>${list.map(x=>`<option value="${x.id}" ${x.id===S.skStudent?'selected':''}>${esc(x.studentNo||'')} ${esc(x.name)}</option>`).join('')}</select>
+    <select class="inp" style="max-width:140px" onchange="S.skTerm=this.value;render()">${termList().map(x=>`<option ${x===t?'selected':''}>${x}</option>`).join('')}</select>
+  </div>`;
+  if(!c){
+    const rows=list.map(x=>{ const ev=(x.evals||[]).filter(e=>e.term===t); const sk=new Set(ev.map(e=>e.skill)); return {x,sk:sk.size,inst:ev.filter(e=>e.inst!=null&&e.inst!=='').length,self:ev.filter(e=>e.self!=null&&e.self!=='').length}; });
+    return head+`<div class="tbl-wrap"><table><thead><tr><th>生徒ID</th><th>氏名</th><th>期生</th><th class="r">評価中のスキル</th><th class="r">自己評価</th><th class="r">講師評価</th><th>状況</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="row" onclick="S.skStudent='${r.x.id}';render()"><td class="num"><b>${esc(r.x.studentNo||'—')}</b></td><td><span class="nm">${esc(r.x.name)}</span></td><td>${esc(cohortName(r.x.cohort))}</td><td class="r num">${r.sk}</td><td class="r num">${r.self}件</td><td class="r num">${r.inst}件</td><td>${r.self>r.inst?'<span class="badge b-red">講師評価待ち</span>':r.sk?'<span class="badge b-on">評価済み</span>':'<span class="badge b-end">未評価</span>'}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">在籍中の生徒がいません</div></td></tr>'}
+    </tbody></table></div><p class="hint" style="margin-top:8px">「講師評価待ち」＝自己評価は届いているが講師評価がまだの評価があります。</p>`;
+  }
+  const cell=sk=>SK_POINTS.map(pt=>{ const e=evalOf(c,t,pt,sk.id); const sv=e?.self, iv=e?.inst;
+    return `<td style="text-align:center"><button class="ck ${iv?'on':''}" style="min-width:86px;${!iv&&sv?'border-color:var(--red);color:var(--red)':''}" onclick="openEval('${sk.id}','${pt}')">${sv||iv?`自${sv||'—'} / 講${iv||'—'}`:'＋ 評価'}</button></td>`; }).join('');
+  const growth=sk=>{ const a=evalOf(c,t,'開始時',sk.id)?.inst, b=evalOf(c,t,'終了時',sk.id)?.inst; return a&&b?`<b style="color:${b-a>0?'var(--green)':'var(--muted)'}">${b-a>0?'+':''}${b-a}</b>`:'—'; };
+  return head+`<div class="card" style="margin-bottom:12px"><h3>${esc(c.studentNo||'')} ${esc(c.name)} <small>${esc(cohortName(c.cohort))}・${t}</small></h3>
+    <p class="hint" style="margin:-6px 0 0">ボタンの「自」＝自己評価（フォーム）、「講」＝講師評価。赤枠は講師評価がまだのもの。押すと評価基準を見ながら入力できます。</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th>スキル</th>${SK_POINTS.map(p=>`<th style="text-align:center">${p}</th>`).join('')}<th class="r">成長幅（講師）</th></tr></thead><tbody>
+    ${SK_AREAS.map(a=>`<tr><td colspan="5" style="background:var(--surface2);font-size:12px;font-weight:700;color:var(--accent)">${esc(a)}</td></tr>`+SKILLS.filter(x=>x.area===a).map(sk=>`<tr><td class="wrap" style="min-width:220px"><b>${sk.id} ${esc(sk.name)}</b><small>${esc(sk.goal)}</small></td>${cell(sk)}<td class="r num">${growth(sk)}</td></tr>`).join('')).join('')}
+    </tbody></table></div>`;
+}
+let EV=null;
+function openEval(skill,point){
+  const c=byId(S.skStudent), t=S.skTerm, sk=SKILLS.find(x=>x.id===skill);
+  EV={...(evalOf(c,t,point,skill)||{term:t,point,skill,date:todayStr()})};
+  const lv=n=>`<label class="cbox ${String(EV.inst)===String(n)?'on':''}" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;font-weight:400"><input type="radio" name="ev-inst" value="${n}" ${String(EV.inst)===String(n)?'checked':''} onchange="document.querySelectorAll('[name=ev-inst]').forEach(r=>r.parentNode.classList.toggle('on',r.checked))"><span><b>Lv${n}</b>${String(EV.self)===String(n)?' <span class="badge b-blue">自己評価</span>':''}<br><span style="font-size:13px">${esc(SK_LEVELS[skill][n]||'')}</span></span></label>`;
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:720px">
+    <div class="modal-h"><h3>${sk.id} ${esc(sk.name)}｜${esc(c.name)}・${t}・${point}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b">
+      <div class="sec"><div class="sec-t">到達したい状態</div><p style="font-size:13px">${esc(sk.goal)}</p><p class="hint">証拠：${esc(sk.evidence)}</p></div>
+      <div class="sec"><div class="sec-t">自己評価（フォーム）</div>${EV.self?`<p><b>Lv${esc(EV.self)}</b> <small style="color:var(--muted)">${EV.selfAt?fmtDate(EV.selfAt.slice(0,10))+' 回答':''}</small></p>${EV.selfNote?`<p style="font-size:13px;white-space:pre-wrap;background:var(--surface2);padding:8px 10px;border-radius:8px">${esc(EV.selfNote)}</p>`:''}`:'<p class="hint">まだ回答がありません</p>'}</div>
+      <div class="sec"><div class="sec-t">講師評価</div>${[1,2,3,4,5].map(lv).join('')}</div>
+      <div class="sec"><div class="fg" style="grid-template-columns:1fr 1fr">
+        <div class="fl w3"><label>講師評価の根拠</label><textarea class="inp" id="ev-note" style="min-height:70px">${esc(EV.instNote||'')}</textarea></div>
+        <div class="fl w3"><label>次の改善行動</label><input class="inp" id="ev-next" value="${esc(EV.next||'')}"></div>
+        <div class="fl"><label>担当講師</label><input class="inp" id="ev-teacher" list="ev-teachers" value="${esc(EV.teacher||'')}"><datalist id="ev-teachers">${PARTNERS.map(p=>`<option value="${p}">`).join('')}</datalist></div>
+        <div class="fl"><label>評価日</label><input class="inp" type="date" id="ev-date" value="${esc(EV.date||todayStr())}"></div>
+        <div class="fl w3"><label>録画・資料URL</label><input class="inp" id="ev-url" value="${esc(EV.url||'')}"></div>
+      </div></div>
+    </div>
+    <div class="modal-f">${EV.inst?`<button class="btn danger" onclick="saveEval(true)">講師評価を消す</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveEval()">保存</button></div></div>
+  </div></div>`;
+}
+async function saveEval(clear){
+  const c=clone(byId(S.skStudent)), r=document.querySelector('[name=ev-inst]:checked'), v=id=>document.getElementById(id).value.trim();
+  if(!clear && !r) return toast('講師評価（Lv）を選んでください',true);
+  const e={...EV, inst:clear?null:Number(r.value), instNote:clear?'':v('ev-note'), next:clear?'':v('ev-next'), teacher:clear?'':v('ev-teacher'), url:clear?'':v('ev-url'), date:v('ev-date')};
+  c.evals=(c.evals||[]).filter(x=>!(x.term===e.term&&x.point===e.point&&x.skill===e.skill));
+  if(e.inst!=null || e.self!=null) c.evals.push(e);
+  await run(()=>Store.saveCustomer(c), clear?'講師評価を消しました':'講師評価を保存しました（スプシには10分以内に反映）'); closeModal(); render();
 }
 
 // ===================== 利益管理 =====================
@@ -1602,6 +1677,7 @@ async function saveForm(){
     if(D.status==='休止中' && !D.pauses.some(p=>!p.to || p.to>=curYM())) D.pauses.push({from:curYM(),to:''});
   }
   if(D.kind==='lead' && D.stage==='見送り' && byId(D.id)?.stage!=='見送り') D.lostAt=STAGES.indexOf(autoStage(D));
+  if(D.kind!=='lead' && !D.studentNo) D.studentNo=nextStudentNo();
   const {_enrolling,...rec}=D; const wasEnroll=_enrolling;
   const old=rec.id && !wasEnroll ? byId(rec.id) : null;
   if(old && old.kind!=='lead' && rec.kind!=='lead'){
