@@ -353,6 +353,7 @@ const S = {
   marketing: { support:[], candidates:[], keyman:[], seminars:[], schools:[] },
   skStudent: '', skTerm: '',
   expenses: [],
+  venues: [], vnArea: '',
   profitMonth: curYM(),
   profitBase: 'paid',
   mkTab: 'seminars',
@@ -440,8 +441,8 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 const Store = DEMO ? {
   _k:'ssc_demo_v7',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
-  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses})); }catch(e){} },
-  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[]}); this._put(); },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[]}); this._put(); },
   async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
   async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
   async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
@@ -458,7 +459,7 @@ const Store = DEMO ? {
     if(err){ throw err; }
     S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
     S.payments = p.data.map(r=>({...r.data, id:r.id}));
-    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; });
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; });
     if(migrateMaster()) await this.saveSetting('master');
   },
   _strip(o){ const {id,_created,...d}=o; return d; },
@@ -575,12 +576,13 @@ const ICONS = {
   leads:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
   pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  venues:'<path d="M12 22s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>',
   skills:'<path d="M12 2l3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1z"/>',
   profit:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['skills','スキル評価','スキル'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['skills','スキル評価','スキル'],['venues','場所候補','場所'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
@@ -593,7 +595,7 @@ function render(){
   renderNav();
   const main=document.getElementById('main');
   const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
-  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,skills:viewSkills,settings:viewSettings}[S.view])();
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,skills:viewSkills,venues:viewVenues,settings:viewSettings}[S.view])();
   if(S.view==='goals') updGoalCells();
   if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
 }
@@ -1041,6 +1043,54 @@ async function saveEval(clear){
   await run(()=>Store.saveCustomer(c), clear?'講師評価を消しました':'講師評価を保存しました（スプシには10分以内に反映）'); closeModal(); render();
 }
 
+// ===================== 場所候補 =====================
+// 授業・イベント会場の候補。予約リンク・収容人数・19:00〜22:30の料金・最寄駅・駅からの時間を比べる
+const VENUE_STATUS=['候補','仮押さえ','確定','見送り'];
+const VENUE_BADGE={'候補':'b-blue','仮押さえ':'b-pause','確定':'b-on','見送り':'b-end'};
+function viewVenues(){
+  const rows=S.venues.filter(v=>!S.vnArea||v.area===S.vnArea).sort((a,b)=>VENUE_STATUS.indexOf(a.status)-VENUE_STATUS.indexOf(b.status)||(Number(a.price)||1e9)-(Number(b.price)||1e9));
+  const host=u=>{ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return ''; } };
+  return `<div class="head"><div><h2>場所候補</h2><p>会場の候補を比べて決めるためのリスト。料金は 19:00〜22:30 の合計です。</p></div>
+    <div class="head-actions"><button class="btn primary" onclick="openVenue()">＋ 場所を追加</button></div></div>
+  <div class="toolbar"><div class="seg">${[['','すべて'],...CAMPUSES.map(c=>[c,c]),['その他','その他']].map(([v,l])=>`<button class="${S.vnArea===v?'on':''}" onclick="S.vnArea='${v}';render()">${l}<span class="n">${S.venues.filter(x=>!v||x.area===v).length}</span></button>`).join('')}</div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>場所</th><th>エリア</th><th>状況</th><th class="r">収容人数</th><th class="r">19:00〜22:30の料金</th><th>最寄駅</th><th class="r">駅から</th><th>予約</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(v=>`<tr class="row" onclick="openVenue('${v.id}')">
+      <td class="wrap"><span class="nm">${esc(v.name||host(v.url)||'（名前未入力）')}</span>${v.note?`<small>${esc(v.note.slice(0,40))}</small>`:''}</td>
+      <td>${esc(v.area||'—')}</td><td><span class="badge ${VENUE_BADGE[v.status]||'b-blue'}">${esc(v.status||'候補')}</span></td>
+      <td class="r num">${v.capacity?esc(v.capacity)+'名':'—'}</td><td class="r num"><b>${v.price?yen(v.price):'—'}</b></td>
+      <td>${esc(v.station||'—')}</td><td class="r num">${v.walk?esc(v.walk)+'分':'—'}</td>
+      <td onclick="event.stopPropagation()">${v.url?`<a class="btn sm" href="${esc(v.url)}" target="_blank" rel="noopener">開く ↗</a>`:'—'}</td>
+      <td class="r" onclick="event.stopPropagation()"><button class="icon-btn" title="削除" onclick="delVenue('${v.id}')">🗑</button></td></tr>`).join(''):'<tr><td colspan="9"><div class="empty">まだ登録がありません。「＋ 場所を追加」から予約リンクを入れてください</div></td></tr>'}
+  </tbody></table></div>`;
+}
+function openVenue(id){
+  const v=id?S.venues.find(x=>x.id===id):{status:'候補',area:S.vnArea||CAMPUSES[0]};
+  const f=(k,l,type='text',ph='',extra='')=>`<div class="fl"><label>${l}</label><input class="inp" id="vn-${k}" type="${type}" value="${esc(v[k]??'')}" placeholder="${ph}" ${extra}></div>`;
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:640px">
+    <div class="modal-h"><h3>${id?esc(v.name||'場所'):'場所を追加'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>予約リンク</label><input class="inp" id="vn-url" type="url" value="${esc(v.url||'')}" placeholder="https://..."></div>
+      ${f('name','場所の名前','text','例：心斎橋 〇〇会議室')}
+      <div class="fl"><label>エリア</label><select class="inp" id="vn-area">${[...CAMPUSES,'その他'].map(a=>`<option ${a===v.area?'selected':''}>${a}</option>`).join('')}</select></div>
+      ${f('capacity','収容人数（名）','number','','min="0"')}
+      ${f('price','19:00〜22:30の料金（円）','number','合計金額','min="0"')}
+      ${f('station','最寄駅','text','例：心斎橋駅')}
+      ${f('walk','最寄駅から（徒歩・分）','number','','min="0"')}
+      <div class="fl"><label>状況</label><select class="inp" id="vn-status">${VENUE_STATUS.map(x=>`<option ${x===v.status?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="fl w3"><label>メモ</label><textarea class="inp" id="vn-note" style="min-height:70px" placeholder="設備・キャンセル規定・雰囲気など">${esc(v.note||'')}</textarea></div>
+    </div></div>
+    <div class="modal-f">${id?`<button class="btn danger" onclick="delVenue('${id}')">削除</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveVenue('${id||''}')">保存</button></div></div>
+  </div></div>`;
+}
+async function saveVenue(id){
+  const g=k=>document.getElementById('vn-'+k).value.trim();
+  const rec={id:id||uid(), url:g('url'), name:g('name'), area:g('area'), capacity:g('capacity'), price:g('price'), station:g('station'), walk:g('walk'), status:g('status'), note:document.getElementById('vn-note').value};
+  if(!rec.url && !rec.name) return toast('予約リンクか場所の名前を入れてください',true);
+  const i=S.venues.findIndex(x=>x.id===rec.id); if(i>=0) S.venues[i]=rec; else S.venues.push(rec);
+  await run(()=>Store.saveSetting('venues'),'保存しました'); closeModal(); render();
+}
+async function delVenue(id){ const v=S.venues.find(x=>x.id===id); if(!confirm(`「${v.name||v.url}」を削除しますか？`)) return; S.venues=S.venues.filter(x=>x.id!==id); await run(()=>Store.saveSetting('venues'),'削除しました'); closeModal(); render(); }
+
 // ===================== 利益管理 =====================
 const EXPENSE_CATS=['広告費','会場費','交通費','飲食・交際費','ツール・システム','外注費','備品・消耗品','研修・書籍','その他'];
 const expOf = ym => S.expenses.filter(e=>e.month===ym);
@@ -1444,7 +1494,7 @@ function deleteItem(key,i){
   S.master[key].splice(i,1); saveMaster(); render();
 }
 function backup(){
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
 }
 
 // ===================== 生徒・見込みフォーム =====================
