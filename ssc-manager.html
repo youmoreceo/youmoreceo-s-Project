@@ -403,12 +403,13 @@ function defaultPlan(cohortId){
 const optLabel = p => p?.optName || 'オプション';
 
 // ===================== 売上計算 =====================
-function monthlyFee(c){ const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
+// noSales＝売上に含めない生徒（旧ラボからの0期生など）。請求・入金・目標実績・サポート報酬の対象外
+function monthlyFee(c){ if(c.noSales) return 0; const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
 function isPaused(c,ym){ return (c.pauses||[]).some(p=>p.from && ym>=p.from && (!p.to || ym<=p.to)); }
 function endYM(c){ return c.endDate ? c.endDate.slice(0,7) : null; }
 // その月の請求見込み額
 function billOf(c,ym){
-  if(c.kind==='lead' || !c.startDate) return 0;
+  if(c.kind==='lead' || !c.startDate || c.noSales) return 0;
   const s=c.startDate.slice(0,7), e=endYM(c);
   if(ym<s || (e && ym>e)) return 0;
   if(isPaused(c,ym)) return 0;
@@ -700,7 +701,7 @@ function viewStudents(){
       <td class="wrap" style="min-width:110px">${clubsHtml(c)}</td>
       <td>${esc(c.referrer)||'—'}</td>
       <td>${checksHtml(c)}</td>
-      <td class="r num">${yen(monthlyFee(c))}${c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
+      <td class="r num">${c.noSales?'<span class="badge b-end">売上対象外</span>':yen(monthlyFee(c))}${c.noSales?'':c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
       <td class="r num"><b>${yen(billedTotal(c))}</b></td>
       <td class="r num">${yen(paidOf(c.id))}</td>
     </tr>`).join(''):`<tr><td colspan="13"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
@@ -1519,6 +1520,7 @@ function drawForm(){
         <div class="fl"><label>入学金</label>${planSel('entry',c.plan.entryFee?c.plan.entryId:null,c.plan.entryFee,true)}</div>
         <div class="fl"><label>月額合計</label><div class="inp num" id="f-total" style="background:var(--surface2);display:flex;align-items:center;font-weight:700"></div></div>
         <div class="fl"><label>支払方法</label>${sel('f-payMethod',PAY_METHODS,c.payMethod)}</div>
+        <div class="fl w3"><label class="cbox ${c.noSales?'on':''}" style="margin:0"><input type="checkbox" id="f-noSales" ${c.noSales?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> 売上に含めない（旧ラボからの移行など。請求・入金・売上の集計から外れます）</label></div>
         <div class="fl w2"><label>休止期間</label><div id="pause-rows"></div></div>
       </div><div id="status-warn"></div></div>
       <div class="sec"><div class="sec-t">手続き</div><div class="checkrow">${CHECKS.map(([k,l])=>`<label class="cbox ${c.checks[k]?'on':''}"><input type="checkbox" id="f-ck-${k}" ${c.checks[k]?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> ${l}</label>`).join('')}</div></div>`:''}
@@ -1662,6 +1664,7 @@ function readForm(){
   ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
   if(document.getElementById('f-plan-base')){ const b=readPlan('base'),o=readPlan('option'),e=readPlan('entry');
     D.plan={baseId:b.id,baseName:b.name,base:b.amount,advisor:o.on,optId:o.id,optName:o.name,advisorFee:o.amount,entryId:e.id,entryName:e.name,entryFee:e.amount}; }
+  const ns=document.getElementById('f-noSales'); if(ns) D.noSales=ns.checked;
   if(document.getElementById('f-ck-contract')) CHECKS.forEach(([k])=>D.checks[k]=document.getElementById('f-ck-'+k).checked);
   const ta=document.getElementById('f-note'); if(ta) D.note=ta.value;
   const ts=document.getElementById('f-trialSession');
