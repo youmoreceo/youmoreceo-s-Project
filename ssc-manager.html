@@ -1283,7 +1283,8 @@ const rfLog = (R,action,detail) => { R.log=[{at:new Date().toISOString(),by:rfWh
 const rfNew = name => ({id:uid(),name:name.trim(),approved:false,approvedAt:'',payable:false,note:'',createdAt:todayStr()});
 // 管理者のログイン時：名前だけの紹介者（フォーム登録など）とマーケのキーマンを紹介者IDに紐づける
 async function rfLinkAll(){
-  const names=[...S.customers.filter(c=>c.referrer&&!c.referrerId).map(c=>c.referrer),...S.marketing.keyman.map(k=>k.name),...S.marketing.support.map(k=>k.name)].filter(n=>n&&!rfIsOperator(n));
+  const removed=S.referral.removed||[]; // 紹介FEE管理で削除した人は、キーマン一覧からは登録し直さない
+  const names=[...S.customers.filter(c=>c.referrer&&!c.referrerId).map(c=>c.referrer),...[...S.marketing.keyman,...S.marketing.support].map(k=>k.name).filter(n=>!removed.includes(rfNorm(n)))].filter(n=>n&&!rfIsOperator(n));
   const fresh=[]; names.forEach(n=>{ if(!rfByName(n) && !fresh.some(x=>rfNorm(x)===rfNorm(n))) fresh.push(n); });
   try{
     // すでに紹介者として登録された運営本人を外す
@@ -1382,7 +1383,7 @@ function viewRfDetail(id){
   const dis=admin?'':'disabled';
   return `
   <div class="head"><div><button class="btn ghost sm" onclick="rfOpen('')">‹ 紹介FEE管理に戻る</button><h2 style="margin-top:6px">${esc(r.name)}</h2><p>${rfBadge(live)}${rfIsSupport(r.name)?' <span class="badge b-blue">サポートメンバー</span>':''}</p></div>
-    ${admin?`<div style="display:flex;gap:8px"><button class="btn" onclick="rfRename('${id}')">名前を変更</button>${mine.length||Object.values(S.referral.months).some(M=>M.rows.some(a=>a.referrerId===id))?'':`<button class="btn danger" onclick="rfDelete('${id}')">削除</button>`}</div>`:''}</div>
+    ${admin?`<div style="display:flex;gap:8px"><button class="btn" onclick="rfRename('${id}')">名前を変更</button>${Object.values(S.referral.months).some(M=>M.rows.some(a=>a.referrerId===id))?'<span class="hint" style="align-self:center">確定済みの履歴があるので削除できません</span>':`<button class="btn danger" onclick="rfDelete('${id}')">削除</button>`}</div>`:''}</div>
   <div class="grid kpis">
     <div class="card kpi"><div class="l">現在の在籍紹介人数</div><div class="v">${live.count}<small>人</small></div></div>
     <div class="card kpi"><div class="l">退会した紹介生徒数</div><div class="v">${left.length}<small>人</small></div></div>
@@ -1427,10 +1428,13 @@ async function rfRename(id){
     const same=['support','keyman','candidates'].flatMap(k=>S.marketing[k]).filter(m=>rfNorm(m.name)===rfNorm(old));
     if(same.length){ same.forEach(m=>{ m.name=name; }); await Store.saveSetting('marketing'); } },'名前を変更しました'); render();
 }
+// 削除すると紐づく生徒の紹介者欄も空にする。キーマン一覧に名前が残っていても、次のログインで復活させない
 async function rfDelete(id){
-  const r=rfById(id); if(!confirm(`紹介者「${r.name}」を削除しますか？`)) return;
+  const r=rfById(id), mine=S.customers.filter(c=>c.referrerId===id), fee=rfComputeMonth(curYM(),rfCtx()).rows.find(a=>a.referrerId===id)?.fee||0;
+  if(!confirm(`紹介者「${r.name}」を削除しますか？${mine.length?`\n\n次の${mine.length}人の紹介者欄も空になります：\n${mine.map(c=>c.name).join('、')}`:''}${fee?`\n\n今月の紹介FEE ${yen(fee)} もなくなります。`:''}`)) return;
   S.rfDetail=null;
-  await saveReferral(R=>{ R.referrers=R.referrers.filter(a=>a.id!==id); rfLog(R,'紹介者を削除',r.name); },'削除しました'); render();
+  await run(async()=>{ for(const c of mine){ const cc=clone(c); cc.referrer=''; delete cc.referrerId; await Store.saveCustomer(cc); } });
+  await saveReferral(R=>{ R.referrers=R.referrers.filter(a=>a.id!==id); R.removed=[...new Set([...(R.removed||[]),rfNorm(r.name)])]; rfLog(R,'紹介者を削除',r.name); },'削除しました'); render();
 }
 async function rfSetApproved(id,on){
   const r=rfById(id), fee=rfComputeMonth(curYM(),rfCtx()).rows.find(a=>a.referrerId===id).fee;
