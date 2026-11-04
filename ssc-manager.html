@@ -464,7 +464,7 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v11',
+  _k:'ssc_demo_v12',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
   _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
   async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
@@ -1245,7 +1245,7 @@ function svYes(list,q){ const v=list.map(x=>x.a?.[q]).filter(a=>a==='はい'||a=
 // 紹介意向スコア（NPS）＝ 9〜10点の割合 − 0〜6点の割合
 function svNps(list,q){ const v=svNums(list,q); return v.length?Math.round((v.filter(n=>n>=9).length-v.filter(n=>n<=6).length)/v.length*100):null; }
 function svIndicators(list){
-  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),contrib:svMean(list,['q10','q11','q12']),contribYes:svYes(list,'q13'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
+  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),contrib:svMean(list,['q10','q11','q12']),contribYes:svYes(list,'q13'),meet:svYes(list,'q22'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
 }
 // #endregion survey-core
 
@@ -1266,6 +1266,7 @@ const SV_QUESTIONS=[
   {id:'q11',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCの仲間を本気で勝たせたいと思っている'},
   {id:'q12',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCでは、自分と実績や経験の異なる仲間からも学びを得られている'},
   {id:'q13',sec:'C',type:'yesno',text:'過去3か月で、SSCの仲間と紹介や協業について具体的に相談したことがある'},
+  {id:'q22',sec:'C',type:'yesno',text:'過去3か月で、SSCの授業や飲み会以外で、SSCの仲間と会った（協業・仕事の打ち合わせも含む）'},
   {id:'q14',sec:'D',type:'scale',labels:['とても不満','とても満足'],text:'現在のSSCにどのくらい満足していますか？'},
   {id:'q15',sec:'D',type:'text',text:'その満足度をつけた理由を教えてください'},
   {id:'q16',sec:'D',type:'nps',labels:['全く紹介したくない','ぜひ紹介したい'],text:'SSCを友人や知人にどのくらい紹介したいと思いますか？'},
@@ -1335,11 +1336,12 @@ function viewSurvey(){
     ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
     ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
     ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
+    ${tile('自主交流',svFmt(I.meet,'%'),`授業・飲み会以外で会った人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
     ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
     ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
   </div>
-  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
-    <tbody>${[...rounds].reverse().map(x=>{ const L=svList(x.id,S.surveyData.answers), J=svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
+  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">交流</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
+    <tbody>${[...rounds].reverse().map(x=>{ const L=svList(x.id,S.surveyData.answers), J=svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
   <div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
     ${list.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>名前</th><th>回答日時</th><th class="r">満足</th><th class="r">紹介</th><th class="r">継続</th></tr></thead><tbody>
       ${list.map((x,i)=>`<tr class="row" onclick="svOpenAnswer('${r.id}',${i})"><td><span class="nm">${esc(svName(x))}</span></td><td class="num">${esc(fmtDT(x.at))}</td><td class="r num">${svFmt(x.a?.q14)}</td><td class="r num">${svFmt(x.a?.q16)}</td><td class="r num">${svFmt(x.a?.q20)}</td></tr>`).join('')}
@@ -2380,7 +2382,7 @@ function demoSeed(){
   const pick=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,5), ans={}; pick.slice(0,4).forEach((c,i)=>{ ans[c.id]={at:'2026-11-01T00:00:00Z',no:c.studentNo||'',a:{ev1:i===3?'欠席':'出席',ev2:'欠席',ev3:i%2?'出席':'欠席',ev4:'出席'}}; });
   const attendance={rounds:[{id:'rd1',title:'出欠（デモ）',from:dAt(-1),to:dAt(90),eventIds:['ev1','ev2','ev3','ev4'],createdAt:'2026-11-01T00:00:00Z'}]};
   const attendanceData={forms:{rd1:{formUrl:'https://forms.gle/demo'}},answers:{rd1:ans}};
-  const svAns=(c,i,bump)=>({at:`2026-${bump?'11':'08'}-0${(i%8)+1}T09:00:00Z`,cid:c?c.id:'',no:c?.studentNo||'',name:c?.name||'',a:{q1:3+(i+bump)%3,q2:4,q3:3+i%3,q4:2+(i+bump)%4,q5:4+bump%2,q6:i%3?'はい':'いいえ',q7:'はい',q8:3+i%3,q9:(i+bump)%2?'はい':'いいえ',q10:i%4===0?'成果を共有していない':4+i%2,q11:5,q12:4,q13:i%2?'はい':'いいえ',q14:3+(i+bump)%3,q15:i%2?'仲間と本音で話せるのが良いです':'',q16:6+(i+bump*2)%5,q17:'',q18:i===1?'紹介営業の実践会':'',q19:i===2?'開催日を早めに知りたい':'',q20:4+i%2,q21:i%2?['本音で話せる仲間','営業スキルの向上']:['紹介・協業の機会']}});
+  const svAns=(c,i,bump)=>({at:`2026-${bump?'11':'08'}-0${(i%8)+1}T09:00:00Z`,cid:c?c.id:'',no:c?.studentNo||'',name:c?.name||'',a:{q1:3+(i+bump)%3,q2:4,q3:3+i%3,q4:2+(i+bump)%4,q5:4+bump%2,q6:i%3?'はい':'いいえ',q7:'はい',q8:3+i%3,q9:(i+bump)%2?'はい':'いいえ',q10:i%4===0?'成果を共有していない':4+i%2,q11:5,q12:4,q13:i%2?'はい':'いいえ',q22:(i+bump)%3?'はい':'いいえ',q14:3+(i+bump)%3,q15:i%2?'仲間と本音で話せるのが良いです':'',q16:6+(i+bump*2)%5,q17:'',q18:i===1?'紹介営業の実践会':'',q19:i===2?'開催日を早めに知りたい':'',q20:4+i%2,q21:i%2?['本音で話せる仲間','営業スキルの向上']:['紹介・協業の機会']}});
   const svS=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,6);
   const survey={rounds:[{id:'sv1',title:'2026年8月アンケート',from:'2026-08-01',to:'2026-08-15',questions:SV_QUESTIONS,createdAt:'2026-08-01T00:00:00Z'},{id:'sv2',title:'2026年11月アンケート',from:dAt(-3),to:dAt(10),questions:SV_QUESTIONS,createdAt:'2026-11-01T00:00:00Z'}]};
   const surveyData={forms:{sv1:{formUrl:'https://forms.gle/demo',closed:true},sv2:{formUrl:'https://forms.gle/demo'}},answers:{sv1:svS.map((c,i)=>svAns(i<3?c:null,i,0)),sv2:svS.map((c,i)=>svAns(i<4?c:null,i,1))}};
