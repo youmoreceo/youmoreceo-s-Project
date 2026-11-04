@@ -134,6 +134,18 @@ textarea.inp{min-height:84px;resize:vertical}
 .b-end{background:var(--surface2);color:var(--faint);border:1px solid var(--rule)}
 .b-blue{background:var(--blue-soft);color:var(--blue)}
 .b-red{background:var(--red-soft);color:var(--red)}
+.att-card{margin-bottom:10px}
+.att-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.att-total{text-align:right;flex:none;font-size:11px;color:var(--muted)}
+.att-total b{font-size:24px;color:var(--heading);line-height:1.1}
+.att-total small{margin-left:2px}
+.att-row{display:flex;gap:8px;align-items:flex-start;padding:7px 0 0;margin-top:7px;border-top:1px solid var(--rule);font-size:12px}
+.att-row>span{flex:0 0 58px;color:var(--muted)}
+.rd-ev{display:flex;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--rule);cursor:pointer}
+.chip.ok{background:var(--green-soft);color:var(--green);cursor:pointer}
+.chip.trial{background:var(--blue-soft);color:var(--blue);cursor:pointer}
+.chip.off{background:var(--surface2);color:var(--faint);cursor:pointer}
+.chip.wait{background:var(--amber-soft);color:var(--amber);cursor:pointer}
 .chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);margin:1px 3px 1px 0;white-space:nowrap}
 .checks{display:flex;gap:4px}
 .ck{border:1px solid var(--rule);background:var(--surface);color:var(--faint);font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -359,6 +371,7 @@ const S = {
   mkOwner: '',
   referral: { referrers:[], months:{}, baseDay:'end', log:[] },
   rfMonth: curYM(), rfDetail: null,
+  attendance: { rounds:[] }, attendanceData: { forms:{}, answers:{} }, atCampus:'', atKind:'',
   admin: 'no', userEmail: '',
 };
 
@@ -441,10 +454,10 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v9',
+  _k:'ssc_demo_v10',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
-  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral})); }catch(e){} },
-  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})}}); this._put(); },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData}); this._put(); },
   async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
   async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
   async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
@@ -461,7 +474,7 @@ const Store = DEMO ? {
     if(err){ throw err; }
     S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
     S.payments = p.data.map(r=>({...r.data, id:r.id}));
-    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; });
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; });
     if(migrateMaster()) await this.saveSetting('master');
   },
   _strip(o){ const {id,_created,...d}=o; return d; },
@@ -586,6 +599,7 @@ const ICONS = {
   dash:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
   students:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   leads:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
+  attend:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4"/>',
   pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   venues:'<path d="M12 22s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>',
@@ -595,7 +609,7 @@ const ICONS = {
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['referral','紹介FEE管理','紹介FEE'],['skills','スキル評価','スキル'],['venues','場所候補','場所'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['attend','出欠','出欠'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['referral','紹介FEE管理','紹介FEE'],['skills','スキル評価','スキル'],['venues','場所候補','場所'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
@@ -604,12 +618,12 @@ function renderNav(){
   document.getElementById('nav').innerHTML = VIEWS.map(([k,l,sh])=>`<button class="${S.view===k?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span class="lg">${l}</span><span class="sh">${sh}</span>${badge[k]?`<span class="cnt">${badge[k]}</span>`:''}</button>`).join('');
   const nv=document.getElementById('nav'), on=nv.querySelector('.on'); if(on && nv.scrollWidth>nv.clientWidth) nv.scrollLeft=on.offsetLeft-(nv.clientWidth-on.offsetWidth)/2; // スマホで今のタブを見える位置に
 }
-function go(v){ S.view=v; S.rfDetail=null; render(); window.scrollTo(0,0); }
+function go(v){ S.view=v; S.rfDetail=null; render(); window.scrollTo(0,0); if(v==='attend') attReload(); }
 function render(){
   renderNav();
   const main=document.getElementById('main');
   const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
-  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,referral:viewReferral,skills:viewSkills,venues:viewVenues,settings:viewSettings}[S.view])();
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,attend:viewAttend,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,referral:viewReferral,skills:viewSkills,venues:viewVenues,settings:viewSettings}[S.view])();
   if(S.view==='goals') updGoalCells();
   if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
 }
@@ -790,7 +804,7 @@ function viewLeads(){
 function trialBoard(){
   const today=todayStr();
   const col=cp=>{
-    const all=sortedSchedule(cp), up=all.filter(x=>x.date>=today), next=up[0], rest=up.slice(1);
+    const all=classSchedule(cp), up=all.filter(x=>x.date>=today), next=up[0], rest=up.slice(1);
     const row=(x,old)=>{ const t=trialsOf(x.id); return `<div class="li" style="${old?'opacity:.55':''};align-items:flex-start"><div><b class="num">${mdw(x.date)}</b> <small style="color:var(--muted)">${esc(x.time||'')} ${esc(x.title||'')}</small>
       <div style="margin-top:3px">${t.map(c=>`<span class="chip" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('')||'<small style="color:var(--faint)">まだいません</small>'}</div></div>
       <span class="badge ${t.length?'b-blue':'b-end'}" style="font-size:13px">${old?'終了 ':''}${t.length}名</span></div>`; };
@@ -1206,6 +1220,133 @@ async function saveExpense(id){
 async function delExpense(id){ if(!confirm('この経費を削除しますか？')) return; S.expenses=S.expenses.filter(x=>x.id!==id); await run(()=>Store.saveSetting('expenses'),'削除しました'); closeModal(); render(); }
 
 // ===================== マーケティング =====================
+// ===================== 出欠 =====================
+// #region attendance-core（SSC/tests/ssc_attendance.test.js がこの範囲をそのまま読み込んでテストする）
+const ATT_YES='出席', ATT_NO='欠席';
+// その回に出欠を聞く受講生：契約中で、その日に在籍している人
+function attTargets(ev,customers){
+  return customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=ev.date && !(c.endDate && c.endDate<ev.date) && !isPaused(c,ev.date.slice(0,7)));
+}
+// フォームは期間が重なるので、同じ回に複数回答があれば一番新しい回答を使う
+function attLatest(evId,rounds,answers){
+  const out={};
+  rounds.forEach(r=>Object.entries(answers?.[r.id]||{}).forEach(([cid,x])=>{
+    const v=x.a?.[evId]; if(v && (!out[cid] || x.at>out[cid].at)) out[cid]={v,at:x.at};
+  }));
+  return out;
+}
+// 合計＝出席の受講生＋体験の人（同じ人は1回だけ数える）
+function attSummary(ev,{customers,rounds,answers,trials}){
+  const latest=attLatest(ev.id,rounds,answers), targets=attTargets(ev,customers);
+  const yes=targets.filter(c=>latest[c.id]?.v===ATT_YES), no=targets.filter(c=>latest[c.id]?.v===ATT_NO);
+  const trial=(trials||[]).filter(c=>!yes.some(y=>y.id===c.id));
+  const none=targets.filter(c=>!latest[c.id] && !trial.some(t=>t.id===c.id));
+  return {yes,no,none,trial,total:yes.length+trial.length,asked:rounds.some(r=>(r.eventIds||[]).includes(ev.id))};
+}
+// フォームごとの回答状況
+function attRoundStatus(round,customers,answers){
+  const target=customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=round.to);
+  const done=target.filter(c=>answers?.[round.id]?.[c.id]);
+  return {target,done,none:target.filter(c=>!done.includes(c))};
+}
+// #endregion attendance-core
+
+const isParty = x => x.type==='party';
+const eventKind = x => isParty(x)?'飲み会':'授業';
+const classSchedule = cp => sortedSchedule(cp).filter(x=>!isParty(x));
+const attSum = ev => attSummary(ev,{customers:S.customers,rounds:S.attendance.rounds,answers:S.attendanceData.answers,trials:isParty(ev)?[]:trialsOf(ev.id)});
+const attChips = (list,cls) => list.map(c=>`<span class="chip ${cls}" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('');
+const attRow = (label,list,cls) => list.length?`<div class="att-row"><span>${label} ${list.length}</span><div>${attChips(list,cls)}</div></div>`:'';
+function attEventCard(ev){
+  const a=attSum(ev);
+  return `<div class="card att-card">
+    <div class="att-top"><div><b class="num" style="font-size:15px;color:var(--heading)">${mdw(ev.date)}</b> <span class="badge ${isParty(ev)?'b-pause':'b-blue'}">${eventKind(ev)}</span> <span style="font-size:13px;color:var(--muted)">${esc(ev.campus)} ${esc(ev.time||'')}</span>${ev.title?`<div style="font-size:13px;margin-top:2px">${esc(ev.title)}</div>`:''}</div>
+      <div class="att-total"><b class="num">${a.total}</b><small>名</small>${a.trial.length?`<div>受講生 ${a.yes.length} ＋ 体験 ${a.trial.length}</div>`:''}</div></div>
+    ${attRow('出席',a.yes,'ok')}${attRow('体験',a.trial,'trial')}${attRow('欠席',a.no,'off')}
+    ${a.asked?attRow('未回答',a.none,'wait'):'<p class="hint">この回はまだ出欠を取っていません</p>'}
+  </div>`;
+}
+function attRoundCard(r){
+  const f=S.attendanceData.forms?.[r.id], st=attRoundStatus(r,S.customers,S.attendanceData.answers);
+  const missing=sortedSchedule().filter(x=>x.date>=todayStr() && x.date>=r.from && x.date<=r.to && !(r.eventIds||[]).includes(x.id));
+  return `<div class="card" style="margin-bottom:12px"><h3>${esc(r.title)} <small>${fmtDate(r.from)}〜${fmtDate(r.to)}・${(r.eventIds||[]).length}回</small></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${f?.formUrl?`<button class="btn primary sm" onclick="attCopy('${r.id}')">フォームのリンクをコピー</button><a class="btn sm" href="${esc(f.formUrl)}" target="_blank" rel="noopener">開く</a>`:'<span class="badge b-pause">フォームを準備中（5分ほどで出ます）</span>'}
+      <span style="font-size:13px;color:var(--muted)">回答 <b class="num" style="color:var(--heading)">${st.done.length}</b> / ${st.target.length}名</span>
+      <span style="flex:1"></span><button class="btn ghost sm danger" onclick="attDelRound('${r.id}')">削除</button></div>
+    ${attRow('未回答',st.none,'wait')}
+    ${missing.length?`<div class="warn">フォームに入っていない回が ${missing.length}件 あります（${missing.map(x=>mdw(x.date)).join('、')}）。<button class="btn sm" style="margin-left:6px" onclick="attAddMissing('${r.id}')">フォームに追加</button></div>`:''}
+  </div>`;
+}
+function viewAttend(){
+  const today=todayStr(), rounds=[...S.attendance.rounds].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const open=rounds.filter(r=>r.to>=today), old=rounds.filter(r=>r.to<today);
+  const all=sortedSchedule().filter(x=>(!S.atCampus||x.campus===S.atCampus)&&(!S.atKind||eventKind(x)===S.atKind));
+  const up=all.filter(x=>x.date>=today), past=all.filter(x=>x.date<today).reverse();
+  const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button class="${(S[k]||'')===v?'on':''}" onclick="S.${k}='${v}';render()">${l}</button>`).join('')}</div>`;
+  return `<div class="head"><div><h2>出欠</h2><p>授業と飲み会に、体験の人も含めて誰が何人来るのかを確認できます。フォームの回答は自動で反映されます。</p></div>
+    <button class="btn primary" onclick="openRound()">＋ 出欠フォームを作る</button></div>
+  ${open.map(attRoundCard).join('')||'<div class="card" style="margin-bottom:12px"><div class="empty">受付中の出欠フォームはありません。「出欠フォームを作る」から向こう3ヶ月分を作れます。</div></div>'}
+  <div class="toolbar">${seg('atCampus',[['','両校'],...CAMPUSES.map(c=>[c,c])])}${seg('atKind',[['','すべて'],['授業','授業'],['飲み会','飲み会']])}</div>
+  ${up.map(attEventCard).join('')||'<div class="card"><div class="empty">今後の予定がありません（設定 → SSCスケジュールで登録）</div></div>'}
+  ${past.length||old.length?`<details style="margin-top:12px"><summary style="cursor:pointer;font-size:13px;color:var(--blue);padding:6px 0">終わった回・過去のフォームを表示</summary>${old.map(attRoundCard).join('')}${past.map(attEventCard).join('')}</details>`:''}`;
+}
+function roundDraft(from,to){ return sortedSchedule().filter(x=>x.date>=from && x.date<=to); }
+function openRound(){
+  const today=todayStr(), d=new Date(today+'T00:00:00'); d.setMonth(d.getMonth()+3);
+  const to=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:560px">
+    <div class="modal-h"><h3>出欠フォームを作る</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl"><label>いつから</label><input class="inp" type="date" id="rd-from" value="${today}" onchange="drawRound()"></div>
+      <div class="fl"><label>いつまで</label><input class="inp" type="date" id="rd-to" value="${to}" onchange="drawRound()"></div>
+      <div class="fl w3"><label>フォームに載せる回</label><div id="rd-events"></div></div>
+    </div></div>
+    <div class="modal-f"><span></span><div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveRound()">作る</button></div></div>
+  </div></div>`;
+  drawRound();
+}
+function drawRound(){
+  const list=roundDraft(document.getElementById('rd-from').value,document.getElementById('rd-to').value);
+  const parties=list.filter(isParty).length;
+  document.getElementById('rd-events').innerHTML=(list.map(x=>`<label class="rd-ev"><input type="checkbox" checked value="${x.id}"> <span>${mdw(x.date)} ${esc(x.campus)} <b>${eventKind(x)}</b> ${esc(x.title||'')}</span></label>`).join('')||'<div class="empty">この期間の予定がありません</div>')
+    +(list.length&&!parties?'<div class="warn">飲み会が入っていません。設定 → SSCスケジュールで種類を「飲み会」にして登録すると、ここに出ます。</div>':'');
+}
+async function saveRound(){
+  const from=document.getElementById('rd-from').value, to=document.getElementById('rd-to').value;
+  const eventIds=[...document.querySelectorAll('#rd-events input:checked')].map(i=>i.value);
+  if(!from||!to||to<from) return toast('期間を確認してください',true);
+  if(!eventIds.length) return toast('載せる回を選んでください',true);
+  const lab=d=>{ const [y,m]=d.split('-'); return `${y}年${Number(m)}月`; };
+  const rec={id:uid(),title:`${lab(from)}〜${lab(to)}の出欠`,from,to,eventIds,createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
+  S.attendance.rounds.push(rec);
+  if(DEMO) (S.attendanceData.forms=S.attendanceData.forms||{})[rec.id]={formUrl:'https://forms.gle/demo'};
+  await run(()=>Store.saveSetting('attendance'),'作成しました。フォームは5分ほどで用意されます'); closeModal(); render();
+}
+async function attAddMissing(id){
+  const r=S.attendance.rounds.find(x=>x.id===id);
+  r.eventIds=[...r.eventIds,...sortedSchedule().filter(x=>x.date>=todayStr()&&x.date>=r.from&&x.date<=r.to&&!r.eventIds.includes(x.id)).map(x=>x.id)];
+  await run(()=>Store.saveSetting('attendance'),'追加しました。フォームには5分ほどで反映されます'); render();
+}
+async function attDelRound(id){
+  const r=S.attendance.rounds.find(x=>x.id===id);
+  if(!confirm(`「${r.title}」を削除しますか？\nフォームの受付を止め、このフォームの回答はアプリに表示されなくなります。`)) return;
+  S.attendance.rounds=S.attendance.rounds.filter(x=>x.id!==id);
+  await run(()=>Store.saveSetting('attendance'),'削除しました'); render();
+}
+async function attCopy(id){
+  const u=S.attendanceData.forms?.[id]?.formUrl;
+  try{ await navigator.clipboard.writeText(u); toast('リンクをコピーしました'); }catch(e){ prompt('このリンクをコピーしてください',u); }
+}
+// フォームの回答はサーバー側で入るので、タブを開いたときに読み直す
+async function attReload(){
+  if(DEMO) return;
+  const {data,error}=await sb.from('ssc_settings').select('key,data').in('key',['attendance','attendance_data']);
+  if(error) return console.error(error);
+  data.forEach(r=>{ if(r.key==='attendance') S.attendance={rounds:[],...r.data}; else S.attendanceData={forms:{},answers:{},...r.data}; });
+  if(S.view==='attend' && !document.getElementById('modal-root').innerHTML) render();
+}
+
 // ===================== 紹介FEE =====================
 // #region referral-core（計算ルールはここだけ。SSC/tests/ssc_referral.test.js がこの範囲をそのまま読み込んでテストする）
 const RF_MIN=6; // これ未満は0円。到達すると最初の1人目から対象
@@ -1636,17 +1777,19 @@ function viewSettings(){
       <div class="hint" style="margin-bottom:8px">左から：期の名前 ／ 開講日 ／ 基本プラン</div>
       <div class="add-row"><input class="inp" id="add-cohorts" placeholder="例：${M.cohorts.length+1}期生" onkeydown="if(event.key==='Enter')addItem('cohorts')"><button class="btn primary" onclick="addItem('cohorts')">追加</button></div></div>
     ${listBlock('industries','業種','生徒の業種の選択肢。',M.industries,it=>all.filter(c=>c.industry===it).length)}
-    <div class="card" style="grid-column:1/-1"><h3>SSCスケジュール <small>東京校・大阪校の年間の回。オリエン・見込みの「体験日」で選べます</small></h3>
+    <div class="card" style="grid-column:1/-1"><h3>SSCスケジュール <small>東京校・大阪校の授業と飲み会。授業はオリエン・見込みの「体験日」で選べます</small></h3>
       <div class="grid two">${CAMPUSES.map(cp=>{ const list=sortedSchedule(cp); return `<div>
         <div style="font-weight:700;color:var(--heading);margin-bottom:8px">${cp} <small style="color:var(--muted);font-weight:400">${list.length}回</small></div>
         <div class="set-list" style="max-height:360px;overflow:auto">${list.map(x=>`<div class="set-item ${x.date<todayStr()?'arch':''}">
+          <select class="inp" style="flex:.7" onchange="setSched('${x.id}','type',this.value)"><option value="class">授業</option><option value="party" ${isParty(x)?'selected':''}>飲み会</option></select>
           <input class="inp" type="date" style="flex:1.3" value="${x.date}" onchange="setSched('${x.id}','date',this.value)">
           <input class="inp" style="flex:.8" value="${esc(x.time||'')}" placeholder="時間" onchange="setSched('${x.id}','time',this.value)">
           <input class="inp" style="flex:1.4" value="${esc(x.title||'')}" placeholder="内容（例：第3回）" onchange="setSched('${x.id}','title',this.value)">
-          <span class="cnt">体験${trialsOf(x.id).length}</span>
+          ${isParty(x)?'':`<span class="cnt">体験${trialsOf(x.id).length}</span>`}
           <button class="icon-btn" title="削除" onclick="delSched('${x.id}')">✕</button></div>`).join('')||'<div class="empty">まだありません</div>'}</div>
         <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px">
           <div class="add-row" style="flex-wrap:wrap">
+            <select class="inp" id="sc-type-${cp}" style="flex:0 1 90px"><option value="class">授業</option><option value="party">飲み会</option></select>
             <input class="inp" type="date" id="sc-date-${cp}" style="flex:1 1 140px">
             <input class="inp" id="sc-time-${cp}" placeholder="16:00〜18:00" style="flex:1 1 110px">
             <input class="inp" id="sc-title-${cp}" placeholder="内容（任意）" style="flex:1 1 120px">
@@ -1693,7 +1836,7 @@ function addSched(cp){
   for(let i=0;i<n;i++){
     const t=new Date(base); if(rep==='m') t.setMonth(t.getMonth()+i); else t.setDate(t.getDate()+i*Number(rep));
     const ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
-    out.push({id:uid(),campus:cp,date:ds,time:g('time'),title:g('title')});
+    out.push({id:uid(),campus:cp,date:ds,time:g('time'),title:g('title'),type:g('type')});
   }
   S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); toast(`${cp}に${out.length}回追加しました`); render();
 }
@@ -1707,14 +1850,17 @@ function bulkSched(cp){
     let rest=m[4]||'', time='';
     const t=rest.match(/^(\d{1,2}:\d{2}(?:\s*[〜~\-－–]\s*\d{1,2}:\d{2})?)\s*[|｜]?\s*/);
     if(t){ time=t[1].replace(/\s*[~\-－–]\s*/,'〜'); rest=rest.slice(t[0].length); }
-    out.push({id:uid(),campus:cp,date:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time,title:rest.trim()});
+    out.push({id:uid(),campus:cp,date:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time,title:rest.trim(),type:/飲み会|懇親会/.test(rest)?'party':'class'});
   });
   if(!out.length) return toast('読み取れる行がありませんでした',true);
   const dup=out.filter(x=>(S.master.schedule||[]).some(s=>s.campus===cp&&s.date===x.date));
   if(!confirm(`${cp}に ${out.length}回 を登録します。${dup.length?`\n（うち${dup.length}回は同じ日付がすでにあります）`:''}${bad.length?`\n読み取れなかった行：\n${bad.join('\n')}`:''}`)) return;
   S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); render();
 }
-function setSched(id,k,v){ const x=sessionOf(id); if(!x) return; x[k]=v.trim(); saveMaster();
+function setSched(id,k,v){ const x=sessionOf(id); if(!x) return;
+  if(k==='type' && v==='party' && trialsOf(id).length){ toast('体験予定の人がいる回は飲み会にできません',true); return render(); }
+  x[k]=v.trim(); saveMaster();
+  if(k==='type') return render();
   if(k==='date') S.customers.filter(c=>c.trialSession===id).forEach(c=>{ const cc=clone(c); cc.interviewDate=x.date; Store.saveCustomer(cc).catch(()=>{}); }); }
 function delSched(id){
   const x=sessionOf(id), n=trialsOf(id).length;
@@ -1856,7 +2002,7 @@ function trialSelect(c){
   const today=todayStr(), cur=c.trialSession||'';
   const legacy=!cur && c.interviewDate;
   const groups=CAMPUSES.map(cp=>{
-    const list=sortedSchedule(cp).filter(x=>x.date>=today || x.id===cur);
+    const list=classSchedule(cp).filter(x=>x.date>=today || x.id===cur);
     return list.length?`<optgroup label="${cp}">${list.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(sessionLabel(x))}（体験 ${trialsOf(x.id).filter(t=>t.id!==c.id).length}名）</option>`).join('')}</optgroup>`:'';
   }).join('');
   return `<select class="inp" id="f-trialSession"><option value="">未定</option>${legacy?`<option value="__legacy__" selected>${fmtDate(c.interviewDate)}（スケジュール外）</option>`:''}${groups}</select>`;
@@ -2051,8 +2197,15 @@ function demoSeed(){
   marketing.candidates=[{id:uid(),name:'村上 亮',owner:'岡部 真',industry:'不動産賃貸',addedAt:'2026-10-05',note:'経営者仲間が多い'}];
   const m0=addM(curYM(),-1);
   const expenses=[{id:uid(),date:m0+'-05',month:m0,payer:'岡部 真',category:'広告費',item:'Instagram広告',amount:30000},{id:uid(),date:m0+'-18',month:m0,payer:'石田 雄太',category:'会場費',item:'セミナー会場',amount:15000},{id:uid(),date:curYM()+'-03',month:curYM(),payer:'石田 雄太',category:'交通費',item:'打ち合わせ',amount:2400}];
+  const dAt=n=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const ev=(i,campus,n,title,type='class')=>({id:'ev'+i,campus,date:dAt(n),time:type==='party'?'19:00〜':'19:30〜21:30',title,type});
+  M.schedule=[ev(0,'東京校',-5,'振り返り会'),ev(1,'東京校',5,'紹介の角度を上げる会'),ev(2,'大阪校',8,'営業力UP実践会'),ev(3,'東京校',12,'東京校 交流飲み会','party'),ev(4,'大阪校',30,'戦略シナジーMTG')];
+  const lead0=cs.find(c=>c.kind==='lead'); lead0.trialSession='ev1'; lead0.interviewDate=M.schedule[1].date;
+  const pick=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,5), ans={}; pick.slice(0,4).forEach((c,i)=>{ ans[c.id]={at:'2026-11-01T00:00:00Z',no:c.studentNo||'',a:{ev1:i===3?'欠席':'出席',ev2:'欠席',ev3:i%2?'出席':'欠席',ev4:'出席'}}; });
+  const attendance={rounds:[{id:'rd1',title:'出欠（デモ）',from:dAt(-1),to:dAt(90),eventIds:['ev1','ev2','ev3','ev4'],createdAt:'2026-11-01T00:00:00Z'}]};
+  const attendanceData={forms:{rd1:{formUrl:'https://forms.gle/demo'}},answers:{rd1:ans}};
   const appr=n=>({id:uid(),name:n,approved:true,approvedAt:'2026-06-01',payable:true,note:'',createdAt:'2026-06-01'});
-  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]}};
+  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData};
 }
 
 init();
