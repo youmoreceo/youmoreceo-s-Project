@@ -134,6 +134,13 @@ textarea.inp{min-height:84px;resize:vertical}
 .b-end{background:var(--surface2);color:var(--faint);border:1px solid var(--rule)}
 .b-blue{background:var(--blue-soft);color:var(--blue)}
 .b-red{background:var(--red-soft);color:var(--red)}
+.sv-q{padding:12px 0;border-top:1px solid var(--rule);font-size:13px}
+.sv-q:first-of-type{border-top:0}
+.sv-qh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.sv-qh b{flex:none;color:var(--heading)}
+.sv-q .hbar{grid-template-columns:minmax(120px,190px) 1fr 28px}
+.sv-text{align-items:flex-start;white-space:pre-wrap}
+.sv-text small{flex:none;color:var(--faint)}
 .att-card{margin-bottom:10px}
 .att-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .att-total{text-align:right;flex:none;font-size:11px;color:var(--muted)}
@@ -280,6 +287,8 @@ tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
   .funnel{grid-template-columns:repeat(2,1fr)}
   .toolbar .inp{flex:1 1 40%;min-width:0}
   .hbar{grid-template-columns:80px 1fr 36px}
+  .sv-q .hbar{grid-template-columns:110px 1fr 24px}
+  .sv-q .hbar .nm{white-space:normal;font-size:11px}
 }
 </style>
 </head>
@@ -372,6 +381,7 @@ const S = {
   referral: { referrers:[], months:{}, baseDay:'end', log:[] },
   rfMonth: curYM(), rfDetail: null,
   attendance: { rounds:[] }, attendanceData: { forms:{}, answers:{} }, atCampus:'', atKind:'',
+  survey: { rounds:[] }, surveyData: { forms:{}, answers:{} }, svRound:'',
   admin: 'no', userEmail: '',
 };
 
@@ -454,10 +464,10 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v10',
+  _k:'ssc_demo_v11',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
-  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData})); }catch(e){} },
-  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData}); this._put(); },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
   async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
   async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
   async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
@@ -474,7 +484,7 @@ const Store = DEMO ? {
     if(err){ throw err; }
     S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
     S.payments = p.data.map(r=>({...r.data, id:r.id}));
-    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; });
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; if(r.key==='survey') S.survey={rounds:[],...r.data}; if(r.key==='survey_data') S.surveyData={forms:{},answers:{},...r.data}; });
     if(migrateMaster()) await this.saveSetting('master');
   },
   _strip(o){ const {id,_created,...d}=o; return d; },
@@ -603,13 +613,14 @@ const ICONS = {
   pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   venues:'<path d="M12 22s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+  survey:'<path d="M9 3h6v3H9z"/><path d="M9 4H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M8 12h8M8 16h5"/>',
   skills:'<path d="M12 2l3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1z"/>',
   profit:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
   referral:'<circle cx="8" cy="8" r="3"/><path d="M2 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M16 6h6M19 3v6M16 14h6"/>',
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['attend','出欠','出欠'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['referral','紹介FEE管理','紹介FEE'],['skills','スキル評価','スキル'],['venues','場所候補','場所'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['attend','出欠','出欠'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['referral','紹介FEE管理','紹介FEE'],['skills','スキル評価','スキル'],['survey','アンケート','アンケ'],['venues','場所候補','場所'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
@@ -618,12 +629,12 @@ function renderNav(){
   document.getElementById('nav').innerHTML = VIEWS.map(([k,l,sh])=>`<button class="${S.view===k?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span class="lg">${l}</span><span class="sh">${sh}</span>${badge[k]?`<span class="cnt">${badge[k]}</span>`:''}</button>`).join('');
   const nv=document.getElementById('nav'), on=nv.querySelector('.on'); if(on && nv.scrollWidth>nv.clientWidth) nv.scrollLeft=on.offsetLeft-(nv.clientWidth-on.offsetWidth)/2; // スマホで今のタブを見える位置に
 }
-function go(v){ S.view=v; S.rfDetail=null; render(); window.scrollTo(0,0); if(v==='attend') attReload(); }
+function go(v){ S.view=v; S.rfDetail=null; render(); window.scrollTo(0,0); if(v==='attend') attReload(); if(v==='survey') svReload(); }
 function render(){
   renderNav();
   const main=document.getElementById('main');
   const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
-  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,attend:viewAttend,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,referral:viewReferral,skills:viewSkills,venues:viewVenues,settings:viewSettings}[S.view])();
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,attend:viewAttend,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,referral:viewReferral,skills:viewSkills,survey:viewSurvey,venues:viewVenues,settings:viewSettings}[S.view])();
   if(S.view==='goals') updGoalCells();
   if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
 }
@@ -1220,6 +1231,170 @@ async function saveExpense(id){
 async function delExpense(id){ if(!confirm('この経費を削除しますか？')) return; S.expenses=S.expenses.filter(x=>x.id!==id); await run(()=>Store.saveSetting('expenses'),'削除しました'); closeModal(); render(); }
 
 // ===================== マーケティング =====================
+// ===================== アンケート =====================
+// #region survey-core（SSC/tests/ssc_survey.test.js がこの範囲をそのまま読み込んでテストする）
+// 名前を選んだ人が複数回答したら最新の1件だけ数える。匿名は見分けられないので全件
+function svList(rid,answers){
+  const named=new Map(), anon=[];
+  [...(answers?.[rid]||[])].sort((a,b)=>String(a.at).localeCompare(String(b.at))).forEach(x=>{ if(x.cid) named.set(x.cid,x); else anon.push(x); });
+  return [...named.values(),...anon].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+const svNums = (list,q) => list.map(x=>x.a?.[q]).filter(v=>typeof v==='number');
+function svMean(list,qs){ const v=qs.flatMap(q=>svNums(list,q)); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; }
+function svYes(list,q){ const v=list.map(x=>x.a?.[q]).filter(a=>a==='はい'||a==='いいえ'); return v.length?Math.round(v.filter(a=>a==='はい').length/v.length*100):null; }
+// 紹介意向スコア（NPS）＝ 9〜10点の割合 − 0〜6点の割合
+function svNps(list,q){ const v=svNums(list,q); return v.length?Math.round((v.filter(n=>n>=9).length-v.filter(n=>n<=6).length)/v.length*100):null; }
+function svIndicators(list){
+  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),contrib:svMean(list,['q10','q11','q12']),contribYes:svYes(list,'q13'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
+}
+// #endregion survey-core
+
+const SV_AGREE=['全くそう思わない','とてもそう思う'];
+const SV_SECS={A:'本音で向き合う',B:'挑戦を讃える',C:'仲間を勝たせる',D:'満足度・継続意向'};
+// 質問は回を作るときに回の中へ写す（文言を変えても過去の回は変わらない）
+const SV_QUESTIONS=[
+  {id:'q1',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCには、他では話しにくい自分の理想や悩みを安心して話せる相手がいる'},
+  {id:'q2',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCでは、営業実績や経験年数に関係なく、対等に意見を交わせている'},
+  {id:'q3',sec:'A',type:'scale',labels:SV_AGREE,text:'仕事や人生で困ったとき、相談・協力をお願いできるSSCの仲間がいる'},
+  {id:'q4',sec:'A',type:'scale',labels:SV_AGREE,text:'授業以外でも、本音で話せるSSCの仲間がいる'},
+  {id:'q5',sec:'B',type:'scale',labels:SV_AGREE,text:'SSCでは、成果の大小に関係なく、自分の挑戦を仲間に認めてもらえている'},
+  {id:'q6',sec:'B',type:'yesno',text:'自分の人生GOALを明確に説明できる'},
+  {id:'q7',sec:'B',type:'yesno',text:'自分の直近のGOALを明確に説明できる'},
+  {id:'q8',sec:'B',type:'scale',labels:SV_AGREE,text:'うまくいかなかったことを振り返り、次に取る行動を決めている'},
+  {id:'q9',sec:'B',type:'yesno',text:'過去3か月で、SSCの仲間の挑戦に刺激を受け、自分も新しい挑戦をした'},
+  {id:'q10',sec:'C',type:'scale',labels:SV_AGREE,extra:'成果を共有していない',text:'SSCで共有した自分の成果を、仲間が自分のことのように喜んでくれた'},
+  {id:'q11',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCの仲間を本気で勝たせたいと思っている'},
+  {id:'q12',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCでは、自分と実績や経験の異なる仲間からも学びを得られている'},
+  {id:'q13',sec:'C',type:'yesno',text:'過去3か月で、SSCの仲間と紹介や協業について具体的に相談したことがある'},
+  {id:'q14',sec:'D',type:'scale',labels:['とても不満','とても満足'],text:'現在のSSCにどのくらい満足していますか？'},
+  {id:'q15',sec:'D',type:'text',text:'その満足度をつけた理由を教えてください'},
+  {id:'q16',sec:'D',type:'nps',labels:['全く紹介したくない','ぜひ紹介したい'],text:'SSCを友人や知人にどのくらい紹介したいと思いますか？'},
+  {id:'q17',sec:'D',type:'text',text:'その点数をつけた理由を教えてください'},
+  {id:'q18',sec:'D',type:'text',text:'今後SSCで受けてみたい授業や、開催してほしいイベントはありますか？'},
+  {id:'q19',sec:'D',type:'text',text:'SSCに改善してほしいことや、運営への要望があれば教えてください'},
+  {id:'q20',sec:'D',type:'scale',labels:['全く思わない','とても思う'],text:'今後もSSCに継続して通いたいと思いますか？'},
+  {id:'q21',sec:'D',type:'multi',choices:['本音で話せる仲間','営業スキルの向上','目標設定・振り返り','仲間の挑戦からの刺激','紹介・協業の機会','授業の内容','飲み会・交流の場'],text:'SSCに通うことで、特に価値を感じていることは何ですか？'},
+];
+const svFmt = (v,suf='') => v==null?'—':v+suf;
+const svName = x => x.cid ? (byId(x.cid)?.name||x.name||'名前あり') : '匿名';
+const svRounds = () => [...S.survey.rounds].sort((a,b)=>(a.from||'').localeCompare(b.from||'')||(a.createdAt||'').localeCompare(b.createdAt||''));
+const svTarget = r => S.customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=r.to);
+function svAnswerText(q,v){
+  if(v==null||v==='') return '—';
+  if(Array.isArray(v)) return v.join('、');
+  return String(v);
+}
+function svQuestionBlock(q,list,no){
+  const hb=rows=>{ const mx=Math.max(1,...rows.map(r=>r[1])); return `<div class="hbars" style="margin-top:8px">${rows.map(r=>`<div class="hbar" title="${esc(r[0])}：${r[1]}件"><span class="nm">${esc(r[0])}</span><span class="t"><i style="width:${r[1]/mx*100}%"></i></span><span class="c">${r[1]}</span></div>`).join('')}</div>`; };
+  const vals=list.map(x=>x.a?.[q.id]);
+  let head='', body='';
+  if(q.type==='scale'){
+    head=`平均 ${svFmt(svMean(list,[q.id]))}`;
+    body=hb([5,4,3,2,1].map(n=>[`${n}${n===5?`（${q.labels?.[1]||''}）`:n===1?`（${q.labels?.[0]||''}）`:''}`,vals.filter(v=>v===n).length]).concat(q.extra?[[q.extra,vals.filter(v=>v===q.extra).length]]:[]));
+  } else if(q.type==='yesno'){
+    head=`はい ${svFmt(svYes(list,q.id),'%')}`;
+    body=hb(['はい','いいえ'].map(l=>[l,vals.filter(v=>v===l).length]));
+  } else if(q.type==='nps'){
+    const v=svNums(list,q.id);
+    head=`平均 ${svFmt(svMean(list,[q.id]))} ・ NPS ${svFmt(svNps(list,q.id))}`;
+    body=hb([['9〜10点（推奨）',v.filter(n=>n>=9).length],['7〜8点（中立）',v.filter(n=>n>=7&&n<=8).length],['0〜6点（批判）',v.filter(n=>n<=6).length]]);
+  } else if(q.type==='multi'){
+    const cnt={}; vals.forEach(a=>(Array.isArray(a)?a:[]).forEach(c=>{ cnt[c]=(cnt[c]||0)+1; }));
+    const known=(q.choices||[]).map(c=>[c,cnt[c]||0]), other=Object.keys(cnt).filter(c=>!(q.choices||[]).includes(c)).map(c=>[c,cnt[c]]);
+    body=hb([...known,...other]);
+  } else {
+    const rows=list.filter(x=>x.a?.[q.id]);
+    head=`${rows.length}件`;
+    body=rows.length?`<div class="list" style="margin-top:6px">${rows.map(x=>`<div class="li sv-text"><span>${esc(x.a[q.id])}</span><small>${esc(svName(x))}</small></div>`).join('')}</div>`:'';
+  }
+  return `<div class="sv-q"><div class="sv-qh"><span>Q${no}. ${esc(q.text)}</span>${head?`<b class="num">${esc(head)}</b>`:''}</div>${body}</div>`;
+}
+function viewSurvey(){
+  if(!rfAdmin()) return `<div class="head"><div><h2>アンケート</h2></div></div><div class="card"><div class="empty">アンケートの結果を見られるのは管理者だけです。</div></div>`;
+  const rounds=svRounds(), today=todayStr(), open=rounds.filter(r=>r.to>=today);
+  if(!rounds.some(r=>r.id===S.svRound)) S.svRound=rounds[rounds.length-1]?.id||'';
+  const r=rounds.find(x=>x.id===S.svRound), idx=rounds.indexOf(r);
+  const head=`<div class="head"><div><h2>アンケート</h2><p>満足度とカルチャーの回ごとの結果を確認できます。フォームの回答は自動で反映されます。</p></div>
+    <button class="btn primary" onclick="openSurvey()">＋ アンケートを始める</button></div>`;
+  if(!r) return head+'<div class="card"><div class="empty">まだアンケートはありません。「アンケートを始める」でフォームを作れます。</div></div>';
+  const list=svList(r.id,S.surveyData.answers), I=svIndicators(list);
+  const prev=idx>0?svIndicators(svList(rounds[idx-1].id,S.surveyData.answers)):null;
+  const delta=k=>{ if(!prev||I[k]==null||prev[k]==null) return ''; const d=Math.round((I[k]-prev[k])*10)/10; return `前回比 ${d>0?'+':d<0?'−':'±'}${Math.abs(d)}`; };
+  const tile=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v num">${v}</div><div class="s">${s||''}</div></div>`;
+  const named=list.filter(x=>x.cid).length;
+  const openCard=x=>{ const f=S.surveyData.forms?.[x.id], n=svList(x.id,S.surveyData.answers).length; return `<div class="card" style="margin-bottom:12px"><h3>${esc(x.title)} <small>受付中</small></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${f?.formUrl?`<button class="btn primary sm" onclick="svCopy('${x.id}')">フォームのリンクをコピー</button><a class="btn sm" href="${esc(f.formUrl)}" target="_blank" rel="noopener">開く</a>`:'<span class="badge b-pause">フォームを準備中（5分ほどで出ます）</span>'}
+      <span style="font-size:13px;color:var(--muted)">回答 <b class="num" style="color:var(--heading)">${n}</b> / ${svTarget(x).length}名</span>
+      <label style="font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center">締切 <input class="inp" type="date" style="width:auto;padding:4px 8px" value="${x.to}" onchange="svSetTo('${x.id}',this.value)"></label></div></div>`; };
+  return head+open.map(openCard).join('')+`
+  <div class="toolbar"><select class="inp" onchange="S.svRound=this.value;render()">${[...rounds].reverse().map(x=>`<option value="${x.id}" ${x.id===r.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>
+    <span style="font-size:13px;color:var(--muted)">${fmtDate(r.from)}〜${fmtDate(r.to)}・回答 ${list.length}件（名前あり ${named}件）</span><span style="flex:1"></span>
+    <button class="btn ghost sm danger" onclick="svDelete('${r.id}')">この回を削除</button></div>
+  <div class="grid kpis">
+    ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
+    ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
+    ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
+    ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
+    ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
+  </div>
+  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
+    <tbody>${[...rounds].reverse().map(x=>{ const L=svList(x.id,S.surveyData.answers), J=svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
+  <div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
+    ${list.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>名前</th><th>回答日時</th><th class="r">満足</th><th class="r">紹介</th><th class="r">継続</th></tr></thead><tbody>
+      ${list.map((x,i)=>`<tr class="row" onclick="svOpenAnswer('${r.id}',${i})"><td><span class="nm">${esc(svName(x))}</span></td><td class="num">${esc(fmtDT(x.at))}</td><td class="r num">${svFmt(x.a?.q14)}</td><td class="r num">${svFmt(x.a?.q16)}</td><td class="r num">${svFmt(x.a?.q20)}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">まだ回答がありません</div>'}</div>
+  ${list.length?Object.keys(SV_SECS).map(sec=>`<div class="card" style="margin-bottom:14px"><h3>${SV_SECS[sec]}</h3>${(r.questions||[]).map((q,i)=>q.sec===sec?svQuestionBlock(q,list,i+1):'').join('')}</div>`).join(''):''}`;
+}
+function svOpenAnswer(rid,i){
+  const r=S.survey.rounds.find(x=>x.id===rid), x=svList(rid,S.surveyData.answers)[i];
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:620px">
+    <div class="modal-h"><h3>${esc(svName(x))} <small style="font-weight:400;color:var(--muted);font-size:12px">${esc(fmtDT(x.at))}</small></h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b">${(r.questions||[]).map((q,n)=>`<div class="sv-q"><div style="font-size:12px;color:var(--muted)">Q${n+1}. ${esc(q.text)}</div><div style="margin-top:3px;white-space:pre-wrap">${esc(svAnswerText(q,x.a?.[q.id]))}</div></div>`).join('')}</div></div></div>`;
+}
+function openSurvey(){
+  const d=new Date(); d.setDate(d.getDate()+14);
+  const to=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'), [y,m]=todayStr().split('-');
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:480px">
+    <div class="modal-h"><h3>アンケートを始める</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr;padding-top:14px">
+      <div class="fl"><label>この回の名前</label><input class="inp" id="sv-title" value="${y}年${Number(m)}月アンケート"></div>
+      <div class="fl"><label>締切</label><input class="inp" type="date" id="sv-to" value="${to}"><div class="hint">この日の回答まで受け付け、翌日に受付を自動で止めます。</div></div>
+    </div></div>
+    <div class="modal-f"><span></span><div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveSurvey()">作る</button></div></div></div></div>`;
+}
+async function saveSurvey(){
+  const title=document.getElementById('sv-title').value.trim(), to=document.getElementById('sv-to').value;
+  if(!title) return toast('名前を入力してください',true);
+  if(!to||to<todayStr()) return toast('締切を確認してください',true);
+  const rec={id:uid(),title,from:todayStr(),to,questions:clone(SV_QUESTIONS),createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
+  S.survey.rounds.push(rec); S.svRound=rec.id;
+  if(DEMO) (S.surveyData.forms=S.surveyData.forms||{})[rec.id]={formUrl:'https://forms.gle/demo'};
+  await run(()=>Store.saveSetting('survey'),'作成しました。フォームは5分ほどで用意されます'); closeModal(); render();
+}
+async function svSetTo(id,v){
+  if(!v) return render();
+  S.survey.rounds.find(x=>x.id===id).to=v;
+  await run(()=>Store.saveSetting('survey'),'締切を変更しました（フォームには5分ほどで反映）'); render();
+}
+async function svDelete(id){
+  const r=S.survey.rounds.find(x=>x.id===id);
+  if(!confirm(`「${r.title}」を削除しますか？\nフォームの受付を止め、この回の結果はアプリに表示されなくなります。`)) return;
+  S.survey.rounds=S.survey.rounds.filter(x=>x.id!==id);
+  await run(()=>Store.saveSetting('survey'),'削除しました'); render();
+}
+async function svCopy(id){
+  const u=S.surveyData.forms?.[id]?.formUrl;
+  try{ await navigator.clipboard.writeText(u); toast('リンクをコピーしました'); }catch(e){ prompt('このリンクをコピーしてください',u); }
+}
+async function svReload(){
+  if(DEMO) return;
+  const {data,error}=await sb.from('ssc_settings').select('key,data').in('key',['survey','survey_data']);
+  if(error) return console.error(error);
+  data.forEach(r=>{ if(r.key==='survey') S.survey={rounds:[],...r.data}; else S.surveyData={forms:{},answers:{},...r.data}; });
+  if(S.view==='survey' && !document.getElementById('modal-root').innerHTML) render();
+}
+
 // ===================== 出欠 =====================
 // #region attendance-core（SSC/tests/ssc_attendance.test.js がこの範囲をそのまま読み込んでテストする）
 const ATT_YES='出席', ATT_NO='欠席';
@@ -2205,8 +2380,12 @@ function demoSeed(){
   const pick=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,5), ans={}; pick.slice(0,4).forEach((c,i)=>{ ans[c.id]={at:'2026-11-01T00:00:00Z',no:c.studentNo||'',a:{ev1:i===3?'欠席':'出席',ev2:'欠席',ev3:i%2?'出席':'欠席',ev4:'出席'}}; });
   const attendance={rounds:[{id:'rd1',title:'出欠（デモ）',from:dAt(-1),to:dAt(90),eventIds:['ev1','ev2','ev3','ev4'],createdAt:'2026-11-01T00:00:00Z'}]};
   const attendanceData={forms:{rd1:{formUrl:'https://forms.gle/demo'}},answers:{rd1:ans}};
+  const svAns=(c,i,bump)=>({at:`2026-${bump?'11':'08'}-0${(i%8)+1}T09:00:00Z`,cid:c?c.id:'',no:c?.studentNo||'',name:c?.name||'',a:{q1:3+(i+bump)%3,q2:4,q3:3+i%3,q4:2+(i+bump)%4,q5:4+bump%2,q6:i%3?'はい':'いいえ',q7:'はい',q8:3+i%3,q9:(i+bump)%2?'はい':'いいえ',q10:i%4===0?'成果を共有していない':4+i%2,q11:5,q12:4,q13:i%2?'はい':'いいえ',q14:3+(i+bump)%3,q15:i%2?'仲間と本音で話せるのが良いです':'',q16:6+(i+bump*2)%5,q17:'',q18:i===1?'紹介営業の実践会':'',q19:i===2?'開催日を早めに知りたい':'',q20:4+i%2,q21:i%2?['本音で話せる仲間','営業スキルの向上']:['紹介・協業の機会']}});
+  const svS=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,6);
+  const survey={rounds:[{id:'sv1',title:'2026年8月アンケート',from:'2026-08-01',to:'2026-08-15',questions:SV_QUESTIONS,createdAt:'2026-08-01T00:00:00Z'},{id:'sv2',title:'2026年11月アンケート',from:dAt(-3),to:dAt(10),questions:SV_QUESTIONS,createdAt:'2026-11-01T00:00:00Z'}]};
+  const surveyData={forms:{sv1:{formUrl:'https://forms.gle/demo',closed:true},sv2:{formUrl:'https://forms.gle/demo'}},answers:{sv1:svS.map((c,i)=>svAns(i<3?c:null,i,0)),sv2:svS.map((c,i)=>svAns(i<4?c:null,i,1))}};
   const appr=n=>({id:uid(),name:n,approved:true,approvedAt:'2026-06-01',payable:true,note:'',createdAt:'2026-06-01'});
-  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData};
+  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData,survey,surveyData};
 }
 
 init();
