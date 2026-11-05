@@ -365,7 +365,7 @@ const DEFAULT_MASTER = {
 const S = {
   customers: [], payments: [], master: clone(DEFAULT_MASTER), goals: {},
   view: 'dash',
-  f: { q:'', status:'契約中', cohort:'', club:'', industry:'', gender:'', incomplete:false },
+  f: { q:'', status:'契約中', campus:'', cohort:'', club:'', industry:'', gender:'', incomplete:false },
   lf: { q:'', stage:'active' },
   sort: { k:'start', dir:-1 },
   payMonth: curYM(),
@@ -464,7 +464,7 @@ function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約�
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v12',
+  _k:'ssc_demo_v13',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
   _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
   async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
@@ -695,12 +695,13 @@ function filteredStudents(){
     (!f.status || c.status===f.status) &&
     (!f.cohort || c.cohort===f.cohort) &&
     (!f.club || (c.clubs||[]).includes(f.club)) &&
+    (!f.campus || (f.campus==='none'?!c.campus:c.campus===f.campus)) &&
     (!f.industry || c.industry===f.industry) &&
     (!f.gender || c.gender===f.gender) &&
     (!f.incomplete || incomplete(c).length) &&
     (!q || [c.name,c.kana,c.company,c.referrer,c.note,c.industry,c.jobTitle,c.email,cohortName(c.cohort),...(c.clubs||[]).map(clubName)].join(' ').toLowerCase().includes(q))
   );
-  const key={name:c=>c.kana||c.name||'',cohort:c=>cohortName(c.cohort),status:c=>STATUSES.indexOf(c.status),start:c=>c.startDate||'',months:c=>activeMonths(c),industry:c=>c.industry||'',gender:c=>c.gender||'',referrer:c=>c.referrer||'',fee:c=>monthlyFee(c),total:c=>billedTotal(c),paid:c=>paidOf(c.id)}[S.sort.k]||(c=>0);
+  const key={name:c=>c.kana||c.name||'',campus:c=>c.campus||'',cohort:c=>cohortName(c.cohort),status:c=>STATUSES.indexOf(c.status),start:c=>c.startDate||'',months:c=>activeMonths(c),industry:c=>c.industry||'',gender:c=>c.gender||'',referrer:c=>c.referrer||'',fee:c=>monthlyFee(c),total:c=>billedTotal(c),paid:c=>paidOf(c.id)}[S.sort.k]||(c=>0);
   rows.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*S.sort.dir; });
   return rows;
 }
@@ -722,17 +723,19 @@ function viewStudents(){
     <input class="inp search" id="q" placeholder="名前・会社・紹介者・備考で検索" value="${esc(f.q)}" oninput="setF('q',this.value)">
   </div>
   <div class="toolbar">
+    <select class="inp" onchange="setF('campus',this.value)">${opt([...CAMPUSES.map(x=>[x,x]),['none','未設定']],f.campus,'校：すべて')}</select>
     <select class="inp" onchange="setF('cohort',this.value)">${opt(S.master.cohorts.map(k=>[k.id,k.name]),f.cohort,'期生：すべて')}</select>
     <select class="inp" onchange="setF('club',this.value)">${opt(S.master.clubs.map(k=>[k.id,k.name+(k.archived?'（廃部）':'')]),f.club,'部活：すべて')}</select>
     <select class="inp" onchange="setF('industry',this.value)">${opt([...new Set([...S.master.industries,...students().map(c=>c.industry).filter(Boolean)])].map(x=>[x,x]),f.industry,'業種：すべて')}</select>
     <select class="inp" onchange="setF('gender',this.value)">${opt(GENDERS.map(x=>[x,x]),f.gender,'性別：すべて')}</select>
     <label class="tog"><input type="checkbox" ${f.incomplete?'checked':''} onchange="setF('incomplete',this.checked)"> 手続き未完了のみ</label>
-    ${(f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
+    ${(f.campus||f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',campus:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
   </div>
   <div class="tbl-wrap resp"><table>
-    <thead><tr>${th('name','氏名')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
+    <thead><tr>${th('name','氏名')}${th('campus','校')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
     <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
       <td><span class="nm">${esc(c.name)}</span><small>${c.studentNo?`<b style="color:var(--blue)">${esc(c.studentNo)}</b> `:''}${esc(c.company||c.kana||'')}</small></td>
+      <td>${c.campus?esc(c.campus.replace('校','')):'<span class="badge b-pause">未設定</span>'}</td>
       <td>${esc(cohortName(c.cohort))||'—'}</td>
       <td><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></td>
       <td class="num">${fmtDate(c.startDate)}${c.status==='契約終了'&&c.endDate?`<small>〜${fmtDate(c.endDate)}</small>`:''}</td>
@@ -745,11 +748,11 @@ function viewStudents(){
       <td class="r num">${c.noSales?'<span class="badge b-end">売上対象外</span>':yen(monthlyFee(c))}${c.noSales?'':c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
       <td class="r num"><b>${yen(billedTotal(c))}</b></td>
       <td class="r num">${yen(paidOf(c.id))}</td>
-    </tr>`).join(''):`<tr><td colspan="13"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
-    ${rows.length?`<tfoot><tr><td colspan="10">${rows.length}名</td><td class="r num">${yen(totalFee)}</td><td class="r num">${yen(totalBilled)}</td><td class="r num">${yen(totalPaid)}</td></tr></tfoot>`:''}
+    </tr>`).join(''):`<tr><td colspan="14"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
+    ${rows.length?`<tfoot><tr><td colspan="11">${rows.length}名</td><td class="r num">${yen(totalFee)}</td><td class="r num">${yen(totalBilled)}</td><td class="r num">${yen(totalPaid)}</td></tr></tfoot>`:''}
   </table></div>
   <div class="cards">${rows.length?rows.map(c=>`<div class="mcard" onclick="openCustomer('${c.id}')">
-      <div class="top"><div><b style="color:var(--heading)">${esc(c.name)}</b> <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></div><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></div>
+      <div class="top"><div><b style="color:var(--heading)">${esc(c.name)}</b> <small style="color:var(--faint)">${esc(c.campus||'校未設定')} ${esc(cohortName(c.cohort))}</small></div><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></div>
       <div class="meta">${fmtDate(c.startDate)}〜 ・ ${activeMonths(c)}ヶ月 ・ ${esc(c.industry||'業種未設定')} ・ ${esc(c.gender||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>
       <div>${clubsHtml(c)}</div>
       <div class="foot">${checksHtml(c)}<b class="num">${yen(billedTotal(c))}</b></div>
@@ -762,8 +765,8 @@ async function toggleCheck(id,k){
 }
 function exportCSV(){
   const rows=filteredStudents();
-  const head=['氏名','ふりがな','性別','年齢','会社','役職','業種','営業歴','期生','状態','契約開始','契約終了','継続月数','基本プラン','基本月額','オプション','オプション月額','月額合計','入学金','支払方法','累計売上','入金済','部活動','紹介者','流入経路','契約書','決済','LINE','メール','備考'];
-  const body=rows.map(c=>[c.name,c.kana,c.gender,c.age,c.company,c.jobTitle,c.industry,c.experience,cohortName(c.cohort),c.status,c.startDate,c.endDate,activeMonths(c),c.plan?.baseName,c.plan?.base,c.plan?.advisor?optLabel(c.plan):'',c.plan?.advisor?c.plan.advisorFee:0,monthlyFee(c),c.plan?.entryFee,c.payMethod,billedTotal(c),paidOf(c.id),(c.clubs||[]).map(clubName).join('／'),c.referrer,c.source,...CHECKS.map(([k])=>c.checks?.[k]?'済':''),c.email,c.note]);
+  const head=['氏名','ふりがな','性別','年齢','会社','役職','業種','営業歴','所属校','期生','状態','契約開始','契約終了','継続月数','基本プラン','基本月額','オプション','オプション月額','月額合計','入学金','支払方法','累計売上','入金済','部活動','紹介者','流入経路','契約書','決済','LINE','メール','備考'];
+  const body=rows.map(c=>[c.name,c.kana,c.gender,c.age,c.company,c.jobTitle,c.industry,c.experience,c.campus,cohortName(c.cohort),c.status,c.startDate,c.endDate,activeMonths(c),c.plan?.baseName,c.plan?.base,c.plan?.advisor?optLabel(c.plan):'',c.plan?.advisor?c.plan.advisorFee:0,monthlyFee(c),c.plan?.entryFee,c.payMethod,billedTotal(c),paidOf(c.id),(c.clubs||[]).map(clubName).join('／'),c.referrer,c.source,...CHECKS.map(([k])=>c.checks?.[k]?'済':''),c.email,c.note]);
   const csv=[head,...body].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=`SSC生徒一覧_${todayStr()}.csv`; a.click();
 }
@@ -1401,8 +1404,10 @@ async function svReload(){
 // #region attendance-core（SSC/tests/ssc_attendance.test.js がこの範囲をそのまま読み込んでテストする）
 const ATT_YES='出席', ATT_NO='欠席';
 // その回に出欠を聞く受講生：契約中で、その日に在籍している人
+// 所属校が決まっている人はその校の回だけ。未設定の人は抜け落ちないよう両校で聞く
+const attSameCampus = (c,campus) => !campus || !c.campus || c.campus===campus;
 function attTargets(ev,customers){
-  return customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=ev.date && !(c.endDate && c.endDate<ev.date) && !isPaused(c,ev.date.slice(0,7)));
+  return customers.filter(c=>attSameCampus(c,ev.campus) && c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=ev.date && !(c.endDate && c.endDate<ev.date) && !isPaused(c,ev.date.slice(0,7)));
 }
 // フォームは期間が重なるので、同じ回に複数回答があれば一番新しい回答を使う
 function attLatest(evId,rounds,answers){
@@ -1422,7 +1427,7 @@ function attSummary(ev,{customers,rounds,answers,trials}){
 }
 // フォームごとの回答状況
 function attRoundStatus(round,customers,answers){
-  const target=customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=round.to);
+  const target=customers.filter(c=>attSameCampus(c,round.campus) && c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=round.to);
   const done=target.filter(c=>answers?.[round.id]?.[c.id]);
   return {target,done,none:target.filter(c=>!done.includes(c))};
 }
@@ -1460,22 +1465,25 @@ function viewAttend(){
   const today=todayStr(), rounds=[...S.attendance.rounds].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   const open=rounds.filter(r=>r.to>=today), old=rounds.filter(r=>r.to<today);
   const all=sortedSchedule().filter(x=>(!S.atCampus||x.campus===S.atCampus)&&(!S.atKind||eventKind(x)===S.atKind));
+  const noCampus=students().filter(c=>c.status==='契約中'&&!c.campus).length;
   const up=all.filter(x=>x.date>=today), past=all.filter(x=>x.date<today).reverse();
   const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button class="${(S[k]||'')===v?'on':''}" onclick="S.${k}='${v}';render()">${l}</button>`).join('')}</div>`;
   return `<div class="head"><div><h2>出欠</h2><p>授業と飲み会に、体験の人も含めて誰が何人来るのかを確認できます。フォームの回答は自動で反映されます。</p></div>
     <button class="btn primary" onclick="openRound()">＋ 出欠フォームを作る</button></div>
   ${open.map(attRoundCard).join('')||'<div class="card" style="margin-bottom:12px"><div class="empty">受付中の出欠フォームはありません。「出欠フォームを作る」から向こう3ヶ月分を作れます。</div></div>'}
+  ${noCampus?`<div class="warn" style="margin-bottom:12px">所属校が未設定の生徒が ${noCampus}名 います（両校の出欠に未回答で出ます）。<a href="#" onclick="S.view='students';S.f.status='契約中';S.f.campus='none';render();return false">設定する</a></div>`:''}
   <div class="toolbar">${seg('atCampus',[['','両校'],...CAMPUSES.map(c=>[c,c])])}${seg('atKind',[['','すべて'],['授業','授業'],['飲み会','飲み会']])}</div>
   ${up.map(attEventCard).join('')||'<div class="card"><div class="empty">今後の予定がありません（設定 → SSCスケジュールで登録）</div></div>'}
   ${past.length||old.length?`<details style="margin-top:12px"><summary style="cursor:pointer;font-size:13px;color:var(--blue);padding:6px 0">終わった回・過去のフォームを表示</summary>${old.map(attRoundCard).join('')}${past.map(attEventCard).join('')}</details>`:''}`;
 }
-function roundDraft(from,to){ return sortedSchedule().filter(x=>x.date>=from && x.date<=to); }
+function roundDraft(from,to,campus){ return sortedSchedule(campus).filter(x=>x.date>=from && x.date<=to); }
 function openRound(){
   const today=todayStr(), d=new Date(today+'T00:00:00'); d.setMonth(d.getMonth()+3);
   const to=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:560px">
     <div class="modal-h"><h3>出欠フォームを作る</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>校</label><select class="inp" id="rd-campus" onchange="drawRound()">${CAMPUSES.map(c=>`<option ${c===(S.atCampus||CAMPUSES[0])?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fl"><label>いつから</label><input class="inp" type="date" id="rd-from" value="${today}" onchange="drawRound()"></div>
       <div class="fl"><label>いつまで</label><input class="inp" type="date" id="rd-to" value="${to}" onchange="drawRound()"></div>
       <div class="fl w3"><label>フォームに載せる回</label><div id="rd-events"></div></div>
@@ -1485,25 +1493,25 @@ function openRound(){
   drawRound();
 }
 function drawRound(){
-  const list=roundDraft(document.getElementById('rd-from').value,document.getElementById('rd-to').value);
+  const list=roundDraft(document.getElementById('rd-from').value,document.getElementById('rd-to').value,document.getElementById('rd-campus').value);
   const parties=list.filter(isParty).length;
   document.getElementById('rd-events').innerHTML=(list.map(x=>`<label class="rd-ev"><input type="checkbox" checked value="${x.id}"> <span>${mdw(x.date)} ${esc(x.campus)} <b>${eventKind(x)}</b> ${esc(x.title||'')}</span></label>`).join('')||'<div class="empty">この期間の予定がありません</div>')
     +(list.length&&!parties?'<div class="warn">飲み会が入っていません。設定 → SSCスケジュールで種類を「飲み会」にして登録すると、ここに出ます。</div>':'');
 }
 async function saveRound(){
-  const from=document.getElementById('rd-from').value, to=document.getElementById('rd-to').value;
+  const from=document.getElementById('rd-from').value, to=document.getElementById('rd-to').value, campus=document.getElementById('rd-campus').value;
   const eventIds=[...document.querySelectorAll('#rd-events input:checked')].map(i=>i.value);
   if(!from||!to||to<from) return toast('期間を確認してください',true);
   if(!eventIds.length) return toast('載せる回を選んでください',true);
   const lab=d=>{ const [y,m]=d.split('-'); return `${y}年${Number(m)}月`; };
-  const rec={id:uid(),title:`${lab(from)}〜${lab(to)}の出欠`,from,to,eventIds,createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
+  const rec={id:uid(),title:`${campus} ${lab(from)}〜${lab(to)}の出欠`,campus,from,to,eventIds,createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
   S.attendance.rounds.push(rec);
   if(DEMO) (S.attendanceData.forms=S.attendanceData.forms||{})[rec.id]={formUrl:'https://forms.gle/demo'};
   await run(()=>Store.saveSetting('attendance'),'作成しました。フォームは5分ほどで用意されます'); closeModal(); render();
 }
 async function attAddMissing(id){
   const r=S.attendance.rounds.find(x=>x.id===id);
-  r.eventIds=[...r.eventIds,...sortedSchedule().filter(x=>x.date>=todayStr()&&x.date>=r.from&&x.date<=r.to&&!r.eventIds.includes(x.id)).map(x=>x.id)];
+  r.eventIds=[...r.eventIds,...sortedSchedule(r.campus).filter(x=>x.date>=todayStr()&&x.date>=r.from&&x.date<=r.to&&!r.eventIds.includes(x.id)).map(x=>x.id)];
   await run(()=>Store.saveSetting('attendance'),'追加しました。フォームには5分ほどで反映されます'); render();
 }
 async function attDelRound(id){
@@ -2097,7 +2105,7 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; D=nul
 function toEnroll(){
   readForm();
   const nr=newRecord('student');
-  D={...nr,...D,kind:'student',status:'契約中',stage:'入学',plan:nr.plan,cohort:D.cohort||nr.cohort,startDate:nr.startDate,payMethod:D.payMethod||nr.payMethod};
+  D={...nr,...D,kind:'student',status:'契約中',stage:'入学',plan:nr.plan,cohort:D.cohort||nr.cohort,campus:D.campus||sessionOf(D.trialSession)?.campus||'',startDate:nr.startDate,payMethod:D.payMethod||nr.payMethod};
   D._enrolling=true; drawForm(); toast('契約内容を入力して保存してください');
 }
 function drawForm(){
@@ -2140,6 +2148,7 @@ function drawForm(){
         <div class="fl w2"><label>メール</label>${txt('f-email',c.email,'','email')}</div>
       </div></div>
       ${!isLead?`<div class="sec"><div class="sec-t">所属</div><div class="fg">
+        <div class="fl"><label>所属校</label>${sel('f-campus',CAMPUSES,c.campus,'未設定')}</div>
         <div class="fl"><label>期生</label>${sel('f-cohort',M.cohorts.map(k=>[k.id,k.name]),c.cohort,'—')}</div>
         <div class="fl w2"><label>部活動（複数可）</label><div class="clubs" id="club-sels"></div></div>
       </div></div>
@@ -2293,7 +2302,7 @@ function onStatus(){
 function readForm(){
   const v=id=>{const e=document.getElementById(id); return e?e.value.trim():undefined;};
   const set=(k,val)=>{ if(val!==undefined) D[k]=val; };
-  ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
+  ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','campus','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
   if(document.getElementById('f-plan-base')){ const b=readPlan('base'),o=readPlan('option'),e=readPlan('entry');
     D.plan={baseId:b.id,baseName:b.name,base:b.amount,advisor:o.on,optId:o.id,optName:o.name,advisorFee:o.amount,entryId:e.id,entryName:e.name,entryFee:e.amount}; }
   const ns=document.getElementById('f-noSales'); if(ns) D.noSales=ns.checked;
@@ -2363,6 +2372,7 @@ function demoSeed(){
   rfDemo('Aさん',17); rfDemo('Bさん',14); rfDemo('Cさん',5); rfDemo('Dさん',7); rfDemo('Eさん',5);
   cs.push(mk({name:'A紹介 退会者',industry:'保険',cohort:'k1',status:'契約終了',startDate:'2026-06-01',endDate:'2026-09-30',referrer:'Aさん',source:'紹介'}));
   const ps=[];
+  cs.filter(c=>c.kind==='student').forEach((c,i)=>{ if(i%6) c.campus=i%3?'東京校':'大阪校'; });
   cs.filter(c=>c.kind==='student').forEach(c=>{ for(let m=c.startDate.slice(0,7); m<curYM(); m=addM(m,1)){ const b=billOf(c,m); if(b) ps.push({id:uid(),customerId:c.id,month:m,amount:b,date:m+'-27',method:c.payMethod}); } });
   const goals={}; fyMonths(fyOf(curYM())).forEach((m,i)=>goals[m]={enroll:2+Math.floor(i/4),...(i===0?{price:22000,rate:30}:{}),...(i===6?{price:33000}:{}),keyman:3,seminar:1});
   const marketing={
