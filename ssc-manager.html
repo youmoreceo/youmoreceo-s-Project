@@ -484,7 +484,7 @@ function campusStats(m,fyM){
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v13',
+  _k:'ssc_demo_v14',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
   _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
   async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
@@ -1271,6 +1271,12 @@ function svList(rid,answers){
   [...(answers?.[rid]||[])].sort((a,b)=>String(a.at).localeCompare(String(b.at))).forEach(x=>{ if(x.cid) named.set(x.cid,x); else anon.push(x); });
   return [...named.values(),...anon].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
+// 校別の表示。校はフォームの回答を優先し、質問がない過去の回は名前を選んだ人の所属校で判断する
+// 回答が少ない校は、匿名でも誰の回答か分かってしまうので校別の結果を出さない（全体の集計には入る）
+const SV_MIN_N=3;
+const svCampusOf=(x,byCid)=>x.campus||byCid(x.cid)?.campus||'';
+const svFilterCampus=(list,campus,byCid)=>campus?list.filter(x=>svCampusOf(x,byCid)===campus):list;
+const svTooFew=(list,campus)=>!!campus&&list.length>0&&list.length<SV_MIN_N;
 const svNums = (list,q) => list.map(x=>x.a?.[q]).filter(v=>typeof v==='number');
 function svMean(list,qs){ const v=qs.flatMap(q=>svNums(list,q)); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; }
 function svYes(list,q){ const v=list.map(x=>x.a?.[q]).filter(a=>a==='はい'||a==='いいえ'); return v.length?Math.round(v.filter(a=>a==='はい').length/v.length*100):null; }
@@ -1311,6 +1317,7 @@ const SV_QUESTIONS=[
 const svFmt = (v,suf='') => v==null?'—':v+suf;
 const svName = x => x.cid ? (byId(x.cid)?.name||x.name||'名前あり') : '匿名';
 const svRounds = () => [...S.survey.rounds].sort((a,b)=>(a.from||'').localeCompare(b.from||'')||(a.createdAt||'').localeCompare(b.createdAt||''));
+const svShown = rid => svFilterCampus(svList(rid,S.surveyData.answers),S.svCampus||'',byId);
 const svTarget = r => S.customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=r.to);
 function svAnswerText(q,v){
   if(v==null||v==='') return '—';
@@ -1350,8 +1357,10 @@ function viewSurvey(){
   const head=`<div class="head"><div><h2>アンケート</h2><p>満足度とカルチャーの回ごとの結果を確認できます。フォームの回答は自動で反映されます。</p></div>
     <button class="btn primary" onclick="openSurvey()">＋ アンケートを始める</button></div>`;
   if(!r) return head+'<div class="card"><div class="empty">まだアンケートはありません。「アンケートを始める」でフォームを作れます。</div></div>';
-  const list=svList(r.id,S.surveyData.answers), I=svIndicators(list);
-  const prev=idx>0?svIndicators(svList(rounds[idx-1].id,S.surveyData.answers)):null;
+  const C=S.svCampus||'', all=svList(r.id,S.surveyData.answers), list=svShown(r.id), tooFew=svTooFew(list,C), I=svIndicators(list);
+  const prevL=idx>0?svShown(rounds[idx-1].id):null;
+  const prev=prevL&&!svTooFew(prevL,C)?svIndicators(prevL):null;
+  const unknown=C?all.filter(x=>!svCampusOf(x,byId)).length:0;
   const delta=k=>{ if(!prev||I[k]==null||prev[k]==null) return ''; const d=Math.round((I[k]-prev[k])*10)/10; return `前回比 ${d>0?'+':d<0?'−':'±'}${Math.abs(d)}`; };
   const tile=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v num">${v}</div><div class="s">${s||''}</div></div>`;
   const named=list.filter(x=>x.cid).length;
@@ -1362,26 +1371,27 @@ function viewSurvey(){
       <label style="font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center">締切 <input class="inp" type="date" style="width:auto;padding:4px 8px" value="${x.to}" onchange="svSetTo('${x.id}',this.value)"></label></div></div>`; };
   return head+open.map(openCard).join('')+`
   <div class="toolbar"><select class="inp" onchange="S.svRound=this.value;render()">${[...rounds].reverse().map(x=>`<option value="${x.id}" ${x.id===r.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>
-    <span style="font-size:13px;color:var(--muted)">${fmtDate(r.from)}〜${fmtDate(r.to)}・回答 ${list.length}件（名前あり ${named}件）</span><span style="flex:1"></span>
+    <select class="inp" style="width:auto" onchange="S.svCampus=this.value;render()"><option value="">全体（${all.length}件）</option>${CAMPUSES.map(c=>`<option value="${c}" ${C===c?'selected':''}>${c}（${svFilterCampus(all,c,byId).length}件）</option>`).join('')}</select>
+    <span style="font-size:13px;color:var(--muted)">${fmtDate(r.from)}〜${fmtDate(r.to)}・回答 ${list.length}件${tooFew?'':`（名前あり ${named}件）`}${unknown?`・校が分からない回答 ${unknown}件は校別に入りません`:''}</span><span style="flex:1"></span>
     <button class="btn ghost sm danger" onclick="svDelete('${r.id}')">この回を削除</button></div>
-  <div class="grid kpis">
+  ${tooFew?`<div class="card" style="margin:14px 0"><div class="empty">${esc(C)}の回答は${list.length}件です。誰の回答か分からないよう、${SV_MIN_N}件未満の校は校別の結果を表示しません（全体の集計には入っています）。</div></div>`:`<div class="grid kpis">
     ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
     ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
     ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
     ${tile('自主交流',svFmt(I.meet,'%'),`授業・公式の飲み会以外で接点があった人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
     ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
     ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
-  </div>
+  </div>`}
   ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">交流</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
-    <tbody>${[...rounds].reverse().map(x=>{ const L=svList(x.id,S.surveyData.answers), J=svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
-  <div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
+    <tbody>${[...rounds].reverse().map(x=>{ const L=svShown(x.id), J=svTooFew(L,C)?{}:svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
+  ${tooFew?'':`<div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
     ${list.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>名前</th><th>回答日時</th><th class="r">満足</th><th class="r">紹介</th><th class="r">継続</th></tr></thead><tbody>
       ${list.map((x,i)=>`<tr class="row" onclick="svOpenAnswer('${r.id}',${i})"><td><span class="nm">${esc(svName(x))}</span></td><td class="num">${esc(fmtDT(x.at))}</td><td class="r num">${svFmt(x.a?.q14)}</td><td class="r num">${svFmt(x.a?.q16)}</td><td class="r num">${svFmt(x.a?.q20)}</td></tr>`).join('')}
-    </tbody></table></div>`:'<div class="empty">まだ回答がありません</div>'}</div>
-  ${list.length?Object.keys(SV_SECS).map(sec=>`<div class="card" style="margin-bottom:14px"><h3>${SV_SECS[sec]}</h3>${(r.questions||[]).map((q,i)=>q.sec===sec?svQuestionBlock(q,list,i+1):'').join('')}</div>`).join(''):''}`;
+    </tbody></table></div>`:'<div class="empty">まだ回答がありません</div>'}</div>`}
+  ${list.length&&!tooFew?Object.keys(SV_SECS).map(sec=>`<div class="card" style="margin-bottom:14px"><h3>${SV_SECS[sec]}</h3>${(r.questions||[]).map((q,i)=>q.sec===sec?svQuestionBlock(q,list,i+1):'').join('')}</div>`).join(''):''}`;
 }
 function svOpenAnswer(rid,i){
-  const r=S.survey.rounds.find(x=>x.id===rid), x=svList(rid,S.surveyData.answers)[i];
+  const r=S.survey.rounds.find(x=>x.id===rid), x=svShown(rid)[i];
   document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:620px">
     <div class="modal-h"><h3>${esc(svName(x))} <small style="font-weight:400;color:var(--muted);font-size:12px">${esc(fmtDT(x.at))}</small></h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-b">${(r.questions||[]).map((q,n)=>`<div class="sv-q"><div style="font-size:12px;color:var(--muted)">Q${n+1}. ${esc(q.text)}</div><div style="margin-top:3px;white-space:pre-wrap">${esc(svAnswerText(q,x.a?.[q.id]))}</div></div>`).join('')}</div></div></div>`;
