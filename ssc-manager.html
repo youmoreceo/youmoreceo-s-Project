@@ -461,6 +461,26 @@ const incomplete = c => CHECKS.filter(([k])=>!c.checks?.[k]).map(([,l])=>l);
 const orientCount = ym => S.customers.filter(c=>c.orientDate && c.orientDate.slice(0,7)===ym).length;
 const enrollCount = ym => students().filter(c=>c.startDate && c.startDate.slice(0,7)===ym).length;
 function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約中').reduce((a,c)=>a+(isPaused(c,m)?0:monthlyFee(c)),0); }
+// 校ごとの数字。全校の合計がダッシュボードの数字と一致するよう、校が分からないものは「未設定」に入れる
+function campusStats(m,fyM){
+  const keyOf=c=>{ const v=c?.campus||(c?.kind==='lead'?sessionOf(c.trialSession)?.campus:'')||''; return CAMPUSES.includes(v)?v:''; };
+  const blank=campus=>({campus,on:0,pause:0,joined:0,left:0,mrr:0,bill:0,paid:0,fyBill:0,orient:0});
+  const rows=[...CAMPUSES,''].map(blank), by=Object.fromEntries(rows.map(r=>[r.campus,r])), total=blank('合計');
+  const add=(r,k,v=1)=>{ r[k]+=v; total[k]+=v; };
+  S.customers.forEach(c=>{
+    const r=by[keyOf(c)];
+    if(c.orientDate && c.orientDate.slice(0,7)===m) add(r,'orient');
+    if(c.kind==='lead') return;
+    if(c.status==='契約中'){ add(r,'on'); if(!isPaused(c,m)) add(r,'mrr',monthlyFee(c)); }
+    if(c.status==='休止中') add(r,'pause');
+    if(c.startDate && c.startDate.slice(0,7)===m) add(r,'joined');
+    if(endYM(c)===m) add(r,'left');
+    add(r,'bill',billOf(c,m));
+    add(r,'fyBill',fyM.filter(x=>x<=m).reduce((a,x)=>a+billOf(c,x),0));
+  });
+  S.payments.filter(p=>p.month===m).forEach(p=>add(by[keyOf(S.customers.find(c=>c.id===p.customerId))],'paid',Number(p.amount)||0));
+  return {rows,total};
+}
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
@@ -666,6 +686,14 @@ function viewDash(){
   const byCohort=S.master.cohorts.map(k=>[k.name,activeSt.filter(c=>c.cohort===k.id).length]);
   const byClub=S.master.clubs.filter(c=>!c.archived).map(k=>[k.name,activeSt.filter(c=>(c.clubs||[]).includes(k.id)).length]).sort((a,b)=>b[1]-a[1]);
 
+  const cs=campusStats(m,fyM), noCampus=cs.rows.find(r=>!r.campus);
+  const noCampusN=noCampus.on+noCampus.pause;
+  const csRow=(r,label,link)=>`<tr${link?'':' style="font-weight:600"'}><td style="white-space:nowrap">${link?`<a href="#" onclick="S.f.status='';S.f.campus='${r.campus||'none'}';go('students');return false">${label}</a>`:label}</td><td class="r num">${r.on}</td><td class="r num">${r.pause}</td><td class="r num">${r.joined}</td><td class="r num">${r.left}</td><td class="r num">${yen(r.mrr)}</td><td class="r num">${yen(r.bill)}</td><td class="r num">${yen(r.paid)}</td><td class="r num">${yen(Math.max(0,r.bill-r.paid))}</td><td class="r num">${yen(r.fyBill)}</td><td class="r num">${r.orient}</td></tr>`;
+  const campusCard=`<div class="card" style="margin-bottom:14px"><h3>校ごとの数字 <small>${mLabel(m)}</small></h3>
+    ${noCampusN?`<p style="margin:0 0 10px;font-size:12px;color:var(--muted)">所属校が未設定の生徒が${noCampusN}名います。生徒の所属校を入れると、校ごとに分かれます。</p>`:''}
+    <div class="tbl-wrap" style="border:0"><table><thead><tr><th>校</th><th class="r">在籍</th><th class="r">休止</th><th class="r">今月の入会</th><th class="r">今月の退会</th><th class="r">月額合計</th><th class="r">今月の請求</th><th class="r">今月の入金</th><th class="r">未入金</th><th class="r">今期の請求累計</th><th class="r">今月のオリエン</th></tr></thead>
+    <tbody>${cs.rows.filter(r=>r.campus||Object.values(r).some(v=>v)).map(r=>csRow(r,r.campus||'未設定',true)).join('')}${csRow(cs.total,'合計',false)}</tbody></table></div></div>`;
+
   return `
   <div class="head"><div><h2>ダッシュボード</h2><p>${mLabel(m)}・${fyLabel(fy)}</p></div>
     <div class="head-actions"><button class="btn" onclick="openCustomer(null,'lead')">＋ オリエン予約</button><button class="btn primary" onclick="openCustomer(null,'student')">＋ 生徒を登録</button></div></div>
@@ -676,6 +704,7 @@ function viewDash(){
     ${kp('今月の売上目標', g.sales?`<span class="num">${pct(bill,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(bill,g.sales):null)}
     ${kp('今月のオリエン', `${or}<small>件${g.appo?' / '+g.appo:''}</small>`, g.appo?`目標まであと ${Math.max(0,g.appo-or)}件`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.appo?pct(or,g.appo):null)}
   </div>
+  ${campusCard}
   <div class="grid two" style="margin-bottom:14px">
     <div class="card"><h3>今期の月別売上 <small>今期累計 ${yen(fyBill)}${fyGoal?` ／ 年間目標 ${yen(fyGoal)}`:''}</small></h3>${chart}</div>
     <div class="card"><h3>手続き未完了 <small>${todo.length}名</small></h3><div class="list">${todo.length?todo.map(c=>`<div class="li"><span class="who" onclick="openCustomer('${c.id}')">${esc(c.name)} <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></span><span>${incomplete(c).map(x=>`<span class="badge b-red" style="margin-left:4px">${x}</span>`).join('')}</span></div>`).join(''):'<div class="empty">すべて完了しています</div>'}</div></div>
