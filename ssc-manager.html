@@ -1266,7 +1266,7 @@ const SV_QUESTIONS=[
   {id:'q11',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCの仲間を本気で勝たせたいと思っている'},
   {id:'q12',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCでは、自分と実績や経験の異なる仲間からも学びを得られている'},
   {id:'q13',sec:'C',type:'yesno',text:'過去3か月で、SSCの仲間と紹介や協業について具体的に相談したことがある'},
-  {id:'q22',sec:'C',type:'yesno',text:'過去3か月で、SSCの授業や飲み会以外で、SSCの仲間と会った（協業・仕事の打ち合わせも含む）'},
+  {id:'q22',sec:'C',type:'yesno',text:'過去3か月で、SSCの授業や公式の飲み会以外で、SSCの仲間と接点があった（会う、交流、協業のMTGなど。オンラインMTGは含み、LINEなどのやり取りだけは含まない）'},
   {id:'q14',sec:'D',type:'scale',labels:['とても不満','とても満足'],text:'現在のSSCにどのくらい満足していますか？'},
   {id:'q15',sec:'D',type:'text',text:'その満足度をつけた理由を教えてください'},
   {id:'q16',sec:'D',type:'nps',labels:['全く紹介したくない','ぜひ紹介したい'],text:'SSCを友人や知人にどのくらい紹介したいと思いますか？'},
@@ -1336,7 +1336,7 @@ function viewSurvey(){
     ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
     ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
     ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
-    ${tile('自主交流',svFmt(I.meet,'%'),`授業・飲み会以外で会った人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
+    ${tile('自主交流',svFmt(I.meet,'%'),`授業・公式の飲み会以外で接点があった人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
     ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
     ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
   </div>
