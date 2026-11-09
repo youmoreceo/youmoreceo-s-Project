@@ -373,6 +373,7 @@ const S = {
   marketing: { support:[], candidates:[], keyman:[], seminars:[], schools:[] },
   skStudent: '', skTerm: '',
   expenses: [],
+  trainings: [],
   venues: [], vnArea: '',
   profitMonth: curYM(),
   profitBase: 'paid',
@@ -460,6 +461,11 @@ const paidMonth = ym => S.payments.filter(p=>p.month===ym).reduce((a,p)=>a+(Numb
 const incomplete = c => CHECKS.filter(([k])=>!c.checks?.[k]).map(([,l])=>l);
 const orientCount = ym => S.customers.filter(c=>c.orientDate && c.orientDate.slice(0,7)===ym).length;
 const enrollCount = ym => students().filter(c=>c.startDate && c.startDate.slice(0,7)===ym).length;
+// 企業研修の売上（月額とは別）。month＝売上の月、paidDate＝入金日（空なら未入金）
+// 請求ベースは売上の月、入金ベースは入金した月で数える
+const trainSum = list => list.reduce((a,t)=>a+(Number(t.amount)||0),0);
+const trainBill = ym => trainSum((S.trainings||[]).filter(t=>t.month===ym));
+const trainPaid = ym => trainSum((S.trainings||[]).filter(t=>t.paidDate && t.paidDate.slice(0,7)===ym));
 function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約中').reduce((a,c)=>a+(isPaused(c,m)?0:monthlyFee(c)),0); }
 // 校ごとの数字。全校の合計がダッシュボードの数字と一致するよう、校が分からないものは「未設定」に入れる
 function campusStats(m,fyM){
@@ -484,10 +490,10 @@ function campusStats(m,fyM){
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v14',
+  _k:'ssc_demo_v15',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
-  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
-  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,trainings:S.trainings,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],trainings:d.trainings||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
   async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
   async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
   async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
@@ -504,7 +510,7 @@ const Store = DEMO ? {
     if(err){ throw err; }
     S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
     S.payments = p.data.map(r=>({...r.data, id:r.id}));
-    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; if(r.key==='survey') S.survey={rounds:[],...r.data}; if(r.key==='survey_data') S.surveyData={forms:{},answers:{},...r.data}; });
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='trainings') S.trainings=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; if(r.key==='survey') S.survey={rounds:[],...r.data}; if(r.key==='survey_data') S.surveyData={forms:{},answers:{},...r.data}; });
     if(migrateMaster()) await this.saveSetting('master');
   },
   _strip(o){ const {id,_created,...d}=o; return d; },
@@ -666,7 +672,7 @@ function viewDash(){
   const bill=billMonth(m), paid=paidMonth(m);
   const g=goalOf(m);
   const fyM=fyMonths(fy);
-  const fyBill=fyM.filter(x=>x<=m).reduce((a,x)=>a+billMonth(x),0);
+  const fyBill=fyM.filter(x=>x<=m).reduce((a,x)=>a+billMonth(x)+trainBill(x),0), tb=trainBill(m), salesAct=bill+tb;
   const fyGoal=fyM.reduce((a,x)=>a+goalOf(x).sales,0);
   const or=orientCount(m);
   const todo=st.filter(c=>c.status!=='契約終了' && incomplete(c).length);
@@ -676,9 +682,9 @@ function viewDash(){
   const kp=(l,v,s,bar)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}${bar!=null?`<div class="bar ${bar>=100?'ok':''}"><i style="width:${Math.min(100,bar)}%"></i></div>`:''}</div>`;
 
   // 月別売上グラフ（今期）
-  const vals=fyM.map(x=>({m:x,b:billMonth(x),g:goalOf(x).sales}));
+  const vals=fyM.map(x=>({m:x,b:billMonth(x)+trainBill(x),t:trainBill(x),g:goalOf(x).sales}));
   const max=Math.max(1,...vals.map(v=>Math.max(v.b,v.g)));
-  const chart=`<div class="cols">${vals.map(v=>`<div class="col" title="${mLabel(v.m)}  見込み ${yen(v.b)} / 目標 ${yen(v.g)}"><div class="stack"><i class="${v.m>m?'fut':''}" style="height:${v.b/max*100}%"></i>${v.g?`<b style="bottom:${v.g/max*100}%"></b>`:''}</div><div class="lb">${mShort(v.m)}</div></div>`).join('')}</div>
+  const chart=`<div class="cols">${vals.map(v=>`<div class="col" title="${mLabel(v.m)}  見込み ${yen(v.b)}${v.t?`（うち企業研修 ${yen(v.t)}）`:''} / 目標 ${yen(v.g)}"><div class="stack"><i class="${v.m>m?'fut':''}" style="height:${v.b/max*100}%"></i>${v.g?`<b style="bottom:${v.g/max*100}%"></b>`:''}</div><div class="lb">${mShort(v.m)}</div></div>`).join('')}</div>
     <div class="legend" style="margin-top:8px"><span style="--c:var(--blue)">請求見込み</span><span style="--c:var(--blue-soft)">来月以降（見込み）</span><span style="--c:var(--accent)">目標</span></div>`;
 
   const hb=(rows)=>{ const mx=Math.max(1,...rows.map(r=>r[1])); return rows.length?`<div class="hbars">${rows.map(r=>`<div class="hbar"><span class="nm" title="${esc(r[0])}">${esc(r[0])}</span><span class="t"><i style="width:${r[1]/mx*100}%"></i></span><span class="c">${r[1]}名</span></div>`).join('')}</div>`:'<div class="empty">データなし</div>'; };
@@ -699,9 +705,9 @@ function viewDash(){
     <div class="head-actions"><button class="btn" onclick="openCustomer(null,'lead')">＋ オリエン予約</button><button class="btn primary" onclick="openCustomer(null,'student')">＋ 生徒を登録</button></div></div>
   <div class="grid kpis">
     ${kp('在籍中', `${on.length}<small>名</small>`, `休止中 ${pa.length}名 ／ 累計 ${st.length}名`)}
-    ${kp('今月の請求見込み', `<span class="num">${yen(bill)}</span>`, `月額合計（MRR）${yen(mrr())}`)}
+    ${kp('今月の請求見込み', `<span class="num">${yen(bill)}</span>`, `月額合計（MRR）${yen(mrr())}${tb?` ／ 企業研修 ${yen(tb)}`:''}`)}
     ${kp('今月の入金', `<span class="num">${yen(paid)}</span>`, bill?`未入金 ${yen(Math.max(0,bill-paid))}（${unpaid.length}名）`:'', pct(paid,bill))}
-    ${kp('今月の売上目標', g.sales?`<span class="num">${pct(bill,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(bill,g.sales):null)}
+    ${kp('今月の売上目標', g.sales?`<span class="num">${pct(salesAct,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}${tb?`（企業研修 ${yen(tb)}を含む）`:''}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(salesAct,g.sales):null)}
     ${kp('今月のオリエン', `${or}<small>件${g.appo?' / '+g.appo:''}</small>`, g.appo?`目標まであと ${Math.max(0,g.appo-or)}件`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.appo?pct(or,g.appo):null)}
   </div>
   ${campusCard}
@@ -903,8 +909,60 @@ function viewPay(){
     </tr>`}).join(''):'<tr><td colspan="9"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
     ${rows.length?`<tfoot><tr><td colspan="4">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
   </table></div>
-  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>`;
+  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>${trainCard(m)}`;
 }
+// ===================== 企業研修 =====================
+function trainCard(m){
+  const T=S.trainings||[], cur=T.filter(t=>t.month===m), late=T.filter(t=>t.month<m && !t.paidDate);
+  const rows=[...cur,...late].sort((a,b)=>(!!a.paidDate-!!b.paidDate)||(a.date||'').localeCompare(b.date||''));
+  const sum=trainSum(cur), paid=trainSum(cur.filter(t=>t.paidDate));
+  return `<div class="card" style="margin-top:14px"><h3>企業研修の売上 <small>${mLabel(m)}：${yen(sum)}（入金済 ${yen(paid)}・未入金 ${yen(sum-paid)}）</small><span><button class="btn sm primary" onclick="openTraining()">＋ 研修を追加</button></span></h3>
+    <p class="hint" style="margin:0 0 8px">企業から受け取る研修費です。売上・売上目標・利益（2人で折半）に入ります。講師料などの費用は利益管理の経費に入れてください。</p>
+    ${rows.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>企業名</th><th>研修内容</th><th>売上の日</th><th class="r">金額</th><th>入金</th><th></th></tr></thead><tbody>
+      ${rows.map(t=>`<tr class="row" onclick="openTraining('${t.id}')"><td><span class="nm">${esc(t.company)}</span></td><td class="wrap" style="min-width:180px">${esc(t.title)||'—'}</td><td class="num">${fmtDate(t.date)}${t.month<m?` <span class="badge b-red">前の月の未入金</span>`:''}</td><td class="r num">${yen(t.amount)}</td>
+        <td>${t.paidDate?`<span class="badge b-on">入金済</span> <small class="num">${fmtDate(t.paidDate)}</small>`:'<span class="badge b-red">未入金</span>'}</td>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()">${t.paidDate?'':`<button class="btn sm" onclick="trainPaidNow('${t.id}')">今日入金済にする</button>`}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">この月の企業研修はありません</div>'}</div>`;
+}
+function openTraining(id){
+  const t = id ? S.trainings.find(x=>x.id===id) : {date: S.payMonth===curYM()?todayStr():S.payMonth+'-01'};
+  const cos=[...new Set(S.trainings.map(x=>x.company).filter(Boolean))];
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:520px">
+    <div class="modal-h"><h3>${id?'企業研修を編集':'企業研修を追加'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>企業名 <span class="req">*</span></label><input class="inp" id="t-company" list="t-cos" value="${esc(t.company||'')}"><datalist id="t-cos">${cos.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="fl w3"><label>研修内容</label><input class="inp" id="t-title" value="${esc(t.title||'')}" placeholder="例：新人営業研修（2日間）"></div>
+      <div class="fl"><label>売上の日 <span class="req">*</span></label><input class="inp" type="date" id="t-date" value="${esc(t.date||'')}"><div class="hint">この日の月の売上になります（請求日や実施日）</div></div>
+      <div class="fl"><label>金額（円） <span class="req">*</span></label><input class="inp num" type="number" min="0" id="t-amt" value="${t.amount??''}"></div>
+      <div class="fl"><label>入金日</label><input class="inp" type="date" id="t-paid" value="${esc(t.paidDate||'')}"><div class="hint">空欄＝未入金</div></div>
+      <div class="fl w3"><label>メモ</label><input class="inp" id="t-note" value="${esc(t.note||'')}" placeholder="担当者、請求書番号など"></div>
+    </div></div>
+    <div class="modal-f">${id?`<button class="btn danger" onclick="delTraining('${id}')">削除</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveTraining(${id?`'${id}'`:''})">保存</button></div></div>
+  </div></div>`;
+  setTimeout(()=>document.getElementById(id?'t-amt':'t-company')?.focus(),30);
+}
+async function saveTraining(id){
+  const v=k=>document.getElementById(k).value.trim();
+  const rec={id:id||uid(), company:v('t-company'), title:v('t-title'), date:v('t-date'), amount:Number(v('t-amt')), paidDate:v('t-paid'), note:v('t-note')};
+  if(!rec.company||!rec.date||!rec.amount) return toast('企業名・売上の日・金額を入力してください',true);
+  rec.month=rec.date.slice(0,7);
+  const prev=S.trainings.find(x=>x.id===rec.id);
+  if(prev && (Number(prev.amount)!==rec.amount || prev.month!==rec.month)){
+    const rows=[['研修費の金額',yen(prev.amount),yen(rec.amount),rec.amount-Number(prev.amount)]];
+    if(prev.month!==rec.month) rows.push(['売上の月',mLabel(prev.month),mLabel(rec.month)]);
+    if(!(await confirmMoney('企業研修の変更',rows,'売上・売上目標・利益（2人の取り分）の数字が変わります。'))) return;
+  }
+  const i=S.trainings.findIndex(x=>x.id===rec.id); if(i>=0) S.trainings[i]=rec; else S.trainings.push(rec);
+  await run(()=>Store.saveSetting('trainings'),'企業研修を保存しました'); S.payMonth=rec.month; closeModal(); render();
+}
+async function trainPaidNow(id){
+  const t=S.trainings.find(x=>x.id===id);
+  if(!confirm(`${t.company}の研修費 ${yen(t.amount)} を、今日（${fmtDate(todayStr())}）入金済にしますか？`)) return;
+  t.paidDate=todayStr();
+  await run(()=>Store.saveSetting('trainings'),'入金済にしました'); render();
+}
+async function delTraining(id){ const t=S.trainings.find(x=>x.id===id); if(!confirm(`${t.company}の研修（${yen(t.amount)}）を削除しますか？`)) return; S.trainings=S.trainings.filter(x=>x.id!==id); await run(()=>Store.saveSetting('trainings'),'削除しました'); closeModal(); render(); }
+
 // チェックON＝請求額どおり入金を記録、OFF＝その月の入金記録を取り消し
 async function togglePaid(cid,on,el){
   const c=byId(cid), m=S.payMonth;
@@ -977,12 +1035,12 @@ function goalCum(m){
 function goalKpis(fy){
   const ms=fyMonths(fy), G=ms.map(goalOf), sum=k=>G.reduce((a,g)=>a+g[k],0);
   // 売上目標は「単価×入学数」なので、実績もその月に入学した人の月額で比べる
-  const bill=ms.reduce((a,m)=>a+students().filter(c=>c.startDate?.slice(0,7)===m).reduce((x,c)=>x+monthlyFee(c),0),0), or=ms.reduce((a,m)=>a+orientCount(m),0), en=ms.reduce((a,m)=>a+enrollCount(m),0);
+  const bill=ms.reduce((a,m)=>a+students().filter(c=>c.startDate?.slice(0,7)===m).reduce((x,c)=>x+monthlyFee(c),0)+trainBill(m),0), or=ms.reduce((a,m)=>a+orientCount(m),0), en=ms.reduce((a,m)=>a+enrollCount(m),0);
   const gs=sum('sales'), ga=sum('appo'), ge=sum('enroll');
   const yearIn=ms.reduce((a,m)=>a+goalCum(m).monthly,0), last=goalCum(ms[11]);
   const bar=(a,b)=>`<div class="bar ${b&&a>=b?'ok':''}"><i style="width:${b?Math.min(100,a/b*100):0}%"></i></div>`;
   return `
-    <div class="card kpi"><div class="l">年間売上目標</div><div class="v num">${yen(gs)}</div><div class="s">実績（入学者の月額） ${yen(bill)}（${pct(bill,gs)??'—'}%）</div>${bar(bill,gs)}</div>
+    <div class="card kpi"><div class="l">年間売上目標</div><div class="v num">${yen(gs)}</div><div class="s">実績（入学者の月額＋企業研修） ${yen(bill)}（${pct(bill,gs)??'—'}%）</div>${bar(bill,gs)}</div>
     <div class="card kpi"><div class="l">年間入金目標（月額の積み上げ）</div><div class="v num">${yen(yearIn)}</div><div class="s">8月時点 ${last.people}名・月 ${yen(last.monthly)}</div></div>
     <div class="card kpi"><div class="l">入学目標</div><div class="v">${ge}<small>名</small></div><div class="s">実績 ${en}名（${pct(en,ge)??'—'}%）</div>${bar(en,ge)}</div>
     <div class="card kpi"><div class="l">オリエン目標</div><div class="v">${ga}<small>件</small></div><div class="s">実績 ${or}件（${pct(or,ga)??'—'}%）</div>${bar(or,ga)}</div>
@@ -1181,7 +1239,8 @@ async function delVenue(id){ const v=S.venues.find(x=>x.id===id); if(!confirm(`�
 const EXPENSE_CATS=['広告費','会場費','交通費','飲食・交際費','ツール・システム','外注費','備品・消耗品','研修・書籍','その他'];
 const expOf = ym => S.expenses.filter(e=>e.month===ym);
 // サポートメンバーの報酬単価（途中で上がったら、その月から新しい金額）
-const salesFor = ym => S.profitBase==='paid' ? paidMonth(ym) : billMonth(ym);
+const salesFor = ym => S.profitBase==='paid' ? paidMonth(ym)+trainPaid(ym) : billMonth(ym)+trainBill(ym);
+const trainFor = ym => S.profitBase==='paid' ? trainPaid(ym) : trainBill(ym);
 // サポートメンバー報酬＝紹介FEEの支払予定額（確定済みの月は確定額）。入金実績で見るときは未来の月を引かない
 const rfForProfit = ym => ym>curYM() && S.profitBase==='paid' ? {rows:[],total:0,confirmed:false} : rfResult(ym);
 // 利益 = 売上 − 経費 − サポート報酬、2人で折半。各自の受取額 = 取り分 + 自分が立て替えた経費
@@ -1200,7 +1259,7 @@ function viewProfit(){
     <div class="head-actions"><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,-1);render()">‹ 前月</button><button class="btn" style="min-width:120px;justify-content:center" onclick="S.profitMonth=curYM();render()">${mLabel(m)}</button><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,1);render()">翌月 ›</button></div></div>
   <div class="toolbar"><span style="font-size:13px;color:var(--muted)">売上の基準</span><div class="seg">${[['paid','入金実績'],['bill','請求見込み']].map(([v,l])=>`<button class="${S.profitBase===v?'on':''}" onclick="S.profitBase='${v}';render()">${l}</button>`).join('')}</div></div>
   <div class="grid kpis">
-    <div class="card kpi"><div class="l">売上（${S.profitBase==='paid'?'入金実績':'請求見込み'}）</div><div class="v num">${yen(P.sales)}</div></div>
+    <div class="card kpi"><div class="l">売上（${S.profitBase==='paid'?'入金実績':'請求見込み'}）</div><div class="v num">${yen(P.sales)}</div><div class="s">${trainFor(m)?`うち企業研修 ${yen(trainFor(m))}`:'<a href="#" onclick="go(\'pay\');return false">企業研修は入金確認で入力 →</a>'}</div></div>
     <div class="card kpi"><div class="l">経費</div><div class="v num">${yen(P.exp)}</div><div class="s">${P.ex.length}件</div></div>
     <div class="card kpi"><div class="l">サポートメンバー報酬</div><div class="v num">${yen(P.supCost)}</div><div class="s">${P.sup.length}名・${P.feeConfirmed?'確定額':'自動計算'}</div></div>
     <div class="card kpi"><div class="l">利益</div><div class="v num" style="color:${col(P.profit)}">${yen(P.profit)}</div></div>
@@ -2123,7 +2182,7 @@ function deleteItem(key,i){
   S.master[key].splice(i,1); saveMaster(); render();
 }
 function backup(){
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,venues:S.venues},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,trainings:S.trainings,venues:S.venues},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
 }
 
 // ===================== 生徒・見込みフォーム =====================
@@ -2436,7 +2495,8 @@ function demoSeed(){
   const survey={rounds:[{id:'sv1',title:'2026年8月アンケート',from:'2026-08-01',to:'2026-08-15',questions:SV_QUESTIONS,createdAt:'2026-08-01T00:00:00Z'},{id:'sv2',title:'2026年11月アンケート',from:dAt(-3),to:dAt(10),questions:SV_QUESTIONS,createdAt:'2026-11-01T00:00:00Z'}]};
   const surveyData={forms:{sv1:{formUrl:'https://forms.gle/demo',closed:true},sv2:{formUrl:'https://forms.gle/demo'}},answers:{sv1:svS.map((c,i)=>svAns(i<3?c:null,i,0)),sv2:svS.map((c,i)=>svAns(i<4?c:null,i,1))}};
   const appr=n=>({id:uid(),name:n,approved:true,approvedAt:'2026-06-01',payable:true,note:'',createdAt:'2026-06-01'});
-  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData,survey,surveyData};
+  const trainings=[{id:uid(),company:'株式会社サンプル商事',title:'新人営業研修（2日間）',date:m0+'-12',month:m0,amount:330000,paidDate:'',note:''}];
+  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,trainings,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData,survey,surveyData};
 }
 
 init();
