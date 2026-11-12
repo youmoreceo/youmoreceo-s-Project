@@ -2404,7 +2404,7 @@ function openModal(type, data){
         `).join('')}
       </div>
     </div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn btn-primary" onclick="saveAppointment()">保存</button></div>`);
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">キャンセル</button><button id="appo-save-btn" class="btn btn-primary" onclick="saveAppointment()">保存</button></div>`);
   }
 
   else if(type==='monthgoal'){
@@ -2742,8 +2742,10 @@ ${text}
 }
 
 async function saveAppointment(){
+  const saveBtn = document.getElementById('appo-save-btn');
+  if(saveBtn){ if(saveBtn.disabled) return; saveBtn.disabled=true; saveBtn.textContent='保存中...'; }
   const name=document.getElementById('f-name').value.trim();
-  if(!name)return alert('氏名を入力してください');
+  if(!name){ if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='保存';} return alert('氏名を入力してください'); }
   const inflow=document.getElementById('f-inflow').value;
   const status=document.getElementById('f-status').value;
   const id=editingId||genId();
@@ -2779,7 +2781,7 @@ async function saveAppointment(){
     checklist:Object.fromEntries(appoChecklist.flatMap((sec,si)=>sec.items.map((_,ii)=>{const k=`cl_${si}_${ii}`;return[k,document.getElementById(k)?.checked||false];})))
   };
   const {error}=await sb.from('appointments').upsert({id, data:obj});
-  if(error)return alert('保存失敗: '+error.message);
+  if(error){ if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='保存';} return alert('保存失敗: '+error.message); }
   if(editingId) db.appointments=db.appointments.map(a=>a.id===editingId?obj:a);
   else db.appointments.push(obj);
 
