@@ -134,6 +134,25 @@ textarea.inp{min-height:84px;resize:vertical}
 .b-end{background:var(--surface2);color:var(--faint);border:1px solid var(--rule)}
 .b-blue{background:var(--blue-soft);color:var(--blue)}
 .b-red{background:var(--red-soft);color:var(--red)}
+.sv-q{padding:12px 0;border-top:1px solid var(--rule);font-size:13px}
+.sv-q:first-of-type{border-top:0}
+.sv-qh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.sv-qh b{flex:none;color:var(--heading)}
+.sv-q .hbar{grid-template-columns:minmax(120px,190px) 1fr 28px}
+.sv-text{align-items:flex-start;white-space:pre-wrap}
+.sv-text small{flex:none;color:var(--faint)}
+.att-card{margin-bottom:10px}
+.att-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.att-total{text-align:right;flex:none;font-size:11px;color:var(--muted)}
+.att-total b{font-size:24px;color:var(--heading);line-height:1.1}
+.att-total small{margin-left:2px}
+.att-row{display:flex;gap:8px;align-items:flex-start;padding:7px 0 0;margin-top:7px;border-top:1px solid var(--rule);font-size:12px}
+.att-row>span{flex:0 0 58px;color:var(--muted)}
+.rd-ev{display:flex;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--rule);cursor:pointer}
+.chip.ok{background:var(--green-soft);color:var(--green);cursor:pointer}
+.chip.trial{background:var(--blue-soft);color:var(--blue);cursor:pointer}
+.chip.off{background:var(--surface2);color:var(--faint);cursor:pointer}
+.chip.wait{background:var(--amber-soft);color:var(--amber);cursor:pointer}
 .chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);margin:1px 3px 1px 0;white-space:nowrap}
 .checks{display:flex;gap:4px}
 .ck{border:1px solid var(--rule);background:var(--surface);color:var(--faint);font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -253,8 +272,8 @@ tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
   .side{inset:auto 0 0 0;width:auto;height:auto;flex-direction:row;padding:6px 4px calc(6px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.08)}
   .side .brand,.side-foot{display:none}
   .nav .lg{display:none}.nav .sh{display:inline}
-  .nav{flex-direction:row;width:100%;justify-content:space-around}
-  .nav button{flex-direction:column;gap:2px;font-size:10px;padding:6px 4px;width:auto;flex:1;align-items:center;position:relative}
+  .nav{flex-direction:row;width:100%;justify-content:space-around;overflow-x:auto;scrollbar-width:none}
+  .nav button{flex-direction:column;gap:2px;font-size:10px;padding:6px 4px;width:auto;flex:1 0 50px;align-items:center;position:relative;white-space:nowrap}
   .nav .cnt{position:absolute;top:0;right:12%;margin:0;font-size:9px;padding:0 5px}
   .main{margin-left:0;padding:18px 16px 96px}
   .head h2{font-size:19px}
@@ -268,6 +287,8 @@ tr.undecided td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
   .funnel{grid-template-columns:repeat(2,1fr)}
   .toolbar .inp{flex:1 1 40%;min-width:0}
   .hbar{grid-template-columns:80px 1fr 36px}
+  .sv-q .hbar{grid-template-columns:110px 1fr 24px}
+  .sv-q .hbar .nm{white-space:normal;font-size:11px}
 }
 </style>
 </head>
@@ -333,7 +354,6 @@ const DEFAULT_MASTER = {
   sources: ['紹介','Instagram','X','LINE','イベント','LP・Web','その他'],
   // 料金プラン（設定タブで編集）。各リストの一番上が新規登録時の初期値
   schedule: [], // SSCの年間スケジュール [{id, campus, date, time, title}]
-  supportFee: 5000, // サポートメンバー報酬：紹介した在籍生徒1人あたり月額
   plans: {
     base:   [{id:'pb1', name:'1期生特別価格', amount:22000}, {id:'pb2', name:'通常', amount:44000}],
     option: [{id:'po1', name:'顧問', amount:55000}],
@@ -345,17 +365,25 @@ const DEFAULT_MASTER = {
 const S = {
   customers: [], payments: [], master: clone(DEFAULT_MASTER), goals: {},
   view: 'dash',
-  f: { q:'', status:'契約中', cohort:'', club:'', industry:'', gender:'', incomplete:false },
+  f: { q:'', status:'契約中', campus:'', cohort:'', club:'', industry:'', gender:'', incomplete:false },
   lf: { q:'', stage:'active' },
   sort: { k:'start', dir:-1 },
   payMonth: curYM(),
   goalFY: fyOf(curYM()),
   marketing: { support:[], candidates:[], keyman:[], seminars:[], schools:[] },
+  skStudent: '', skTerm: '',
   expenses: [],
+  trainings: [],
+  venues: [], vnArea: '',
   profitMonth: curYM(),
   profitBase: 'paid',
   mkTab: 'seminars',
   mkOwner: '',
+  referral: { referrers:[], months:{}, baseDay:'end', log:[] },
+  rfMonth: curYM(), rfDetail: null,
+  attendance: { rounds:[] }, attendanceData: { forms:{}, answers:{} }, atCampus:'', atKind:'',
+  survey: { rounds:[] }, surveyData: { forms:{}, answers:{} }, svRound:'',
+  admin: 'no', userEmail: '',
 };
 
 // ===================== Utils =====================
@@ -402,12 +430,13 @@ function defaultPlan(cohortId){
 const optLabel = p => p?.optName || 'オプション';
 
 // ===================== 売上計算 =====================
-function monthlyFee(c){ const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
+// noSales＝売上に含めない生徒（旧ラボからの0期生など）。請求・入金・目標実績・サポート報酬の対象外
+function monthlyFee(c){ if(c.noSales) return 0; const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
 function isPaused(c,ym){ return (c.pauses||[]).some(p=>p.from && ym>=p.from && (!p.to || ym<=p.to)); }
 function endYM(c){ return c.endDate ? c.endDate.slice(0,7) : null; }
 // その月の請求見込み額
 function billOf(c,ym){
-  if(c.kind==='lead' || !c.startDate) return 0;
+  if(c.kind==='lead' || !c.startDate || c.noSales) return 0;
   const s=c.startDate.slice(0,7), e=endYM(c);
   if(ym<s || (e && ym>e)) return 0;
   if(isPaused(c,ym)) return 0;
@@ -432,14 +461,39 @@ const paidMonth = ym => S.payments.filter(p=>p.month===ym).reduce((a,p)=>a+(Numb
 const incomplete = c => CHECKS.filter(([k])=>!c.checks?.[k]).map(([,l])=>l);
 const orientCount = ym => S.customers.filter(c=>c.orientDate && c.orientDate.slice(0,7)===ym).length;
 const enrollCount = ym => students().filter(c=>c.startDate && c.startDate.slice(0,7)===ym).length;
+// 企業研修の売上（月額とは別）。month＝売上の月、paidDate＝入金日（空なら未入金）
+// 請求ベースは売上の月、入金ベースは入金した月で数える
+const trainSum = list => list.reduce((a,t)=>a+(Number(t.amount)||0),0);
+const trainBill = ym => trainSum((S.trainings||[]).filter(t=>t.month===ym));
+const trainPaid = ym => trainSum((S.trainings||[]).filter(t=>t.paidDate && t.paidDate.slice(0,7)===ym));
 function mrr(){ const m=curYM(); return students().filter(c=>c.status==='契約中').reduce((a,c)=>a+(isPaused(c,m)?0:monthlyFee(c)),0); }
+// 校ごとの数字。全校の合計がダッシュボードの数字と一致するよう、校が分からないものは「未設定」に入れる
+function campusStats(m,fyM){
+  const keyOf=c=>{ const v=c?.campus||(c?.kind==='lead'?sessionOf(c.trialSession)?.campus:'')||''; return CAMPUSES.includes(v)?v:''; };
+  const blank=campus=>({campus,on:0,pause:0,joined:0,left:0,mrr:0,bill:0,paid:0,fyBill:0,orient:0});
+  const rows=[...CAMPUSES,''].map(blank), by=Object.fromEntries(rows.map(r=>[r.campus,r])), total=blank('合計');
+  const add=(r,k,v=1)=>{ r[k]+=v; total[k]+=v; };
+  S.customers.forEach(c=>{
+    const r=by[keyOf(c)];
+    if(c.orientDate && c.orientDate.slice(0,7)===m) add(r,'orient');
+    if(c.kind==='lead') return;
+    if(c.status==='契約中'){ add(r,'on'); if(!isPaused(c,m)) add(r,'mrr',monthlyFee(c)); }
+    if(c.status==='休止中') add(r,'pause');
+    if(c.startDate && c.startDate.slice(0,7)===m) add(r,'joined');
+    if(endYM(c)===m) add(r,'left');
+    add(r,'bill',billOf(c,m));
+    add(r,'fyBill',fyM.filter(x=>x<=m).reduce((a,x)=>a+billOf(c,x),0));
+  });
+  S.payments.filter(p=>p.month===m).forEach(p=>add(by[keyOf(S.customers.find(c=>c.id===p.customerId))],'paid',Number(p.amount)||0));
+  return {rows,total};
+}
 
 // ===================== データ層 =====================
 const Store = DEMO ? {
-  _k:'ssc_demo_v7',
+  _k:'ssc_demo_v15',
   _get(){ try{ return JSON.parse(localStorage.getItem(this._k)); }catch(e){ return null; } },
-  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses})); }catch(e){} },
-  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[]}); this._put(); },
+  _put(){ try{ localStorage.setItem(this._k, JSON.stringify({customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,trainings:S.trainings,venues:S.venues,referral:S.referral,attendance:S.attendance,attendanceData:S.attendanceData,survey:S.survey,surveyData:S.surveyData})); }catch(e){} },
+  async load(){ const d=this._get()||demoSeed(); Object.assign(S,{customers:d.customers,payments:d.payments,master:{...clone(DEFAULT_MASTER),...d.master},goals:d.goals||{},marketing:{...S.marketing,...(d.marketing||{})},expenses:d.expenses||[],trainings:d.trainings||[],venues:d.venues||[],referral:{...S.referral,...(d.referral||{})},attendance:d.attendance||S.attendance,attendanceData:d.attendanceData||S.attendanceData,survey:d.survey||S.survey,surveyData:d.surveyData||S.surveyData}); this._put(); },
   async saveCustomer(c){ if(!c.id){ c.id=uid(); c._created=new Date().toISOString(); S.customers.push(c);} else { const i=S.customers.findIndex(x=>x.id===c.id); S.customers[i]=c; } this._put(); return c; },
   async deleteCustomer(id){ S.customers=S.customers.filter(c=>c.id!==id); S.payments=S.payments.filter(p=>p.customerId!==id); this._put(); },
   async savePayment(p){ if(!p.id){ p.id=uid(); S.payments.push(p);} this._put(); return p; },
@@ -456,7 +510,7 @@ const Store = DEMO ? {
     if(err){ throw err; }
     S.customers = c.data.map(r=>({...r.data, id:r.id, _created:r.created_at}));
     S.payments = p.data.map(r=>({...r.data, id:r.id}));
-    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; });
+    s.data.forEach(r=>{ if(r.key==='master') S.master={...clone(DEFAULT_MASTER),...r.data}; if(r.key==='goals') S.goals=r.data||{}; if(r.key==='marketing') S.marketing={...S.marketing,...r.data}; if(r.key==='expenses') S.expenses=Array.isArray(r.data)?r.data:[]; if(r.key==='trainings') S.trainings=Array.isArray(r.data)?r.data:[]; if(r.key==='venues') S.venues=Array.isArray(r.data)?r.data:[]; if(r.key==='referral') S.referral={...S.referral,...r.data}; if(r.key==='attendance') S.attendance={rounds:[],...r.data}; if(r.key==='attendance_data') S.attendanceData={forms:{},answers:{},...r.data}; if(r.key==='survey') S.survey={rounds:[],...r.data}; if(r.key==='survey_data') S.surveyData={forms:{},answers:{},...r.data}; });
     if(migrateMaster()) await this.saveSetting('master');
   },
   _strip(o){ const {id,_created,...d}=o; return d; },
@@ -535,10 +589,19 @@ async function init(){
   sb.auth.onAuthStateChange((ev,session)=>{ if(ev==='SIGNED_OUT') showLogin(); if(ev==='SIGNED_IN' && document.getElementById('app').style.display!=='block') showApp(session.user.email); });
 }
 function showLogin(){ document.getElementById('app').style.display='none'; document.getElementById('login').style.display='flex'; }
+// 管理者かどうか（表示の切り替え用。実際の制限は Supabase 側の RLS で行う）
+async function loadAdmin(){
+  if(DEMO){ S.admin='yes'; S.userEmail='デモモード'; return; }
+  try{
+    const {data,error}=await withTimeout(sb.from('ssc_admins').select('email').limit(1),8000);
+    if(error) S.admin=/ssc_admins|42P01|schema cache/i.test((error.code||'')+(error.message||''))?'unset':'no';
+    else S.admin=data.length?'yes':'no';
+  }catch(e){ S.admin='no'; }
+}
 async function showApp(email){
   document.getElementById('login').style.display='none';
-  if(email) document.getElementById('user-email').textContent=email;
-  try{ loading(true); await withTimeout(Store.load(),20000); }
+  if(email){ document.getElementById('user-email').textContent=email; S.userEmail=email; }
+  try{ loading(true); await withTimeout(Store.load(),20000); await loadAdmin(); }
   catch(e){
     loading(false);
     if(e.message==='timeout'||/JWT|token|auth/i.test(e.message||'')){
@@ -554,6 +617,8 @@ async function showApp(email){
   loading(false);
   document.getElementById('app').style.display='block';
   render();
+  await ensureStudentNos(); // 同じ生徒を同時に保存しないよう順番に実行する
+  if(rfAdmin()) await rfLinkAll();
 }
 async function doLogin(){
   const email=document.getElementById('l-email').value.trim(), password=document.getElementById('l-pass').value;
@@ -570,26 +635,32 @@ const ICONS = {
   dash:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
   students:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   leads:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
+  attend:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4"/>',
   pay:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   goals:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  venues:'<path d="M12 22s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+  survey:'<path d="M9 3h6v3H9z"/><path d="M9 4H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M8 12h8M8 16h5"/>',
+  skills:'<path d="M12 2l3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1z"/>',
   profit:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
+  referral:'<circle cx="8" cy="8" r="3"/><path d="M2 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M16 6h6M19 3v6M16 14h6"/>',
   marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['settings','設定','設定']];
+const VIEWS = [['dash','ダッシュボード','ホーム'],['students','生徒一覧','生徒'],['leads','オリエン・見込み','オリエン'],['attend','出欠','出欠'],['pay','入金確認','入金'],['goals','目標','目標'],['marketing','マーケティング','マーケ'],['profit','利益管理','利益'],['referral','紹介FEE管理','紹介FEE'],['skills','スキル評価','スキル'],['survey','アンケート','アンケ'],['venues','場所候補','場所'],['settings','設定','設定']];
 function renderNav(){
   const m=curYM();
   const unpaid = students().filter(c=>billOf(c,m)>paidOf(c.id,m)).length;
   const upcoming = leads().filter(c=>stageOf(c)!=='見送り').length;
   const badge = {pay:unpaid, leads:upcoming};
   document.getElementById('nav').innerHTML = VIEWS.map(([k,l,sh])=>`<button class="${S.view===k?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span class="lg">${l}</span><span class="sh">${sh}</span>${badge[k]?`<span class="cnt">${badge[k]}</span>`:''}</button>`).join('');
+  const nv=document.getElementById('nav'), on=nv.querySelector('.on'); if(on && nv.scrollWidth>nv.clientWidth) nv.scrollLeft=on.offsetLeft-(nv.clientWidth-on.offsetWidth)/2; // スマホで今のタブを見える位置に
 }
-function go(v){ S.view=v; render(); window.scrollTo(0,0); }
+function go(v){ S.view=v; S.rfDetail=null; render(); window.scrollTo(0,0); if(v==='attend') attReload(); if(v==='survey') svReload(); }
 function render(){
   renderNav();
   const main=document.getElementById('main');
   const demo = DEMO ? '<div class="demo-bar">デモモード：サンプルデータで動いています。データはこのブラウザだけに保存されます（URL末尾の ?demo を外すと本番）。</div>' : '';
-  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,settings:viewSettings}[S.view])();
+  main.innerHTML = demo + ({dash:viewDash,students:viewStudents,leads:viewLeads,attend:viewAttend,pay:viewPay,goals:viewGoals,marketing:viewMarketing,profit:viewProfit,referral:viewReferral,skills:viewSkills,survey:viewSurvey,venues:viewVenues,settings:viewSettings}[S.view])();
   if(S.view==='goals') updGoalCells();
   if(S.view==='students'){ const q=document.getElementById('q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; } }
 }
@@ -601,7 +672,7 @@ function viewDash(){
   const bill=billMonth(m), paid=paidMonth(m);
   const g=goalOf(m);
   const fyM=fyMonths(fy);
-  const fyBill=fyM.filter(x=>x<=m).reduce((a,x)=>a+billMonth(x),0);
+  const fyBill=fyM.filter(x=>x<=m).reduce((a,x)=>a+billMonth(x)+trainBill(x),0), tb=trainBill(m), salesAct=bill+tb;
   const fyGoal=fyM.reduce((a,x)=>a+goalOf(x).sales,0);
   const or=orientCount(m);
   const todo=st.filter(c=>c.status!=='契約終了' && incomplete(c).length);
@@ -611,9 +682,9 @@ function viewDash(){
   const kp=(l,v,s,bar)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}${bar!=null?`<div class="bar ${bar>=100?'ok':''}"><i style="width:${Math.min(100,bar)}%"></i></div>`:''}</div>`;
 
   // 月別売上グラフ（今期）
-  const vals=fyM.map(x=>({m:x,b:billMonth(x),g:goalOf(x).sales}));
+  const vals=fyM.map(x=>({m:x,b:billMonth(x)+trainBill(x),t:trainBill(x),g:goalOf(x).sales}));
   const max=Math.max(1,...vals.map(v=>Math.max(v.b,v.g)));
-  const chart=`<div class="cols">${vals.map(v=>`<div class="col" title="${mLabel(v.m)}  見込み ${yen(v.b)} / 目標 ${yen(v.g)}"><div class="stack"><i class="${v.m>m?'fut':''}" style="height:${v.b/max*100}%"></i>${v.g?`<b style="bottom:${v.g/max*100}%"></b>`:''}</div><div class="lb">${mShort(v.m)}</div></div>`).join('')}</div>
+  const chart=`<div class="cols">${vals.map(v=>`<div class="col" title="${mLabel(v.m)}  見込み ${yen(v.b)}${v.t?`（うち企業研修 ${yen(v.t)}）`:''} / 目標 ${yen(v.g)}"><div class="stack"><i class="${v.m>m?'fut':''}" style="height:${v.b/max*100}%"></i>${v.g?`<b style="bottom:${v.g/max*100}%"></b>`:''}</div><div class="lb">${mShort(v.m)}</div></div>`).join('')}</div>
     <div class="legend" style="margin-top:8px"><span style="--c:var(--blue)">請求見込み</span><span style="--c:var(--blue-soft)">来月以降（見込み）</span><span style="--c:var(--accent)">目標</span></div>`;
 
   const hb=(rows)=>{ const mx=Math.max(1,...rows.map(r=>r[1])); return rows.length?`<div class="hbars">${rows.map(r=>`<div class="hbar"><span class="nm" title="${esc(r[0])}">${esc(r[0])}</span><span class="t"><i style="width:${r[1]/mx*100}%"></i></span><span class="c">${r[1]}名</span></div>`).join('')}</div>`:'<div class="empty">データなし</div>'; };
@@ -621,16 +692,25 @@ function viewDash(){
   const byCohort=S.master.cohorts.map(k=>[k.name,activeSt.filter(c=>c.cohort===k.id).length]);
   const byClub=S.master.clubs.filter(c=>!c.archived).map(k=>[k.name,activeSt.filter(c=>(c.clubs||[]).includes(k.id)).length]).sort((a,b)=>b[1]-a[1]);
 
+  const cs=campusStats(m,fyM), noCampus=cs.rows.find(r=>!r.campus);
+  const noCampusN=noCampus.on+noCampus.pause;
+  const csRow=(r,label,link)=>`<tr${link?'':' style="font-weight:600"'}><td style="white-space:nowrap">${link?`<a href="#" onclick="S.f.status='';S.f.campus='${r.campus||'none'}';go('students');return false">${label}</a>`:label}</td><td class="r num">${r.on}</td><td class="r num">${r.pause}</td><td class="r num">${r.joined}</td><td class="r num">${r.left}</td><td class="r num">${yen(r.mrr)}</td><td class="r num">${yen(r.bill)}</td><td class="r num">${yen(r.paid)}</td><td class="r num">${yen(Math.max(0,r.bill-r.paid))}</td><td class="r num">${yen(r.fyBill)}</td><td class="r num">${r.orient}</td></tr>`;
+  const campusCard=`<div class="card" style="margin-bottom:14px"><h3>校ごとの数字 <small>${mLabel(m)}</small></h3>
+    ${noCampusN?`<p style="margin:0 0 10px;font-size:12px;color:var(--muted)">所属校が未設定の生徒が${noCampusN}名います。生徒の所属校を入れると、校ごとに分かれます。</p>`:''}
+    <div class="tbl-wrap" style="border:0"><table><thead><tr><th>校</th><th class="r">在籍</th><th class="r">休止</th><th class="r">今月の入会</th><th class="r">今月の退会</th><th class="r">月額合計</th><th class="r">今月の請求</th><th class="r">今月の入金</th><th class="r">未入金</th><th class="r">今期の請求累計</th><th class="r">今月のオリエン</th></tr></thead>
+    <tbody>${cs.rows.filter(r=>r.campus||Object.values(r).some(v=>v)).map(r=>csRow(r,r.campus||'未設定',true)).join('')}${csRow(cs.total,'合計',false)}</tbody></table></div></div>`;
+
   return `
   <div class="head"><div><h2>ダッシュボード</h2><p>${mLabel(m)}・${fyLabel(fy)}</p></div>
     <div class="head-actions"><button class="btn" onclick="openCustomer(null,'lead')">＋ オリエン予約</button><button class="btn primary" onclick="openCustomer(null,'student')">＋ 生徒を登録</button></div></div>
   <div class="grid kpis">
     ${kp('在籍中', `${on.length}<small>名</small>`, `休止中 ${pa.length}名 ／ 累計 ${st.length}名`)}
-    ${kp('今月の請求見込み', `<span class="num">${yen(bill)}</span>`, `月額合計（MRR）${yen(mrr())}`)}
+    ${kp('今月の請求見込み', `<span class="num">${yen(bill)}</span>`, `月額合計（MRR）${yen(mrr())}${tb?` ／ 企業研修 ${yen(tb)}`:''}`)}
     ${kp('今月の入金', `<span class="num">${yen(paid)}</span>`, bill?`未入金 ${yen(Math.max(0,bill-paid))}（${unpaid.length}名）`:'', pct(paid,bill))}
-    ${kp('今月の売上目標', g.sales?`<span class="num">${pct(bill,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(bill,g.sales):null)}
+    ${kp('今月の売上目標', g.sales?`<span class="num">${pct(salesAct,g.sales)}%</span>`:'<small>未設定</small>', g.sales?`目標 ${yen(g.sales)}${tb?`（企業研修 ${yen(tb)}を含む）`:''}`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.sales?pct(salesAct,g.sales):null)}
     ${kp('今月のオリエン', `${or}<small>件${g.appo?' / '+g.appo:''}</small>`, g.appo?`目標まであと ${Math.max(0,g.appo-or)}件`:'<a href="#" onclick="go(\'goals\');return false">目標を設定 →</a>', g.appo?pct(or,g.appo):null)}
   </div>
+  ${campusCard}
   <div class="grid two" style="margin-bottom:14px">
     <div class="card"><h3>今期の月別売上 <small>今期累計 ${yen(fyBill)}${fyGoal?` ／ 年間目標 ${yen(fyGoal)}`:''}</small></h3>${chart}</div>
     <div class="card"><h3>手続き未完了 <small>${todo.length}名</small></h3><div class="list">${todo.length?todo.map(c=>`<div class="li"><span class="who" onclick="openCustomer('${c.id}')">${esc(c.name)} <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></span><span>${incomplete(c).map(x=>`<span class="badge b-red" style="margin-left:4px">${x}</span>`).join('')}</span></div>`).join(''):'<div class="empty">すべて完了しています</div>'}</div></div>
@@ -650,12 +730,13 @@ function filteredStudents(){
     (!f.status || c.status===f.status) &&
     (!f.cohort || c.cohort===f.cohort) &&
     (!f.club || (c.clubs||[]).includes(f.club)) &&
+    (!f.campus || (f.campus==='none'?!c.campus:c.campus===f.campus)) &&
     (!f.industry || c.industry===f.industry) &&
     (!f.gender || c.gender===f.gender) &&
     (!f.incomplete || incomplete(c).length) &&
     (!q || [c.name,c.kana,c.company,c.referrer,c.note,c.industry,c.jobTitle,c.email,cohortName(c.cohort),...(c.clubs||[]).map(clubName)].join(' ').toLowerCase().includes(q))
   );
-  const key={name:c=>c.kana||c.name||'',cohort:c=>cohortName(c.cohort),status:c=>STATUSES.indexOf(c.status),start:c=>c.startDate||'',months:c=>activeMonths(c),industry:c=>c.industry||'',gender:c=>c.gender||'',referrer:c=>c.referrer||'',fee:c=>monthlyFee(c),total:c=>billedTotal(c),paid:c=>paidOf(c.id)}[S.sort.k]||(c=>0);
+  const key={name:c=>c.kana||c.name||'',campus:c=>c.campus||'',cohort:c=>cohortName(c.cohort),status:c=>STATUSES.indexOf(c.status),start:c=>c.startDate||'',months:c=>activeMonths(c),industry:c=>c.industry||'',gender:c=>c.gender||'',referrer:c=>c.referrer||'',fee:c=>monthlyFee(c),total:c=>billedTotal(c),paid:c=>paidOf(c.id)}[S.sort.k]||(c=>0);
   rows.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*S.sort.dir; });
   return rows;
 }
@@ -677,17 +758,19 @@ function viewStudents(){
     <input class="inp search" id="q" placeholder="名前・会社・紹介者・備考で検索" value="${esc(f.q)}" oninput="setF('q',this.value)">
   </div>
   <div class="toolbar">
+    <select class="inp" onchange="setF('campus',this.value)">${opt([...CAMPUSES.map(x=>[x,x]),['none','未設定']],f.campus,'校：すべて')}</select>
     <select class="inp" onchange="setF('cohort',this.value)">${opt(S.master.cohorts.map(k=>[k.id,k.name]),f.cohort,'期生：すべて')}</select>
     <select class="inp" onchange="setF('club',this.value)">${opt(S.master.clubs.map(k=>[k.id,k.name+(k.archived?'（廃部）':'')]),f.club,'部活：すべて')}</select>
     <select class="inp" onchange="setF('industry',this.value)">${opt([...new Set([...S.master.industries,...students().map(c=>c.industry).filter(Boolean)])].map(x=>[x,x]),f.industry,'業種：すべて')}</select>
     <select class="inp" onchange="setF('gender',this.value)">${opt(GENDERS.map(x=>[x,x]),f.gender,'性別：すべて')}</select>
     <label class="tog"><input type="checkbox" ${f.incomplete?'checked':''} onchange="setF('incomplete',this.checked)"> 手続き未完了のみ</label>
-    ${(f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
+    ${(f.campus||f.cohort||f.club||f.industry||f.gender||f.incomplete||f.q)?`<button class="btn ghost sm" onclick="Object.assign(S.f,{q:'',campus:'',cohort:'',club:'',industry:'',gender:'',incomplete:false});render()">条件をクリア</button>`:''}
   </div>
   <div class="tbl-wrap resp"><table>
-    <thead><tr>${th('name','氏名')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
+    <thead><tr>${th('name','氏名')}${th('campus','校')}${th('cohort','期生')}${th('status','状態')}${th('start','契約開始')}${th('months','継続','r')}${th('industry','業種')}${th('gender','性別')}<th>部活動</th>${th('referrer','紹介者')}<th>手続き</th>${th('fee','月額','r')}${th('total','累計売上','r')}${th('paid','入金済','r')}</tr></thead>
     <tbody>${rows.length?rows.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')">
-      <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||c.kana||'')}</small></td>
+      <td><span class="nm">${esc(c.name)}</span><small>${c.studentNo?`<b style="color:var(--blue)">${esc(c.studentNo)}</b> `:''}${esc(c.company||c.kana||'')}</small></td>
+      <td>${c.campus?esc(c.campus.replace('校','')):'<span class="badge b-pause">未設定</span>'}</td>
       <td>${esc(cohortName(c.cohort))||'—'}</td>
       <td><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></td>
       <td class="num">${fmtDate(c.startDate)}${c.status==='契約終了'&&c.endDate?`<small>〜${fmtDate(c.endDate)}</small>`:''}</td>
@@ -697,14 +780,14 @@ function viewStudents(){
       <td class="wrap" style="min-width:110px">${clubsHtml(c)}</td>
       <td>${esc(c.referrer)||'—'}</td>
       <td>${checksHtml(c)}</td>
-      <td class="r num">${yen(monthlyFee(c))}${c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
+      <td class="r num">${c.noSales?'<span class="badge b-end">売上対象外</span>':yen(monthlyFee(c))}${c.noSales?'':c.plan?.advisor?`<small>＋${esc(optLabel(c.plan))}</small>`:c.plan?.baseName?`<small>${esc(c.plan.baseName)}</small>`:''}</td>
       <td class="r num"><b>${yen(billedTotal(c))}</b></td>
       <td class="r num">${yen(paidOf(c.id))}</td>
-    </tr>`).join(''):`<tr><td colspan="13"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
-    ${rows.length?`<tfoot><tr><td colspan="10">${rows.length}名</td><td class="r num">${yen(totalFee)}</td><td class="r num">${yen(totalBilled)}</td><td class="r num">${yen(totalPaid)}</td></tr></tfoot>`:''}
+    </tr>`).join(''):`<tr><td colspan="14"><div class="empty">該当する生徒がいません</div></td></tr>`}</tbody>
+    ${rows.length?`<tfoot><tr><td colspan="11">${rows.length}名</td><td class="r num">${yen(totalFee)}</td><td class="r num">${yen(totalBilled)}</td><td class="r num">${yen(totalPaid)}</td></tr></tfoot>`:''}
   </table></div>
   <div class="cards">${rows.length?rows.map(c=>`<div class="mcard" onclick="openCustomer('${c.id}')">
-      <div class="top"><div><b style="color:var(--heading)">${esc(c.name)}</b> <small style="color:var(--faint)">${esc(cohortName(c.cohort))}</small></div><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></div>
+      <div class="top"><div><b style="color:var(--heading)">${esc(c.name)}</b> <small style="color:var(--faint)">${esc(c.campus||'校未設定')} ${esc(cohortName(c.cohort))}</small></div><span class="badge ${STATUS_BADGE[c.status]}">${esc(c.status)}</span></div>
       <div class="meta">${fmtDate(c.startDate)}〜 ・ ${activeMonths(c)}ヶ月 ・ ${esc(c.industry||'業種未設定')} ・ ${esc(c.gender||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>
       <div>${clubsHtml(c)}</div>
       <div class="foot">${checksHtml(c)}<b class="num">${yen(billedTotal(c))}</b></div>
@@ -717,8 +800,8 @@ async function toggleCheck(id,k){
 }
 function exportCSV(){
   const rows=filteredStudents();
-  const head=['氏名','ふりがな','性別','年齢','会社','役職','業種','営業歴','期生','状態','契約開始','契約終了','継続月数','基本プラン','基本月額','オプション','オプション月額','月額合計','入学金','支払方法','累計売上','入金済','部活動','紹介者','流入経路','契約書','決済','LINE','メール','備考'];
-  const body=rows.map(c=>[c.name,c.kana,c.gender,c.age,c.company,c.jobTitle,c.industry,c.experience,cohortName(c.cohort),c.status,c.startDate,c.endDate,activeMonths(c),c.plan?.baseName,c.plan?.base,c.plan?.advisor?optLabel(c.plan):'',c.plan?.advisor?c.plan.advisorFee:0,monthlyFee(c),c.plan?.entryFee,c.payMethod,billedTotal(c),paidOf(c.id),(c.clubs||[]).map(clubName).join('／'),c.referrer,c.source,...CHECKS.map(([k])=>c.checks?.[k]?'済':''),c.email,c.note]);
+  const head=['氏名','ふりがな','性別','年齢','会社','役職','業種','営業歴','所属校','期生','状態','契約開始','契約終了','継続月数','基本プラン','基本月額','オプション','オプション月額','月額合計','入学金','支払方法','累計売上','入金済','部活動','紹介者','流入経路','契約書','決済','LINE','メール','備考'];
+  const body=rows.map(c=>[c.name,c.kana,c.gender,c.age,c.company,c.jobTitle,c.industry,c.experience,c.campus,cohortName(c.cohort),c.status,c.startDate,c.endDate,activeMonths(c),c.plan?.baseName,c.plan?.base,c.plan?.advisor?optLabel(c.plan):'',c.plan?.advisor?c.plan.advisorFee:0,monthlyFee(c),c.plan?.entryFee,c.payMethod,billedTotal(c),paidOf(c.id),(c.clubs||[]).map(clubName).join('／'),c.referrer,c.source,...CHECKS.map(([k])=>c.checks?.[k]?'済':''),c.email,c.note]);
   const csv=[head,...body].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=`SSC生徒一覧_${todayStr()}.csv`; a.click();
 }
@@ -728,9 +811,11 @@ function viewLeads(){
   const ls=leads(), q=S.lf.q.trim().toLowerCase();
   if(S.lf.stage!=='active'&&S.lf.stage!=='all'&&!LEAD_STAGES.includes(S.lf.stage)) S.lf.stage='active';
   let rows=ls.filter(c=>(S.lf.stage==='active'?stageOf(c)!=='見送り':S.lf.stage==='all'?true:stageOf(c)===S.lf.stage) && (!q||[c.name,c.kana,c.company,c.referrer,c.note].join(' ').toLowerCase().includes(q)));
-  // オリエン日が未定の人を一番上に、あとは新しい日付順
-  rows.sort((a,b)=>(!!a.orientDate-!!b.orientDate) || (b.orientDate||'').localeCompare(a.orientDate||''));
-  const undecided=rows.filter(c=>!c.orientDate && stageOf(c)!=='見送り').length;
+  // 体験日が未定の人（見送り以外）を一番上に。オリエンをしない人もいるので判定は体験日だけで行う
+  const noTrial=c=>!c.trialSession && !c.interviewDate && stageOf(c)!=='見送り';
+  const trialCell=c=>{ const x=sessionOf(c.trialSession); return x?`${esc(x.campus.replace('校',''))} ${mdw(x.date)}`:c.interviewDate?fmtDate(c.interviewDate):noTrial(c)?'<span class="badge b-pause">⚠ 体験日未定</span>':'—'; };
+  rows.sort((a,b)=>(noTrial(b)-noTrial(a)) || (b.orientDate||'').localeCompare(a.orientDate||''));
+  const undecided=rows.filter(noTrial).length;
   // ファネル（今期）
   const fy=fyOf(curYM()), fyM=fyMonths(fy);
   // 今期に登録 or オリエンした人を対象に、どこまで進んだかを数える
@@ -751,23 +836,24 @@ function viewLeads(){
     <div class="seg">${[['active','進行中'],...LEAD_STAGES.map(s=>[s,s]),['all','すべて']].map(([v,l])=>`<button class="${S.lf.stage===v?'on':''}" onclick="S.lf.stage='${v}';render()">${l}<span class="n">${v==='active'?ls.filter(c=>stageOf(c)!=='見送り').length:v==='all'?ls.length:ls.filter(c=>stageOf(c)===v).length}</span></button>`).join('')}</div>
     <input class="inp search" placeholder="名前・紹介者で検索" value="${esc(S.lf.q)}" onchange="S.lf.q=this.value;render()">
   </div>
-  ${undecided?`<div class="warn" style="margin:0 0 10px">⚠ オリエン日が未定の人が ${undecided}名 います（一覧の一番上・黄色の行）。日程が決まったら入力してください。</div>`:''}
+  ${undecided?`<div class="warn" style="margin:0 0 10px">⚠ 体験日が未定の人が ${undecided}名 います（一覧の一番上・黄色の行）。決まったら入力してください。</div>`:''}
   <div class="tbl-wrap resp"><table>
-    <thead><tr><th>オリエン日</th><th>氏名</th><th>ステージ</th><th>業種</th><th>紹介者</th><th>流入経路</th><th>メモ</th><th></th></tr></thead>
-    <tbody>${rows.length?rows.map(c=>`<tr class="row ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')">
-      <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}${sessionOf(c.trialSession)?`<small style="color:var(--blue)">体験：${esc(sessionOf(c.trialSession).campus.replace('校',''))} ${mdw(sessionOf(c.trialSession).date)}</small>`:''}</td>
+    <thead><tr><th>オリエン日</th><th>体験日</th><th>氏名</th><th>ステージ</th><th>業種</th><th>紹介者</th><th>流入経路</th><th>メモ</th><th></th></tr></thead>
+    <tbody>${rows.length?rows.map(c=>`<tr class="row ${noTrial(c)?'undecided':''}" onclick="openCustomer('${c.id}')">
+      <td class="num">${c.orientDate?fmtDate(c.orientDate):'<span style="color:var(--faint)">—</span>'}${c.orientTime?`<small>${esc(c.orientTime)}</small>`:''}</td>
+      <td class="num">${trialCell(c)}</td>
       <td><span class="nm">${esc(c.name)}</span><small>${esc(c.company||'')}</small></td>
       <td onclick="event.stopPropagation()"><select class="inline-sel" onchange="setStage('${c.id}',this.value,this)">${STAGES.map(s=>`<option ${s===stageOf(c)?'selected':''}>${s}</option>`).join('')}</select></td>
       <td>${esc(c.industry)||'—'}</td><td>${esc(c.referrer)||'—'}</td><td>${esc(c.source)||'—'}</td>
       <td class="wrap" style="max-width:220px;color:var(--muted)">${esc((c.note||'').slice(0,40))}</td>
       <td onclick="event.stopPropagation()">${stageOf(c)!=='見送り'?`<button class="btn sm accent" onclick="enroll('${c.id}')">入学登録</button>`:''}</td>
-    </tr>`).join(''):'<tr><td colspan="8"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
-  <div class="cards">${rows.map(c=>`<div class="mcard ${c.orientDate?'':'undecided'}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge ${STAGE_BADGE[stageOf(c)]}">${esc(stageOf(c))}</span></div><div class="meta">${c.orientDate?fmtDate(c.orientDate):'<span class="badge b-pause">⚠ 日程未定</span>'} ${esc(c.orientTime||'')}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
+    </tr>`).join(''):'<tr><td colspan="9"><div class="empty">該当なし</div></td></tr>'}</tbody></table></div>
+  <div class="cards">${rows.map(c=>`<div class="mcard ${noTrial(c)?'undecided':''}" onclick="openCustomer('${c.id}')"><div class="top"><b>${esc(c.name)}</b><span class="badge ${STAGE_BADGE[stageOf(c)]}">${esc(stageOf(c))}</span></div><div class="meta">${c.orientDate?'オリエン '+fmtDate(c.orientDate):''} ${esc(c.orientTime||'')} ・ 体験 ${trialCell(c)}${c.referrer?' ・ 紹介：'+esc(c.referrer):''}</div>${c.stage!=='見送り'?`<div class="foot"><span></span><button class="btn sm accent" onclick="event.stopPropagation();enroll('${c.id}')">入学登録</button></div>`:''}</div>`).join('')||'<div class="empty">該当なし</div>'}</div>`;
 }
 function trialBoard(){
   const today=todayStr();
   const col=cp=>{
-    const all=sortedSchedule(cp), up=all.filter(x=>x.date>=today), next=up[0], rest=up.slice(1);
+    const all=classSchedule(cp), up=all.filter(x=>x.date>=today), next=up[0], rest=up.slice(1);
     const row=(x,old)=>{ const t=trialsOf(x.id); return `<div class="li" style="${old?'opacity:.55':''};align-items:flex-start"><div><b class="num">${mdw(x.date)}</b> <small style="color:var(--muted)">${esc(x.time||'')} ${esc(x.title||'')}</small>
       <div style="margin-top:3px">${t.map(c=>`<span class="chip" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('')||'<small style="color:var(--faint)">まだいません</small>'}</div></div>
       <span class="badge ${t.length?'b-blue':'b-end'}" style="font-size:13px">${old?'終了 ':''}${t.length}名</span></div>`; };
@@ -823,16 +909,66 @@ function viewPay(){
     </tr>`}).join(''):'<tr><td colspan="9"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
     ${rows.length?`<tfoot><tr><td colspan="4">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
   </table></div>
-  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>`;
+  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>${trainCard(m)}`;
 }
+// ===================== 企業研修 =====================
+function trainCard(m){
+  const T=S.trainings||[], cur=T.filter(t=>t.month===m), late=T.filter(t=>t.month<m && !t.paidDate);
+  const rows=[...cur,...late].sort((a,b)=>(!!a.paidDate-!!b.paidDate)||(a.date||'').localeCompare(b.date||''));
+  const sum=trainSum(cur), paid=trainSum(cur.filter(t=>t.paidDate));
+  return `<div class="card" style="margin-top:14px"><h3>企業研修の売上 <small>${mLabel(m)}：${yen(sum)}（入金済 ${yen(paid)}・未入金 ${yen(sum-paid)}）</small><span><button class="btn sm primary" onclick="openTraining()">＋ 研修を追加</button></span></h3>
+    <p class="hint" style="margin:0 0 8px">企業から受け取る研修費です。売上・売上目標・利益（2人で折半）に入ります。講師料などの費用は利益管理の経費に入れてください。</p>
+    ${rows.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>企業名</th><th>研修内容</th><th>売上の日</th><th class="r">金額</th><th>入金</th><th></th></tr></thead><tbody>
+      ${rows.map(t=>`<tr class="row" onclick="openTraining('${t.id}')"><td><span class="nm">${esc(t.company)}</span></td><td class="wrap" style="min-width:180px">${esc(t.title)||'—'}</td><td class="num">${fmtDate(t.date)}${t.month<m?` <span class="badge b-red">前の月の未入金</span>`:''}</td><td class="r num">${yen(t.amount)}</td>
+        <td>${t.paidDate?`<span class="badge b-on">入金済</span> <small class="num">${fmtDate(t.paidDate)}</small>`:'<span class="badge b-red">未入金</span>'}</td>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()">${t.paidDate?'':`<button class="btn sm" onclick="trainPaidNow('${t.id}')">今日入金済にする</button>`}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">この月の企業研修はありません</div>'}</div>`;
+}
+function openTraining(id){
+  const t = id ? S.trainings.find(x=>x.id===id) : {date: S.payMonth===curYM()?todayStr():S.payMonth+'-01'};
+  const cos=[...new Set(S.trainings.map(x=>x.company).filter(Boolean))];
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:520px">
+    <div class="modal-h"><h3>${id?'企業研修を編集':'企業研修を追加'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>企業名 <span class="req">*</span></label><input class="inp" id="t-company" list="t-cos" value="${esc(t.company||'')}"><datalist id="t-cos">${cos.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="fl w3"><label>研修内容</label><input class="inp" id="t-title" value="${esc(t.title||'')}" placeholder="例：新人営業研修（2日間）"></div>
+      <div class="fl"><label>売上の日 <span class="req">*</span></label><input class="inp" type="date" id="t-date" value="${esc(t.date||'')}"><div class="hint">この日の月の売上になります（請求日や実施日）</div></div>
+      <div class="fl"><label>金額（円） <span class="req">*</span></label><input class="inp num" type="number" min="0" id="t-amt" value="${t.amount??''}"></div>
+      <div class="fl"><label>入金日</label><input class="inp" type="date" id="t-paid" value="${esc(t.paidDate||'')}"><div class="hint">空欄＝未入金</div></div>
+      <div class="fl w3"><label>メモ</label><input class="inp" id="t-note" value="${esc(t.note||'')}" placeholder="担当者、請求書番号など"></div>
+    </div></div>
+    <div class="modal-f">${id?`<button class="btn danger" onclick="delTraining('${id}')">削除</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveTraining(${id?`'${id}'`:''})">保存</button></div></div>
+  </div></div>`;
+  setTimeout(()=>document.getElementById(id?'t-amt':'t-company')?.focus(),30);
+}
+async function saveTraining(id){
+  const v=k=>document.getElementById(k).value.trim();
+  const rec={id:id||uid(), company:v('t-company'), title:v('t-title'), date:v('t-date'), amount:Number(v('t-amt')), paidDate:v('t-paid'), note:v('t-note')};
+  if(!rec.company||!rec.date||!rec.amount) return toast('企業名・売上の日・金額を入力してください',true);
+  rec.month=rec.date.slice(0,7);
+  const prev=S.trainings.find(x=>x.id===rec.id);
+  if(prev && (Number(prev.amount)!==rec.amount || prev.month!==rec.month)){
+    const rows=[['研修費の金額',yen(prev.amount),yen(rec.amount),rec.amount-Number(prev.amount)]];
+    if(prev.month!==rec.month) rows.push(['売上の月',mLabel(prev.month),mLabel(rec.month)]);
+    if(!(await confirmMoney('企業研修の変更',rows,'売上・売上目標・利益（2人の取り分）の数字が変わります。'))) return;
+  }
+  const i=S.trainings.findIndex(x=>x.id===rec.id); if(i>=0) S.trainings[i]=rec; else S.trainings.push(rec);
+  await run(()=>Store.saveSetting('trainings'),'企業研修を保存しました'); S.payMonth=rec.month; closeModal(); render();
+}
+async function trainPaidNow(id){
+  const t=S.trainings.find(x=>x.id===id);
+  if(!confirm(`${t.company}の研修費 ${yen(t.amount)} を、今日（${fmtDate(todayStr())}）入金済にしますか？`)) return;
+  t.paidDate=todayStr();
+  await run(()=>Store.saveSetting('trainings'),'入金済にしました'); render();
+}
+async function delTraining(id){ const t=S.trainings.find(x=>x.id===id); if(!confirm(`${t.company}の研修（${yen(t.amount)}）を削除しますか？`)) return; S.trainings=S.trainings.filter(x=>x.id!==id); await run(()=>Store.saveSetting('trainings'),'削除しました'); closeModal(); render(); }
+
 // チェックON＝請求額どおり入金を記録、OFF＝その月の入金記録を取り消し
 async function togglePaid(cid,on,el){
   const c=byId(cid), m=S.payMonth;
   if(on) return quickPay(cid);
   const pays=S.payments.filter(p=>p.customerId===cid&&p.month===m), amt=pays.reduce((a,p)=>a+(Number(p.amount)||0),0);
-  const sup=S.marketing.support.find(x=>x.name===c.referrer);
   const rows=[[`${mLabel(m)}の入金（${c.name}）`,yen(amt),yen(0),-amt]];
-  if(sup){ const f=supportFeeAt(sup,m); rows.push([`${sup.name}さんへの報酬`,'',`−${yen(f)}`]); }
   if(!(await confirmMoney('入金確認の取り消し',rows,'入金の記録を削除します。'))){ el.checked=true; return; }
   await run(async()=>{ for(const p of pays) await Store.deletePayment(p.id); },'入金確認を取り消しました'); render();
 }
@@ -899,12 +1035,12 @@ function goalCum(m){
 function goalKpis(fy){
   const ms=fyMonths(fy), G=ms.map(goalOf), sum=k=>G.reduce((a,g)=>a+g[k],0);
   // 売上目標は「単価×入学数」なので、実績もその月に入学した人の月額で比べる
-  const bill=ms.reduce((a,m)=>a+students().filter(c=>c.startDate?.slice(0,7)===m).reduce((x,c)=>x+monthlyFee(c),0),0), or=ms.reduce((a,m)=>a+orientCount(m),0), en=ms.reduce((a,m)=>a+enrollCount(m),0);
+  const bill=ms.reduce((a,m)=>a+students().filter(c=>c.startDate?.slice(0,7)===m).reduce((x,c)=>x+monthlyFee(c),0)+trainBill(m),0), or=ms.reduce((a,m)=>a+orientCount(m),0), en=ms.reduce((a,m)=>a+enrollCount(m),0);
   const gs=sum('sales'), ga=sum('appo'), ge=sum('enroll');
   const yearIn=ms.reduce((a,m)=>a+goalCum(m).monthly,0), last=goalCum(ms[11]);
   const bar=(a,b)=>`<div class="bar ${b&&a>=b?'ok':''}"><i style="width:${b?Math.min(100,a/b*100):0}%"></i></div>`;
   return `
-    <div class="card kpi"><div class="l">年間売上目標</div><div class="v num">${yen(gs)}</div><div class="s">実績（入学者の月額） ${yen(bill)}（${pct(bill,gs)??'—'}%）</div>${bar(bill,gs)}</div>
+    <div class="card kpi"><div class="l">年間売上目標</div><div class="v num">${yen(gs)}</div><div class="s">実績（入学者の月額＋企業研修） ${yen(bill)}（${pct(bill,gs)??'—'}%）</div>${bar(bill,gs)}</div>
     <div class="card kpi"><div class="l">年間入金目標（月額の積み上げ）</div><div class="v num">${yen(yearIn)}</div><div class="s">8月時点 ${last.people}名・月 ${yen(last.monthly)}</div></div>
     <div class="card kpi"><div class="l">入学目標</div><div class="v">${ge}<small>名</small></div><div class="s">実績 ${en}名（${pct(en,ge)??'—'}%）</div>${bar(en,ge)}</div>
     <div class="card kpi"><div class="l">オリエン目標</div><div class="v">${ga}<small>件</small></div><div class="s">実績 ${or}件（${pct(or,ga)??'—'}%）</div>${bar(or,ga)}</div>
@@ -965,33 +1101,154 @@ function setGoal(m,k,v){
   goalTimer=setTimeout(async()=>{ try{ await Store.saveSetting('goals'); toast('目標を保存しました'); }catch(e){ toast('保存に失敗しました：'+e.message,true); } },800);
 }
 
+const SKILL_DATA={"skills":[{"id":"S01","area":"主体的実行力","name":"目標設定力","sub":"目標の言語化／達成基準／期限／優先順位","goal":"自分が目指す成果を明確にし、達成基準と期限を設定できる","evidence":"目標設定シート・期限・達成指標・優先順位の説明"},{"id":"S02","area":"主体的実行力","name":"内省・改善力","sub":"自己分析／振り返り","goal":"自分の成果・行動・強みと課題を振り返り、次の改善行動を特定できる","evidence":"自己分析シート・商談振り返り・改善前後の比較"},{"id":"S03","area":"主体的実行力","name":"解釈力","sub":"リフレーミング力／ポジティブ力","goal":"事実と解釈を区別し、複数の見方から建設的な次の行動を選べる","evidence":"失敗事例の再解釈ワーク・状況別の行動選択"},{"id":"S04","area":"対人協働力","name":"質問力","sub":"質問設計／確認質問／深掘り質問","goal":"相手の状況・意図を確かめ、目的に沿った質問で必要な情報を引き出せる","evidence":"質問ロープレ・深掘りの流れ・確認質問の内容"},{"id":"S05","area":"対人協働力","name":"伝達力","sub":"プレゼン力／ストーリー／面白い話し方","goal":"聞き手に合わせて、自分の考えや価値を分かりやすく印象に残る形で伝えられる","evidence":"自己紹介録画・提案ロープレ・第三者理解度"},{"id":"S06","area":"対人協働力","name":"協業構築力","sub":"相互メリット発見／協業アイデアの構想／協業提案・合意／共同実行","goal":"相手の課題と双方の強み・資源を組み合わせ、相互利益のある協業を提案して実行に移せる","evidence":"相互メリットの整理／具体的協業案／合意内容／実施記録"},{"id":"S07","area":"他者の課題解決力","name":"課題発見・分析力","sub":"現状分析／理想と課題の把握／仮説思考／事業分析","goal":"相手の理想と現状の差を把握し、根拠をもって優先課題を特定できる","evidence":"ケース分析・仮説検証・模擬ヒアリング"},{"id":"S08","area":"他者の課題解決力","name":"構造化・言語化力","sub":"要素分解／因果関係の整理／論理的思考／本質の特定／分かりやすい言語化","goal":"複雑な問題を要素に分け、関係を整理し、要点を簡潔に説明できる","evidence":"課題構造図・説明ワーク・発表の明瞭性"},{"id":"S09","area":"他者の課題解決力","name":"解決策立案・提案力","sub":"解決策の発想／提案内容の具体化","goal":"相手の課題に合う解決策を考え、効果や実行方法を具体的に提案できる","evidence":"ケース提案書・実現性の説明・提案ロープレ"},{"id":"S10","area":"主体的実行力","name":"実行力","sub":"行動設計／選択と集中／タスク管理／習慣化","goal":"目標を具体的な行動に落とし込み、優先順位をつけて継続実行できる","evidence":"週次行動計画・実行率・継続記録"},{"id":"S11","area":"対人協働力","name":"傾聴力","sub":"最後まで聴く／要約と確認／事実と解釈の区別（解釈しない力）","goal":"判断を急がず相手の話を受け止め、発言の意味を要約・確認できる","evidence":"模擬対話／要約の精度／遮らず聴けたか"},{"id":"S12","area":"対人協働力","name":"他者理解力","sub":"相手の価値観／理想／制約／優先順位の理解","goal":"相手が大切にしていることと判断の背景を理解し、関わり方を調整できる","evidence":"価値観ヒアリングの確認・相手による理解度評価"}],"levels":{"S01":{"1":"目標が曖昧で、何が達成か説明できない","2":"目標は言えるが、期限・達成基準が明確ではない","3":"期限と測定可能な達成基準を伴う目標を設定できる","4":"成果の価値・優先順位・制約条件を整理し、現実の行動とつながる目標を設計できる","5":"目標の難易度と価値を判断し、成果に応じた検証・再設定の基準まで決められる"},"S02":{"1":"成果・失敗を感想で捉え、行動を振り返れていない","2":"支援があれば自分の行動と結果を書き出せる","3":"事実をもとに強み・課題を整理し、次に直す行動を決められる","4":"課題の原因仮説を立て、改善前後を比較して修正できる","5":"複数の改善サイクルを記録し、自律的に再現できる"},"S03":{"1":"失敗時に1つの解釈に固執し、次の行動が止まる","2":"他者の問いかけがあれば別の捉え方を考えられる","3":"事実と解釈を分け、複数の見方から行動を選択できる","4":"困難な状況でも根拠ある再解釈を行い、具体的な再挑戦につなげられる","5":"状況に応じた建設的な解釈と行動選択を継続し、他者にも共有できる"},"S04":{"1":"一方的に話し、必要なことを質問できない","2":"質問はできるが、表面的な事実確認で止まる","3":"目的に沿って質問し、現状や理想を具体的に把握できる","4":"相手の答えに応じて深掘りし、前提や背景を確かめられる","5":"相手の考えを整理しやすい質問を組み立て、本人の言葉で気づきを明確化できる"},"S05":{"1":"話の要点が伝わらず、聞き手が何を理解すべきか分からない","2":"伝えたい内容は話せるが、順序・例・長さの調整が難しい","3":"相手に合わせて要点・根拠・具体例を分かりやすく伝えられる","4":"ストーリー・比喩・間などを使い、理解と関心を高められる","5":"相手の反応・質問に応じて表現を変え、納得と次の行動につなげられる"},"S06":{"1":"自分への紹介や協力を求めるだけで、相手の利益を確認しない","2":"相手の課題を把握できても、双方に価値のある協業案を作れない","3":"相手の課題と双方の強みを組み合わせ、具体的な協業案を提示できる","4":"双方のメリットを説明して合意を取り、役割と行動を定め実施できる","5":"協業成果を検証・改善し、互いに利益のある連携を継続できる"},"S07":{"1":"相手の話を聞いてすぐ解決策を出し、課題を確認しない","2":"現状と理想は聞けるが、課題や原因を曖昧に捉えている","3":"理想と現状の差・影響を把握し、優先課題の仮説を立てられる","4":"情報・事実を用いて仮説を検証し、主要原因を特定できる","5":"複数の課題を比較し、根拠・優先順位を示して本質課題を定められる"},"S08":{"1":"情報が並列で、要点・関係性を説明できない","2":"情報を項目ごとに分けられるが、関係や論点が曖昧","3":"要素分解・因果関係・結論を整理し、簡潔に説明できる","4":"前提や根拠を確かめつつ、本質的な論点を分かりやすく示せる","5":"複雑な事象も筋道立てて説明し、他者の判断に使える形にまとめられる"},"S09":{"1":"課題の確認が不十分なまま、一般的な解決策を勧める","2":"解決案は思いつくが、相手の課題とのつながりや具体性が弱い","3":"課題に対応した解決策を考え、実行内容を具体的に提案できる","4":"効果・負担・代替策を比較し、相手に合う提案を組み立てられる","5":"提案の根拠・優先順位・実行条件を説明し、合意を得られる"},"S10":{"1":"やるべき行動が決まらず、着手が続かない","2":"行動案はあるが、期限・優先順位・頻度が定まっていない","3":"優先行動を週次計画に落とし、期限を守って実行できる","4":"障害を予測して対処し、重要行動の実行を継続できる","5":"他の仕事と両立しながら実行を習慣化し、安定した行動量を維持できる"},"S11":{"1":"相手の話を遮ったり、自分の解釈で決めつけたりする","2":"最後まで聞けるが、自分の解釈と相手の発言を混同しやすい","3":"相手の話を遮らず、要約・確認して意味を正しく把握できる","4":"推測を保留し、事実と解釈を区別して丁寧に確認できる","5":"相手の言葉と感情を尊重しながら、安心して深く話せる聞き方を継続できる"},"S12":{"1":"相手の価値観や状況を確かめず、自分の基準で判断する","2":"相手の現状は知っているが、何を大切にしているか説明できない","3":"相手の希望・価値観・制約を本人の言葉で確認し説明できる","4":"相手の立場や優先順位の背景を理解し、適した関わり方に調整できる","5":"本人による理解確認を踏まえ、異なる価値観や背景の相手にも理解を深め続けられる"}}};
+// ===================== スキル評価 =====================
+// 評価は生徒ごとに c.evals に保存：{term:'2026H2', point:'開始時', skill:'S01', self, selfNote, selfAt, inst, instNote, next, teacher, url, date}
+// スプシ「SSC｜スキル評価・成長ポートフォリオ」へは Apps Script が10分ごとに反映（生徒→03、講師評価→07）
+const SKILLS=SKILL_DATA.skills, SK_LEVELS=SKILL_DATA.levels;
+const SK_POINTS=['開始時','中間','終了時'];
+const SK_AREAS=[...new Set(SKILLS.map(x=>x.area))];
+const termOf = d => { const [y,m]=d.split('-').map(Number); return y+(m>=7?'H2':'H1'); };
+const termList = () => { const cur=termOf(todayStr()), out=new Set(['2026H2',cur]); let [y,h]=[Number(cur.slice(0,4)),cur.slice(4)]; out.add(h==='H1'?y+'H2':(y+1)+'H1'); students().forEach(c=>(c.evals||[]).forEach(e=>out.add(e.term))); return [...out].sort(); };
+function nextStudentNo(){ const n=students().map(c=>Number((c.studentNo||'').replace(/\D/g,''))||0); return 'SSC'+String(Math.max(0,...n)+1).padStart(3,'0'); }
+// 生徒IDがまだ無い生徒に、契約開始日の古い順で SSC001〜 を振る
+async function ensureStudentNos(){
+  const miss=students().filter(c=>!c.studentNo).sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||'')||(a._created||'').localeCompare(b._created||''));
+  for(const c of miss){ const cc=clone(c); cc.studentNo=nextStudentNo(); try{ await Store.saveCustomer(cc); }catch(e){ return; } }
+  if(miss.length && ['students','skills'].includes(S.view)) render();
+}
+const evalOf = (c,term,point,skill) => (c.evals||[]).find(e=>e.term===term&&e.point===point&&e.skill===skill);
+function viewSkills(){
+  if(!S.skTerm) S.skTerm=termOf(todayStr());
+  const list=students().filter(c=>c.status!=='契約終了').sort((a,b)=>(a.studentNo||'').localeCompare(b.studentNo||''));
+  const c=byId(S.skStudent), t=S.skTerm;
+  const head=`<div class="head"><div><h2>スキル評価</h2><p>12スキル×5段階。講師評価はここで入力、自己評価はGoogleフォームから自動で入ります。スプシには10分ごとに反映。</p></div></div>
+  <div class="toolbar">
+    <select class="inp" style="max-width:280px" onchange="S.skStudent=this.value;render()"><option value="">— 全員の状況 —</option>${list.map(x=>`<option value="${x.id}" ${x.id===S.skStudent?'selected':''}>${esc(x.studentNo||'')} ${esc(x.name)}</option>`).join('')}</select>
+    <select class="inp" style="max-width:140px" onchange="S.skTerm=this.value;render()">${termList().map(x=>`<option ${x===t?'selected':''}>${x}</option>`).join('')}</select>
+  </div>`;
+  if(!c){
+    const rows=list.map(x=>{ const ev=(x.evals||[]).filter(e=>e.term===t); const sk=new Set(ev.map(e=>e.skill)); return {x,sk:sk.size,inst:ev.filter(e=>e.inst!=null&&e.inst!=='').length,self:ev.filter(e=>e.self!=null&&e.self!=='').length}; });
+    return head+`<div class="tbl-wrap"><table><thead><tr><th>生徒ID</th><th>氏名</th><th>期生</th><th class="r">評価中のスキル</th><th class="r">自己評価</th><th class="r">講師評価</th><th>状況</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="row" onclick="S.skStudent='${r.x.id}';render()"><td class="num"><b>${esc(r.x.studentNo||'—')}</b></td><td><span class="nm">${esc(r.x.name)}</span></td><td>${esc(cohortName(r.x.cohort))}</td><td class="r num">${r.sk}</td><td class="r num">${r.self}件</td><td class="r num">${r.inst}件</td><td>${r.self>r.inst?'<span class="badge b-red">講師評価待ち</span>':r.sk?'<span class="badge b-on">評価済み</span>':'<span class="badge b-end">未評価</span>'}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">在籍中の生徒がいません</div></td></tr>'}
+    </tbody></table></div><p class="hint" style="margin-top:8px">「講師評価待ち」＝自己評価は届いているが講師評価がまだの評価があります。</p>`;
+  }
+  const cell=sk=>SK_POINTS.map(pt=>{ const e=evalOf(c,t,pt,sk.id); const sv=e?.self, iv=e?.inst;
+    return `<td style="text-align:center"><button class="ck ${iv?'on':''}" style="min-width:86px;${!iv&&sv?'border-color:var(--red);color:var(--red)':''}" onclick="openEval('${sk.id}','${pt}')">${sv||iv?`自${sv||'—'} / 講${iv||'—'}`:'＋ 評価'}</button></td>`; }).join('');
+  const growth=sk=>{ const a=evalOf(c,t,'開始時',sk.id)?.inst, b=evalOf(c,t,'終了時',sk.id)?.inst; return a&&b?`<b style="color:${b-a>0?'var(--green)':'var(--muted)'}">${b-a>0?'+':''}${b-a}</b>`:'—'; };
+  return head+`<div class="card" style="margin-bottom:12px"><h3>${esc(c.studentNo||'')} ${esc(c.name)} <small>${esc(cohortName(c.cohort))}・${t}</small></h3>
+    <p class="hint" style="margin:-6px 0 0">ボタンの「自」＝自己評価（フォーム）、「講」＝講師評価。赤枠は講師評価がまだのもの。押すと評価基準を見ながら入力できます。</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th>スキル</th>${SK_POINTS.map(p=>`<th style="text-align:center">${p}</th>`).join('')}<th class="r">成長幅（講師）</th></tr></thead><tbody>
+    ${SK_AREAS.map(a=>`<tr><td colspan="5" style="background:var(--surface2);font-size:12px;font-weight:700;color:var(--accent)">${esc(a)}</td></tr>`+SKILLS.filter(x=>x.area===a).map(sk=>`<tr><td class="wrap" style="min-width:220px"><b>${sk.id} ${esc(sk.name)}</b><small>${esc(sk.goal)}</small></td>${cell(sk)}<td class="r num">${growth(sk)}</td></tr>`).join('')).join('')}
+    </tbody></table></div>`;
+}
+let EV=null;
+function openEval(skill,point){
+  const c=byId(S.skStudent), t=S.skTerm, sk=SKILLS.find(x=>x.id===skill);
+  EV={...(evalOf(c,t,point,skill)||{term:t,point,skill,date:todayStr()})};
+  const lv=n=>`<label class="cbox ${String(EV.inst)===String(n)?'on':''}" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;font-weight:400"><input type="radio" name="ev-inst" value="${n}" ${String(EV.inst)===String(n)?'checked':''} onchange="document.querySelectorAll('[name=ev-inst]').forEach(r=>r.parentNode.classList.toggle('on',r.checked))"><span><b>Lv${n}</b>${String(EV.self)===String(n)?' <span class="badge b-blue">自己評価</span>':''}<br><span style="font-size:13px">${esc(SK_LEVELS[skill][n]||'')}</span></span></label>`;
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:720px">
+    <div class="modal-h"><h3>${sk.id} ${esc(sk.name)}｜${esc(c.name)}・${t}・${point}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b">
+      <div class="sec"><div class="sec-t">到達したい状態</div><p style="font-size:13px">${esc(sk.goal)}</p><p class="hint">証拠：${esc(sk.evidence)}</p></div>
+      <div class="sec"><div class="sec-t">自己評価（フォーム）</div>${EV.self?`<p><b>Lv${esc(EV.self)}</b> <small style="color:var(--muted)">${EV.selfAt?fmtDate(EV.selfAt.slice(0,10))+' 回答':''}</small></p>${EV.selfNote?`<p style="font-size:13px;white-space:pre-wrap;background:var(--surface2);padding:8px 10px;border-radius:8px">${esc(EV.selfNote)}</p>`:''}`:'<p class="hint">まだ回答がありません</p>'}</div>
+      <div class="sec"><div class="sec-t">講師評価</div>${[1,2,3,4,5].map(lv).join('')}</div>
+      <div class="sec"><div class="fg" style="grid-template-columns:1fr 1fr">
+        <div class="fl w3"><label>講師評価の根拠</label><textarea class="inp" id="ev-note" style="min-height:70px">${esc(EV.instNote||'')}</textarea></div>
+        <div class="fl w3"><label>次の改善行動</label><input class="inp" id="ev-next" value="${esc(EV.next||'')}"></div>
+        <div class="fl"><label>担当講師</label><input class="inp" id="ev-teacher" list="ev-teachers" value="${esc(EV.teacher||'')}"><datalist id="ev-teachers">${PARTNERS.map(p=>`<option value="${p}">`).join('')}</datalist></div>
+        <div class="fl"><label>評価日</label><input class="inp" type="date" id="ev-date" value="${esc(EV.date||todayStr())}"></div>
+        <div class="fl w3"><label>録画・資料URL</label><input class="inp" id="ev-url" value="${esc(EV.url||'')}"></div>
+      </div></div>
+    </div>
+    <div class="modal-f">${EV.inst?`<button class="btn danger" onclick="saveEval(true)">講師評価を消す</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveEval()">保存</button></div></div>
+  </div></div>`;
+}
+async function saveEval(clear){
+  const c=clone(byId(S.skStudent)), r=document.querySelector('[name=ev-inst]:checked'), v=id=>document.getElementById(id).value.trim();
+  if(!clear && !r) return toast('講師評価（Lv）を選んでください',true);
+  const e={...EV, inst:clear?null:Number(r.value), instNote:clear?'':v('ev-note'), next:clear?'':v('ev-next'), teacher:clear?'':v('ev-teacher'), url:clear?'':v('ev-url'), date:v('ev-date')};
+  c.evals=(c.evals||[]).filter(x=>!(x.term===e.term&&x.point===e.point&&x.skill===e.skill));
+  if(e.inst!=null || e.self!=null) c.evals.push(e);
+  await run(()=>Store.saveCustomer(c), clear?'講師評価を消しました':'講師評価を保存しました（スプシには10分以内に反映）'); closeModal(); render();
+}
+
+// ===================== 場所候補 =====================
+// 授業・イベント会場の候補。予約リンク・収容人数・19:00〜22:30の料金・最寄駅・駅からの時間を比べる
+const VENUE_STATUS=['候補','仮押さえ','確定','見送り'];
+const VENUE_BADGE={'候補':'b-blue','仮押さえ':'b-pause','確定':'b-on','見送り':'b-end'};
+function viewVenues(){
+  const rows=S.venues.filter(v=>!S.vnArea||v.area===S.vnArea).sort((a,b)=>VENUE_STATUS.indexOf(a.status)-VENUE_STATUS.indexOf(b.status)||(Number(a.price)||1e9)-(Number(b.price)||1e9));
+  const host=u=>{ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return ''; } };
+  return `<div class="head"><div><h2>場所候補</h2><p>会場の候補を比べて決めるためのリスト。料金は 19:00〜22:30 の合計です。</p></div>
+    <div class="head-actions"><button class="btn primary" onclick="openVenue()">＋ 場所を追加</button></div></div>
+  <div class="toolbar"><div class="seg">${[['','すべて'],...CAMPUSES.map(c=>[c,c]),['その他','その他']].map(([v,l])=>`<button class="${S.vnArea===v?'on':''}" onclick="S.vnArea='${v}';render()">${l}<span class="n">${S.venues.filter(x=>!v||x.area===v).length}</span></button>`).join('')}</div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>場所</th><th>エリア</th><th>状況</th><th class="r">収容人数</th><th class="r">19:00〜22:30の料金</th><th>最寄駅</th><th class="r">駅から</th><th>予約</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(v=>`<tr class="row" onclick="openVenue('${v.id}')">
+      <td class="wrap"><span class="nm">${esc(v.name||host(v.url)||'（名前未入力）')}</span>${v.note?`<small>${esc(v.note.slice(0,40))}</small>`:''}</td>
+      <td>${esc(v.area||'—')}</td><td><span class="badge ${VENUE_BADGE[v.status]||'b-blue'}">${esc(v.status||'候補')}</span></td>
+      <td class="r num">${v.capacity?esc(v.capacity)+'名':'—'}</td><td class="r num"><b>${v.price?yen(v.price):'—'}</b></td>
+      <td>${esc(v.station||'—')}</td><td class="r num">${v.walk?esc(v.walk)+'分':'—'}</td>
+      <td onclick="event.stopPropagation()">${v.url?`<a class="btn sm" href="${esc(v.url)}" target="_blank" rel="noopener">開く ↗</a>`:'—'}</td>
+      <td class="r" onclick="event.stopPropagation()"><button class="icon-btn" title="削除" onclick="delVenue('${v.id}')">🗑</button></td></tr>`).join(''):'<tr><td colspan="9"><div class="empty">まだ登録がありません。「＋ 場所を追加」から予約リンクを入れてください</div></td></tr>'}
+  </tbody></table></div>`;
+}
+function openVenue(id){
+  const v=id?S.venues.find(x=>x.id===id):{status:'候補',area:S.vnArea||CAMPUSES[0]};
+  const f=(k,l,type='text',ph='',extra='')=>`<div class="fl"><label>${l}</label><input class="inp" id="vn-${k}" type="${type}" value="${esc(v[k]??'')}" placeholder="${ph}" ${extra}></div>`;
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:640px">
+    <div class="modal-h"><h3>${id?esc(v.name||'場所'):'場所を追加'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>予約リンク</label><div class="add-row"><input class="inp" id="vn-url" type="url" value="${esc(v.url||'')}" placeholder="https://..." oninput="clearTimeout(window._vnT);window._vnT=setTimeout(()=>fetchVenue(false),700)"><button class="btn" type="button" onclick="fetchVenue(true)">読み取る</button></div><div class="hint" id="vn-hint">${S.master.venueApi?'リンクを入れると、収容人数・料金・最寄駅を自動で読み取ります（部屋ごとの詳細ページのリンクがおすすめ）':'自動読み取りは 設定 → 場所の自動読み取り でURLを登録すると使えます'}</div></div>
+      ${f('name','場所の名前','text','例：心斎橋 〇〇会議室')}
+      <div class="fl"><label>エリア</label><select class="inp" id="vn-area">${[...CAMPUSES,'その他'].map(a=>`<option ${a===v.area?'selected':''}>${a}</option>`).join('')}</select></div>
+      ${f('capacity','収容人数（名）','number','','min="0"')}
+      ${f('price','19:00〜22:30の料金（円）','number','合計金額','min="0"')}
+      ${f('station','最寄駅','text','例：心斎橋駅')}
+      ${f('walk','最寄駅から（徒歩・分）','number','','min="0"')}
+      <div class="fl"><label>状況</label><select class="inp" id="vn-status">${VENUE_STATUS.map(x=>`<option ${x===v.status?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="fl w3"><label>メモ</label><textarea class="inp" id="vn-note" style="min-height:70px" placeholder="設備・キャンセル規定・雰囲気など">${esc(v.note||'')}</textarea></div>
+    </div></div>
+    <div class="modal-f">${id?`<button class="btn danger" onclick="delVenue('${id}')">削除</button>`:'<span></span>'}<div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveVenue('${id||''}')">保存</button></div></div>
+  </div></div>`;
+}
+// 予約ページを Apps Script（ウェブアプリ）経由で読み、空欄だけ埋める。force=true なら上書き
+async function fetchVenue(force){
+  const url=document.getElementById('vn-url')?.value.trim(), hint=document.getElementById('vn-hint'), api=S.master.venueApi;
+  if(!api || !/^https?:\/\//.test(url||'')) return;
+  hint.textContent='ページを読み取り中…';
+  try{
+    const r=await withTimeout(fetch(api+'?url='+encodeURIComponent(url)).then(x=>x.json()),20000);
+    if(!r.ok) return hint.textContent='読み取れませんでした：'+(r.error||'');
+    const set=(k,v)=>{ const el=document.getElementById('vn-'+k); if(el && v!=null && v!=='' && (force||!el.value)) el.value=v; };
+    set('name',r.name); set('capacity',r.capacity); set('price',r.price); set('station',r.station); set('walk',r.walk);
+    const got=[r.capacity&&'収容人数',r.price&&'料金',r.station&&'最寄駅',r.walk&&'駅からの時間'].filter(Boolean);
+    hint.innerHTML=(got.length?`✅ ${got.join('・')}を読み取りました。`:'⚠ 項目を読み取れませんでした。手入力してください。')+(r.priceNote?`<br>料金は目安：${esc(r.priceNote)}（夜間料金などは予約ページで確認してください）`:'')+(r.multiple?'<br>⚠ 複数の部屋が載った一覧ページのようです。部屋ごとの詳細ページのリンクを入れると正確です。':'');
+  }catch(e){ hint.textContent='読み取りに失敗しました（時間をおいて「読み取る」を押してください）'; }
+}
+async function saveVenue(id){
+  const g=k=>document.getElementById('vn-'+k).value.trim();
+  const rec={id:id||uid(), url:g('url'), name:g('name'), area:g('area'), capacity:g('capacity'), price:g('price'), station:g('station'), walk:g('walk'), status:g('status'), note:document.getElementById('vn-note').value};
+  if(!rec.url && !rec.name) return toast('予約リンクか場所の名前を入れてください',true);
+  const i=S.venues.findIndex(x=>x.id===rec.id); if(i>=0) S.venues[i]=rec; else S.venues.push(rec);
+  await run(()=>Store.saveSetting('venues'),'保存しました'); closeModal(); render();
+}
+async function delVenue(id){ const v=S.venues.find(x=>x.id===id); if(!confirm(`「${v.name||v.url}」を削除しますか？`)) return; S.venues=S.venues.filter(x=>x.id!==id); await run(()=>Store.saveSetting('venues'),'削除しました'); closeModal(); render(); }
+
 // ===================== 利益管理 =====================
 const EXPENSE_CATS=['広告費','会場費','交通費','飲食・交際費','ツール・システム','外注費','備品・消耗品','研修・書籍','その他'];
 const expOf = ym => S.expenses.filter(e=>e.month===ym);
 // サポートメンバーの報酬単価（途中で上がったら、その月から新しい金額）
-function supportFeeAt(mem,ym){
-  const fees=[...(mem.fees||[])].filter(f=>f.from).sort((a,b)=>a.from.localeCompare(b.from));
-  if(!fees.length) return Number(S.master.supportFee)||0;
-  const hit=fees.filter(f=>f.from<=ym).pop()||fees[0];
-  return Number(hit.amount)||0;
-}
-// 報酬：紹介した生徒のうち、その月の入金が確認できた人数 × 単価
-// retro=true なら登録前の月もさかのぼって発生、false なら登録した月から
-function supportPayout(mem,ym){
-  const fee=supportFeeAt(mem,ym);
-  if(!mem.name || (!mem.retro && mem.addedAt && ym<mem.addedAt.slice(0,7))) return {list:[],pending:[],amt:0,fee,before:true};
-  const refs=students().filter(c=>c.referrer===mem.name && billOf(c,ym)>0);
-  const list=refs.filter(c=>paidOf(c.id,ym)>=billOf(c,ym)), pending=refs.filter(c=>!list.includes(c));
-  return {list, pending, amt:list.length*fee, fee};
-}
-const supportOf = ym => S.marketing.support.map(mem=>({mem,...supportPayout(mem,ym)}));
-const salesFor = ym => S.profitBase==='paid' ? paidMonth(ym) : billMonth(ym);
+const salesFor = ym => S.profitBase==='paid' ? paidMonth(ym)+trainPaid(ym) : billMonth(ym)+trainBill(ym);
+const trainFor = ym => S.profitBase==='paid' ? trainPaid(ym) : trainBill(ym);
+// サポートメンバー報酬＝紹介FEEの支払予定額（確定済みの月は確定額）。入金実績で見るときは未来の月を引かない
+const rfForProfit = ym => ym>curYM() && S.profitBase==='paid' ? {rows:[],total:0,confirmed:false} : rfResult(ym);
 // 利益 = 売上 − 経費 − サポート報酬、2人で折半。各自の受取額 = 取り分 + 自分が立て替えた経費
 function profitOf(ym){
-  const sales=salesFor(ym), ex=expOf(ym), sup=supportOf(ym);
-  const exp=ex.reduce((a,e)=>a+(Number(e.amount)||0),0), supCost=sup.reduce((a,x)=>a+x.amt,0), cost=exp+supCost, profit=sales-cost;
+  const sales=salesFor(ym), ex=expOf(ym), fee=rfForProfit(ym), sup=fee.rows.filter(x=>x.included);
+  const exp=ex.reduce((a,e)=>a+(Number(e.amount)||0),0), supCost=fee.total, cost=exp+supCost, profit=sales-cost;
   const per=PARTNERS.map(p=>{ const paid=ex.filter(e=>e.payer===p).reduce((a,e)=>a+(Number(e.amount)||0),0); return {p, paid, share:profit/2, receive:profit/2+paid}; });
-  return {sales,exp,supCost,cost,profit,per,ex,sup};
+  return {sales,exp,supCost,cost,profit,per,ex,sup,feeConfirmed:!!fee.confirmed};
 }
 function viewProfit(){
   const m=S.profitMonth, P=profitOf(m), fy=fyOf(m), fyM=fyMonths(fy);
@@ -1002,9 +1259,9 @@ function viewProfit(){
     <div class="head-actions"><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,-1);render()">‹ 前月</button><button class="btn" style="min-width:120px;justify-content:center" onclick="S.profitMonth=curYM();render()">${mLabel(m)}</button><button class="btn" onclick="S.profitMonth=addM(S.profitMonth,1);render()">翌月 ›</button></div></div>
   <div class="toolbar"><span style="font-size:13px;color:var(--muted)">売上の基準</span><div class="seg">${[['paid','入金実績'],['bill','請求見込み']].map(([v,l])=>`<button class="${S.profitBase===v?'on':''}" onclick="S.profitBase='${v}';render()">${l}</button>`).join('')}</div></div>
   <div class="grid kpis">
-    <div class="card kpi"><div class="l">売上（${S.profitBase==='paid'?'入金実績':'請求見込み'}）</div><div class="v num">${yen(P.sales)}</div></div>
+    <div class="card kpi"><div class="l">売上（${S.profitBase==='paid'?'入金実績':'請求見込み'}）</div><div class="v num">${yen(P.sales)}</div><div class="s">${trainFor(m)?`うち企業研修 ${yen(trainFor(m))}`:'<a href="#" onclick="go(\'pay\');return false">企業研修は入金確認で入力 →</a>'}</div></div>
     <div class="card kpi"><div class="l">経費</div><div class="v num">${yen(P.exp)}</div><div class="s">${P.ex.length}件</div></div>
-    <div class="card kpi"><div class="l">サポートメンバー報酬</div><div class="v num">${yen(P.supCost)}</div><div class="s">${P.sup.filter(x=>x.amt).length}名に支払い</div></div>
+    <div class="card kpi"><div class="l">サポートメンバー報酬</div><div class="v num">${yen(P.supCost)}</div><div class="s">${P.sup.length}名・${P.feeConfirmed?'確定額':'自動計算'}</div></div>
     <div class="card kpi"><div class="l">利益</div><div class="v num" style="color:${col(P.profit)}">${yen(P.profit)}</div></div>
     <div class="card kpi"><div class="l">1人あたり（÷2）</div><div class="v num" style="color:${col(P.profit)}">${yen(P.profit/2)}</div></div>
   </div>
@@ -1014,10 +1271,10 @@ function viewProfit(){
       <div class="li"><span>立て替えた経費</span><span class="num">${yen(x.paid)}</span></div>
       <div class="li"><span><b>受け取る金額</b><small style="color:var(--faint);margin-left:6px">取り分＋立替経費</small></span><b class="num" style="font-size:16px;color:${col(x.receive)}">${yen(x.receive)}</b></div></div></div>`).join('')}
   </div>
-  <div class="card" style="margin-bottom:14px"><h3>${mLabel(m)}のサポートメンバー報酬 <small>紹介した生徒のうち、入金確認できた人数 × 各メンバーの単価</small></h3>
-    ${P.sup.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>サポートメンバー</th><th>紹介した在籍生徒</th><th class="r">人数</th><th class="r">支払額</th></tr></thead><tbody>
-      ${P.sup.map(x=>`<tr><td><span class="nm">${esc(x.mem.name)}</span><small>${yen(x.fee)}/人${x.mem.retro?'・遡りあり':''}</small></td><td class="wrap">${x.list.length?x.list.map(c=>`<a href="#" onclick="openCustomer('${c.id}');return false">${esc(c.name)}</a>`).join('、'):`<span style="color:var(--faint)">${x.before?'登録前の月':'なし'}</span>`}${x.pending?.length?`<small>入金待ち（未確認のため対象外）：${x.pending.map(c=>esc(c.name)).join('、')}</small>`:''}</td><td class="r num">${x.list.length}名</td><td class="r num"><b>${yen(x.amt)}</b></td></tr>`).join('')}
-    </tbody><tfoot><tr><td colspan="2">合計</td><td class="r num">${P.sup.reduce((a,x)=>a+x.list.length,0)}名</td><td class="r num">${yen(P.supCost)}</td></tr></tfoot></table></div>`:'<div class="empty">サポートメンバーがまだいません（マーケティング → サポートメンバーで登録）</div>'}
+  <div class="card" style="margin-bottom:14px"><h3>${mLabel(m)}のサポートメンバー報酬 <small>紹介FEEの支払予定額（${P.feeConfirmed?'確定額':'自動計算'}）</small></h3>
+    ${P.sup.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>サポートメンバー</th><th class="r">在籍紹介人数</th><th class="r">支払額</th></tr></thead><tbody>
+      ${P.sup.map(x=>`<tr class="row" onclick="S.rfMonth='${m}';go('referral');rfOpen('${x.referrerId}')"><td><span class="nm">${esc(x.name)}</span></td><td class="r num">${x.count}人</td><td class="r num"><b>${yen(x.fee)}</b></td></tr>`).join('')}
+    </tbody><tfoot><tr><td>合計</td><td class="r num">${P.sup.reduce((a,x)=>a+x.count,0)}人</td><td class="r num">${yen(P.supCost)}</td></tr></tfoot></table></div>`:'<div class="empty">この月に報酬が発生するサポートメンバーはいません</div>'}
   </div>
   <div class="card" style="margin-bottom:14px"><h3>${mLabel(m)}の経費 <span><button class="btn sm primary" onclick="openExpense()">＋ 経費を追加</button></span></h3>
     ${P.ex.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>日付</th><th>使った人</th><th>項目</th><th>内容</th><th class="r">金額</th></tr></thead><tbody>
@@ -1029,7 +1286,7 @@ function viewProfit(){
     <tbody>${Y.map(y=>`<tr class="row ${y.m===m?'cur':''}" onclick="S.profitMonth='${y.m}';render()" style="${y.m===m?'background:var(--blue-soft)':''}"><td><b>${mShort(y.m)}</b></td><td class="r num">${yen(y.sales)}</td><td class="r num">${yen(y.exp)}</td><td class="r num">${yen(y.supCost)}</td><td class="r num" style="color:${col(y.profit)}"><b>${yen(y.profit)}</b></td>${y.per.map(x=>`<td class="r num">${yen(x.receive)}</td>`).join('')}</tr>`).join('')}</tbody>
     <tfoot><tr><td>合計</td><td class="r num">${yen(sum('sales'))}</td><td class="r num">${yen(sum('exp'))}</td><td class="r num">${yen(sum('supCost'))}</td><td class="r num" style="color:${col(sum('profit'))}">${yen(sum('profit'))}</td>${PARTNERS.map((p,i)=>`<td class="r num">${yen(Y.reduce((a,y)=>a+y.per[i].receive,0))}</td>`).join('')}</tr></tfoot>
   </table></div></div>
-  <p class="hint" style="margin-top:10px">サポートメンバー報酬は、紹介した生徒の<b>その月の入金が確認できたら</b>発生します（入金確認タブでチェック）。休止中・契約終了の月は発生しません。受け取る金額 ＝ 利益÷2 ＋ その人が立て替えた経費（立て替えた分を精算した上で、利益を折半する計算）。</p>`;
+  <p class="hint" style="margin-top:10px">サポートメンバー報酬は、紹介FEE管理で計算した支払予定額です。確定した月は確定額を使い、それ以外は最新の在籍データで自動計算します。受け取る金額 ＝ 利益÷2 ＋ その人が立て替えた経費（立て替えた分を精算した上で、利益を折半する計算）。</p>`;
 }
 function openExpense(id){
   const e = id ? S.expenses.find(x=>x.id===id) : {date: S.profitMonth===curYM()?todayStr():S.profitMonth+'-01', payer:PARTNERS[0]};
@@ -1065,6 +1322,581 @@ async function saveExpense(id){
 async function delExpense(id){ if(!confirm('この経費を削除しますか？')) return; S.expenses=S.expenses.filter(x=>x.id!==id); await run(()=>Store.saveSetting('expenses'),'削除しました'); closeModal(); render(); }
 
 // ===================== マーケティング =====================
+// ===================== アンケート =====================
+// #region survey-core（SSC/tests/ssc_survey.test.js がこの範囲をそのまま読み込んでテストする）
+// 名前を選んだ人が複数回答したら最新の1件だけ数える。匿名は見分けられないので全件
+function svList(rid,answers){
+  const named=new Map(), anon=[];
+  [...(answers?.[rid]||[])].sort((a,b)=>String(a.at).localeCompare(String(b.at))).forEach(x=>{ if(x.cid) named.set(x.cid,x); else anon.push(x); });
+  return [...named.values(),...anon].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+// 校別の表示。校はフォームの回答を優先し、質問がない過去の回は名前を選んだ人の所属校で判断する
+// 回答が少ない校は、匿名でも誰の回答か分かってしまうので校別の結果を出さない（全体の集計には入る）
+const SV_MIN_N=3;
+const svCampusOf=(x,byCid)=>x.campus||byCid(x.cid)?.campus||'';
+const svFilterCampus=(list,campus,byCid)=>campus?list.filter(x=>svCampusOf(x,byCid)===campus):list;
+const svTooFew=(list,campus)=>!!campus&&list.length>0&&list.length<SV_MIN_N;
+const svNums = (list,q) => list.map(x=>x.a?.[q]).filter(v=>typeof v==='number');
+function svMean(list,qs){ const v=qs.flatMap(q=>svNums(list,q)); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; }
+function svYes(list,q){ const v=list.map(x=>x.a?.[q]).filter(a=>a==='はい'||a==='いいえ'); return v.length?Math.round(v.filter(a=>a==='はい').length/v.length*100):null; }
+// 紹介意向スコア（NPS）＝ 9〜10点の割合 − 0〜6点の割合
+function svNps(list,q){ const v=svNums(list,q); return v.length?Math.round((v.filter(n=>n>=9).length-v.filter(n=>n<=6).length)/v.length*100):null; }
+function svIndicators(list){
+  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),contrib:svMean(list,['q10','q11','q12']),contribYes:svYes(list,'q13'),meet:svYes(list,'q22'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
+}
+// #endregion survey-core
+
+const SV_AGREE=['全くそう思わない','とてもそう思う'];
+const SV_SECS={A:'本音で向き合う',B:'挑戦を讃える',C:'仲間を勝たせる',D:'満足度・継続意向'};
+// 質問は回を作るときに回の中へ写す（文言を変えても過去の回は変わらない）
+const SV_QUESTIONS=[
+  {id:'q1',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCには、他では話しにくい自分の理想や悩みを安心して話せる相手がいる'},
+  {id:'q2',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCでは、営業実績や経験年数に関係なく、対等に意見を交わせている'},
+  {id:'q3',sec:'A',type:'scale',labels:SV_AGREE,text:'仕事や人生で困ったとき、相談・協力をお願いできるSSCの仲間がいる'},
+  {id:'q4',sec:'A',type:'scale',labels:SV_AGREE,text:'授業以外でも、本音で話せるSSCの仲間がいる'},
+  {id:'q5',sec:'B',type:'scale',labels:SV_AGREE,text:'SSCでは、成果の大小に関係なく、自分の挑戦を仲間に認めてもらえている'},
+  {id:'q6',sec:'B',type:'yesno',text:'自分の人生GOALを明確に説明できる'},
+  {id:'q7',sec:'B',type:'yesno',text:'自分の直近のGOALを明確に説明できる'},
+  {id:'q8',sec:'B',type:'scale',labels:SV_AGREE,text:'うまくいかなかったことを振り返り、次に取る行動を決めている'},
+  {id:'q9',sec:'B',type:'yesno',text:'過去3か月で、SSCの仲間の挑戦に刺激を受け、自分も新しい挑戦をした'},
+  {id:'q10',sec:'C',type:'scale',labels:SV_AGREE,extra:'成果を共有していない',text:'SSCで共有した自分の成果を、仲間が自分のことのように喜んでくれた'},
+  {id:'q11',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCの仲間を本気で勝たせたいと思っている'},
+  {id:'q12',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCでは、自分と実績や経験の異なる仲間からも学びを得られている'},
+  {id:'q13',sec:'C',type:'yesno',text:'過去3か月で、SSCの仲間と紹介や協業について具体的に相談したことがある'},
+  {id:'q22',sec:'C',type:'yesno',text:'過去3か月で、SSCの授業や公式の飲み会以外で、SSCの仲間と接点があった（会う、交流、協業のMTGなど。オンラインMTGは含み、LINEなどのやり取りだけは含まない）'},
+  {id:'q14',sec:'D',type:'scale',labels:['とても不満','とても満足'],text:'現在のSSCにどのくらい満足していますか？'},
+  {id:'q15',sec:'D',type:'text',text:'その満足度をつけた理由を教えてください'},
+  {id:'q16',sec:'D',type:'nps',labels:['全く紹介したくない','ぜひ紹介したい'],text:'SSCを友人や知人にどのくらい紹介したいと思いますか？'},
+  {id:'q17',sec:'D',type:'text',text:'その点数をつけた理由を教えてください'},
+  {id:'q18',sec:'D',type:'text',text:'今後SSCで受けてみたい授業や、開催してほしいイベントはありますか？'},
+  {id:'q19',sec:'D',type:'text',text:'SSCに改善してほしいことや、運営への要望があれば教えてください'},
+  {id:'q20',sec:'D',type:'scale',labels:['全く思わない','とても思う'],text:'今後もSSCに継続して通いたいと思いますか？'},
+  {id:'q21',sec:'D',type:'multi',choices:['本音で話せる仲間','営業スキルの向上','目標設定・振り返り','仲間の挑戦からの刺激','紹介・協業の機会','授業の内容','飲み会・交流の場'],text:'SSCに通うことで、特に価値を感じていることは何ですか？'},
+];
+const svFmt = (v,suf='') => v==null?'—':v+suf;
+const svName = x => x.cid ? (byId(x.cid)?.name||x.name||'名前あり') : '匿名';
+const svRounds = () => [...S.survey.rounds].sort((a,b)=>(a.from||'').localeCompare(b.from||'')||(a.createdAt||'').localeCompare(b.createdAt||''));
+const svShown = rid => svFilterCampus(svList(rid,S.surveyData.answers),S.svCampus||'',byId);
+const svTarget = r => S.customers.filter(c=>c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=r.to);
+function svAnswerText(q,v){
+  if(v==null||v==='') return '—';
+  if(Array.isArray(v)) return v.join('、');
+  return String(v);
+}
+function svQuestionBlock(q,list,no){
+  const hb=rows=>{ const mx=Math.max(1,...rows.map(r=>r[1])); return `<div class="hbars" style="margin-top:8px">${rows.map(r=>`<div class="hbar" title="${esc(r[0])}：${r[1]}件"><span class="nm">${esc(r[0])}</span><span class="t"><i style="width:${r[1]/mx*100}%"></i></span><span class="c">${r[1]}</span></div>`).join('')}</div>`; };
+  const vals=list.map(x=>x.a?.[q.id]);
+  let head='', body='';
+  if(q.type==='scale'){
+    head=`平均 ${svFmt(svMean(list,[q.id]))}`;
+    body=hb([5,4,3,2,1].map(n=>[`${n}${n===5?`（${q.labels?.[1]||''}）`:n===1?`（${q.labels?.[0]||''}）`:''}`,vals.filter(v=>v===n).length]).concat(q.extra?[[q.extra,vals.filter(v=>v===q.extra).length]]:[]));
+  } else if(q.type==='yesno'){
+    head=`はい ${svFmt(svYes(list,q.id),'%')}`;
+    body=hb(['はい','いいえ'].map(l=>[l,vals.filter(v=>v===l).length]));
+  } else if(q.type==='nps'){
+    const v=svNums(list,q.id);
+    head=`平均 ${svFmt(svMean(list,[q.id]))} ・ NPS ${svFmt(svNps(list,q.id))}`;
+    body=hb([['9〜10点（推奨）',v.filter(n=>n>=9).length],['7〜8点（中立）',v.filter(n=>n>=7&&n<=8).length],['0〜6点（批判）',v.filter(n=>n<=6).length]]);
+  } else if(q.type==='multi'){
+    const cnt={}; vals.forEach(a=>(Array.isArray(a)?a:[]).forEach(c=>{ cnt[c]=(cnt[c]||0)+1; }));
+    const known=(q.choices||[]).map(c=>[c,cnt[c]||0]), other=Object.keys(cnt).filter(c=>!(q.choices||[]).includes(c)).map(c=>[c,cnt[c]]);
+    body=hb([...known,...other]);
+  } else {
+    const rows=list.filter(x=>x.a?.[q.id]);
+    head=`${rows.length}件`;
+    body=rows.length?`<div class="list" style="margin-top:6px">${rows.map(x=>`<div class="li sv-text"><span>${esc(x.a[q.id])}</span><small>${esc(svName(x))}</small></div>`).join('')}</div>`:'';
+  }
+  return `<div class="sv-q"><div class="sv-qh"><span>Q${no}. ${esc(q.text)}</span>${head?`<b class="num">${esc(head)}</b>`:''}</div>${body}</div>`;
+}
+function viewSurvey(){
+  if(!rfAdmin()) return `<div class="head"><div><h2>アンケート</h2></div></div><div class="card"><div class="empty">アンケートの結果を見られるのは管理者だけです。</div></div>`;
+  const rounds=svRounds(), today=todayStr(), open=rounds.filter(r=>r.to>=today);
+  if(!rounds.some(r=>r.id===S.svRound)) S.svRound=rounds[rounds.length-1]?.id||'';
+  const r=rounds.find(x=>x.id===S.svRound), idx=rounds.indexOf(r);
+  const head=`<div class="head"><div><h2>アンケート</h2><p>満足度とカルチャーの回ごとの結果を確認できます。フォームの回答は自動で反映されます。</p></div>
+    <button class="btn primary" onclick="openSurvey()">＋ アンケートを始める</button></div>`;
+  if(!r) return head+'<div class="card"><div class="empty">まだアンケートはありません。「アンケートを始める」でフォームを作れます。</div></div>';
+  const C=S.svCampus||'', all=svList(r.id,S.surveyData.answers), list=svShown(r.id), tooFew=svTooFew(list,C), I=svIndicators(list);
+  const prevL=idx>0?svShown(rounds[idx-1].id):null;
+  const prev=prevL&&!svTooFew(prevL,C)?svIndicators(prevL):null;
+  const unknown=C?all.filter(x=>!svCampusOf(x,byId)).length:0;
+  const delta=k=>{ if(!prev||I[k]==null||prev[k]==null) return ''; const d=Math.round((I[k]-prev[k])*10)/10; return `前回比 ${d>0?'+':d<0?'−':'±'}${Math.abs(d)}`; };
+  const tile=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v num">${v}</div><div class="s">${s||''}</div></div>`;
+  const named=list.filter(x=>x.cid).length;
+  const openCard=x=>{ const f=S.surveyData.forms?.[x.id], n=svList(x.id,S.surveyData.answers).length; return `<div class="card" style="margin-bottom:12px"><h3>${esc(x.title)} <small>受付中</small></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${f?.formUrl?`<button class="btn primary sm" onclick="svCopy('${x.id}')">フォームのリンクをコピー</button><a class="btn sm" href="${esc(f.formUrl)}" target="_blank" rel="noopener">開く</a>`:'<span class="badge b-pause">フォームを準備中（5分ほどで出ます）</span>'}
+      <span style="font-size:13px;color:var(--muted)">回答 <b class="num" style="color:var(--heading)">${n}</b> / ${svTarget(x).length}名</span>
+      <label style="font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center">締切 <input class="inp" type="date" style="width:auto;padding:4px 8px" value="${x.to}" onchange="svSetTo('${x.id}',this.value)"></label></div></div>`; };
+  return head+open.map(openCard).join('')+`
+  <div class="toolbar"><select class="inp" onchange="S.svRound=this.value;render()">${[...rounds].reverse().map(x=>`<option value="${x.id}" ${x.id===r.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>
+    <select class="inp" style="width:auto" onchange="S.svCampus=this.value;render()"><option value="">全体（${all.length}件）</option>${CAMPUSES.map(c=>`<option value="${c}" ${C===c?'selected':''}>${c}（${svFilterCampus(all,c,byId).length}件）</option>`).join('')}</select>
+    <span style="font-size:13px;color:var(--muted)">${fmtDate(r.from)}〜${fmtDate(r.to)}・回答 ${list.length}件${tooFew?'':`（名前あり ${named}件）`}${unknown?`・校が分からない回答 ${unknown}件は校別に入りません`:''}</span><span style="flex:1"></span>
+    <button class="btn ghost sm danger" onclick="svDelete('${r.id}')">この回を削除</button></div>
+  ${tooFew?`<div class="card" style="margin:14px 0"><div class="empty">${esc(C)}の回答は${list.length}件です。誰の回答か分からないよう、${SV_MIN_N}件未満の校は校別の結果を表示しません（全体の集計には入っています）。</div></div>`:`<div class="grid kpis">
+    ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
+    ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
+    ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
+    ${tile('自主交流',svFmt(I.meet,'%'),`授業・公式の飲み会以外で接点があった人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
+    ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
+    ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
+  </div>`}
+  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">交流</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
+    <tbody>${[...rounds].reverse().map(x=>{ const L=svShown(x.id), J=svTooFew(L,C)?{}:svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
+  ${tooFew?'':`<div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
+    ${list.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>名前</th><th>回答日時</th><th class="r">満足</th><th class="r">紹介</th><th class="r">継続</th></tr></thead><tbody>
+      ${list.map((x,i)=>`<tr class="row" onclick="svOpenAnswer('${r.id}',${i})"><td><span class="nm">${esc(svName(x))}</span></td><td class="num">${esc(fmtDT(x.at))}</td><td class="r num">${svFmt(x.a?.q14)}</td><td class="r num">${svFmt(x.a?.q16)}</td><td class="r num">${svFmt(x.a?.q20)}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">まだ回答がありません</div>'}</div>`}
+  ${list.length&&!tooFew?Object.keys(SV_SECS).map(sec=>`<div class="card" style="margin-bottom:14px"><h3>${SV_SECS[sec]}</h3>${(r.questions||[]).map((q,i)=>q.sec===sec?svQuestionBlock(q,list,i+1):'').join('')}</div>`).join(''):''}`;
+}
+function svOpenAnswer(rid,i){
+  const r=S.survey.rounds.find(x=>x.id===rid), x=svShown(rid)[i];
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:620px">
+    <div class="modal-h"><h3>${esc(svName(x))} <small style="font-weight:400;color:var(--muted);font-size:12px">${esc(fmtDT(x.at))}</small></h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b">${(r.questions||[]).map((q,n)=>`<div class="sv-q"><div style="font-size:12px;color:var(--muted)">Q${n+1}. ${esc(q.text)}</div><div style="margin-top:3px;white-space:pre-wrap">${esc(svAnswerText(q,x.a?.[q.id]))}</div></div>`).join('')}</div></div></div>`;
+}
+function openSurvey(){
+  const d=new Date(); d.setDate(d.getDate()+14);
+  const to=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'), [y,m]=todayStr().split('-');
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:480px">
+    <div class="modal-h"><h3>アンケートを始める</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr;padding-top:14px">
+      <div class="fl"><label>この回の名前</label><input class="inp" id="sv-title" value="${y}年${Number(m)}月アンケート"></div>
+      <div class="fl"><label>締切</label><input class="inp" type="date" id="sv-to" value="${to}"><div class="hint">この日の回答まで受け付け、翌日に受付を自動で止めます。</div></div>
+    </div></div>
+    <div class="modal-f"><span></span><div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveSurvey()">作る</button></div></div></div></div>`;
+}
+async function saveSurvey(){
+  const title=document.getElementById('sv-title').value.trim(), to=document.getElementById('sv-to').value;
+  if(!title) return toast('名前を入力してください',true);
+  if(!to||to<todayStr()) return toast('締切を確認してください',true);
+  const rec={id:uid(),title,from:todayStr(),to,questions:clone(SV_QUESTIONS),createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
+  S.survey.rounds.push(rec); S.svRound=rec.id;
+  if(DEMO) (S.surveyData.forms=S.surveyData.forms||{})[rec.id]={formUrl:'https://forms.gle/demo'};
+  await run(()=>Store.saveSetting('survey'),'作成しました。フォームは5分ほどで用意されます'); closeModal(); render();
+}
+async function svSetTo(id,v){
+  if(!v) return render();
+  S.survey.rounds.find(x=>x.id===id).to=v;
+  await run(()=>Store.saveSetting('survey'),'締切を変更しました（フォームには5分ほどで反映）'); render();
+}
+async function svDelete(id){
+  const r=S.survey.rounds.find(x=>x.id===id);
+  if(!confirm(`「${r.title}」を削除しますか？\nフォームの受付を止め、この回の結果はアプリに表示されなくなります。`)) return;
+  S.survey.rounds=S.survey.rounds.filter(x=>x.id!==id);
+  await run(()=>Store.saveSetting('survey'),'削除しました'); render();
+}
+async function svCopy(id){
+  const u=S.surveyData.forms?.[id]?.formUrl;
+  try{ await navigator.clipboard.writeText(u); toast('リンクをコピーしました'); }catch(e){ prompt('このリンクをコピーしてください',u); }
+}
+async function svReload(){
+  if(DEMO) return;
+  const {data,error}=await sb.from('ssc_settings').select('key,data').in('key',['survey','survey_data']);
+  if(error) return console.error(error);
+  data.forEach(r=>{ if(r.key==='survey') S.survey={rounds:[],...r.data}; else S.surveyData={forms:{},answers:{},...r.data}; });
+  if(S.view==='survey' && !document.getElementById('modal-root').innerHTML) render();
+}
+
+// ===================== 出欠 =====================
+// #region attendance-core（SSC/tests/ssc_attendance.test.js がこの範囲をそのまま読み込んでテストする）
+const ATT_YES='出席', ATT_NO='欠席';
+// その回に出欠を聞く受講生：契約中で、その日に在籍している人
+// 所属校が決まっている人はその校の回だけ。未設定の人は抜け落ちないよう両校で聞く
+const attSameCampus = (c,campus) => !campus || !c.campus || c.campus===campus;
+function attTargets(ev,customers){
+  return customers.filter(c=>attSameCampus(c,ev.campus) && c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=ev.date && !(c.endDate && c.endDate<ev.date) && !isPaused(c,ev.date.slice(0,7)));
+}
+// フォームは期間が重なるので、同じ回に複数回答があれば一番新しい回答を使う
+function attLatest(evId,rounds,answers){
+  const out={};
+  rounds.forEach(r=>Object.entries(answers?.[r.id]||{}).forEach(([cid,x])=>{
+    const v=x.a?.[evId]; if(v && (!out[cid] || x.at>out[cid].at)) out[cid]={v,at:x.at};
+  }));
+  return out;
+}
+// 合計＝出席の受講生＋体験の人（同じ人は1回だけ数える）
+function attSummary(ev,{customers,rounds,answers,trials}){
+  const latest=attLatest(ev.id,rounds,answers), targets=attTargets(ev,customers);
+  const yes=targets.filter(c=>latest[c.id]?.v===ATT_YES), no=targets.filter(c=>latest[c.id]?.v===ATT_NO);
+  const trial=(trials||[]).filter(c=>!yes.some(y=>y.id===c.id));
+  const none=targets.filter(c=>!latest[c.id] && !trial.some(t=>t.id===c.id));
+  return {yes,no,none,trial,total:yes.length+trial.length,asked:rounds.some(r=>(r.eventIds||[]).includes(ev.id))};
+}
+// フォームごとの回答状況
+function attRoundStatus(round,customers,answers){
+  const target=customers.filter(c=>attSameCampus(c,round.campus) && c.kind!=='lead' && c.status==='契約中' && c.startDate && c.startDate<=round.to);
+  const done=target.filter(c=>answers?.[round.id]?.[c.id]);
+  return {target,done,none:target.filter(c=>!done.includes(c))};
+}
+// #endregion attendance-core
+
+const isParty = x => x.type==='party';
+const eventKind = x => isParty(x)?'飲み会':'授業';
+const noTrialEvent = x => isParty(x) || x.type==='closed'; // 体験を受けない回（飲み会・目標設定会など）
+const classSchedule = cp => sortedSchedule(cp).filter(x=>!noTrialEvent(x));
+const attSum = ev => attSummary(ev,{customers:S.customers,rounds:S.attendance.rounds,answers:S.attendanceData.answers,trials:isParty(ev)?[]:trialsOf(ev.id)});
+const attChips = (list,cls) => list.map(c=>`<span class="chip ${cls}" onclick="openCustomer('${c.id}')">${esc(c.name)}</span>`).join('');
+const attRow = (label,list,cls) => list.length?`<div class="att-row"><span>${label} ${list.length}</span><div>${attChips(list,cls)}</div></div>`:'';
+function attEventCard(ev){
+  const a=attSum(ev);
+  return `<div class="card att-card">
+    <div class="att-top"><div><b class="num" style="font-size:15px;color:var(--heading)">${mdw(ev.date)}</b> <span class="badge ${isParty(ev)?'b-pause':'b-blue'}">${eventKind(ev)}</span> <span style="font-size:13px;color:var(--muted)">${esc(ev.campus)} ${esc(ev.time||'')}</span>${ev.title?`<div style="font-size:13px;margin-top:2px">${esc(ev.title)}</div>`:''}</div>
+      <div class="att-total"><b class="num">${a.total}</b><small>名</small>${a.trial.length?`<div>受講生 ${a.yes.length} ＋ 体験 ${a.trial.length}</div>`:''}</div></div>
+    ${attRow('出席',a.yes,'ok')}${attRow('体験',a.trial,'trial')}${attRow('欠席',a.no,'off')}
+    ${a.asked?attRow('未回答',a.none,'wait'):'<p class="hint">この回はまだ出欠を取っていません</p>'}
+  </div>`;
+}
+function attRoundCard(r){
+  const f=S.attendanceData.forms?.[r.id], st=attRoundStatus(r,S.customers,S.attendanceData.answers);
+  const missing=sortedSchedule().filter(x=>x.date>=todayStr() && x.date>=r.from && x.date<=r.to && !(r.eventIds||[]).includes(x.id));
+  return `<div class="card" style="margin-bottom:12px"><h3>${esc(r.title)} <small>${fmtDate(r.from)}〜${fmtDate(r.to)}・${(r.eventIds||[]).length}回</small></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${f?.formUrl?`<button class="btn primary sm" onclick="attCopy('${r.id}')">フォームのリンクをコピー</button><a class="btn sm" href="${esc(f.formUrl)}" target="_blank" rel="noopener">開く</a>`:'<span class="badge b-pause">フォームを準備中（5分ほどで出ます）</span>'}
+      <span style="font-size:13px;color:var(--muted)">回答 <b class="num" style="color:var(--heading)">${st.done.length}</b> / ${st.target.length}名</span>
+      <span style="flex:1"></span><button class="btn ghost sm danger" onclick="attDelRound('${r.id}')">削除</button></div>
+    ${attRow('未回答',st.none,'wait')}
+    ${missing.length?`<div class="warn">フォームに入っていない回が ${missing.length}件 あります（${missing.map(x=>mdw(x.date)).join('、')}）。<button class="btn sm" style="margin-left:6px" onclick="attAddMissing('${r.id}')">フォームに追加</button></div>`:''}
+  </div>`;
+}
+function viewAttend(){
+  const today=todayStr(), rounds=[...S.attendance.rounds].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const open=rounds.filter(r=>r.to>=today), old=rounds.filter(r=>r.to<today);
+  const all=sortedSchedule().filter(x=>(!S.atCampus||x.campus===S.atCampus)&&(!S.atKind||eventKind(x)===S.atKind));
+  const noCampus=students().filter(c=>c.status==='契約中'&&!c.campus).length;
+  const up=all.filter(x=>x.date>=today), past=all.filter(x=>x.date<today).reverse();
+  const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button class="${(S[k]||'')===v?'on':''}" onclick="S.${k}='${v}';render()">${l}</button>`).join('')}</div>`;
+  return `<div class="head"><div><h2>出欠</h2><p>授業と飲み会に、体験の人も含めて誰が何人来るのかを確認できます。フォームの回答は自動で反映されます。</p></div>
+    <button class="btn primary" onclick="openRound()">＋ 出欠フォームを作る</button></div>
+  ${open.map(attRoundCard).join('')||'<div class="card" style="margin-bottom:12px"><div class="empty">受付中の出欠フォームはありません。「出欠フォームを作る」から向こう3ヶ月分を作れます。</div></div>'}
+  ${noCampus?`<div class="warn" style="margin-bottom:12px">所属校が未設定の生徒が ${noCampus}名 います（両校の出欠に未回答で出ます）。<a href="#" onclick="S.view='students';S.f.status='契約中';S.f.campus='none';render();return false">設定する</a></div>`:''}
+  <div class="toolbar">${seg('atCampus',[['','両校'],...CAMPUSES.map(c=>[c,c])])}${seg('atKind',[['','すべて'],['授業','授業'],['飲み会','飲み会']])}</div>
+  ${up.map(attEventCard).join('')||'<div class="card"><div class="empty">今後の予定がありません（設定 → SSCスケジュールで登録）</div></div>'}
+  ${past.length||old.length?`<details style="margin-top:12px"><summary style="cursor:pointer;font-size:13px;color:var(--blue);padding:6px 0">終わった回・過去のフォームを表示</summary>${old.map(attRoundCard).join('')}${past.map(attEventCard).join('')}</details>`:''}`;
+}
+function roundDraft(from,to,campus){ return sortedSchedule(campus).filter(x=>x.date>=from && x.date<=to); }
+function openRound(){
+  const today=todayStr(), d=new Date(today+'T00:00:00'); d.setMonth(d.getMonth()+3);
+  const to=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onmousedown="if(event.target===this)this._d=1" onclick="if(event.target===this&&this._d)closeModal()"><div class="modal" style="max-width:560px">
+    <div class="modal-h"><h3>出欠フォームを作る</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-b"><div class="fg" style="grid-template-columns:1fr 1fr;padding-top:14px">
+      <div class="fl w3"><label>校</label><select class="inp" id="rd-campus" onchange="drawRound()">${CAMPUSES.map(c=>`<option ${c===(S.atCampus||CAMPUSES[0])?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fl"><label>いつから</label><input class="inp" type="date" id="rd-from" value="${today}" onchange="drawRound()"></div>
+      <div class="fl"><label>いつまで</label><input class="inp" type="date" id="rd-to" value="${to}" onchange="drawRound()"></div>
+      <div class="fl w3"><label>フォームに載せる回</label><div id="rd-events"></div></div>
+    </div></div>
+    <div class="modal-f"><span></span><div class="r"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveRound()">作る</button></div></div>
+  </div></div>`;
+  drawRound();
+}
+function drawRound(){
+  const list=roundDraft(document.getElementById('rd-from').value,document.getElementById('rd-to').value,document.getElementById('rd-campus').value);
+  const parties=list.filter(isParty).length;
+  document.getElementById('rd-events').innerHTML=(list.map(x=>`<label class="rd-ev"><input type="checkbox" checked value="${x.id}"> <span>${mdw(x.date)} ${esc(x.campus)} <b>${eventKind(x)}</b> ${esc(x.title||'')}</span></label>`).join('')||'<div class="empty">この期間の予定がありません</div>')
+    +(list.length&&!parties?'<div class="warn">飲み会が入っていません。設定 → SSCスケジュールで種類を「飲み会」にして登録すると、ここに出ます。</div>':'');
+}
+async function saveRound(){
+  const from=document.getElementById('rd-from').value, to=document.getElementById('rd-to').value, campus=document.getElementById('rd-campus').value;
+  const eventIds=[...document.querySelectorAll('#rd-events input:checked')].map(i=>i.value);
+  if(!from||!to||to<from) return toast('期間を確認してください',true);
+  if(!eventIds.length) return toast('載せる回を選んでください',true);
+  const lab=d=>{ const [y,m]=d.split('-'); return `${y}年${Number(m)}月`; };
+  const rec={id:uid(),title:`${campus} ${lab(from)}〜${lab(to)}の出欠`,campus,from,to,eventIds,createdAt:new Date().toISOString(),createdBy:S.userEmail||''};
+  S.attendance.rounds.push(rec);
+  if(DEMO) (S.attendanceData.forms=S.attendanceData.forms||{})[rec.id]={formUrl:'https://forms.gle/demo'};
+  await run(()=>Store.saveSetting('attendance'),'作成しました。フォームは5分ほどで用意されます'); closeModal(); render();
+}
+async function attAddMissing(id){
+  const r=S.attendance.rounds.find(x=>x.id===id);
+  r.eventIds=[...r.eventIds,...sortedSchedule(r.campus).filter(x=>x.date>=todayStr()&&x.date>=r.from&&x.date<=r.to&&!r.eventIds.includes(x.id)).map(x=>x.id)];
+  await run(()=>Store.saveSetting('attendance'),'追加しました。フォームには5分ほどで反映されます'); render();
+}
+async function attDelRound(id){
+  const r=S.attendance.rounds.find(x=>x.id===id);
+  if(!confirm(`「${r.title}」を削除しますか？\nフォームの受付を止め、このフォームの回答はアプリに表示されなくなります。`)) return;
+  S.attendance.rounds=S.attendance.rounds.filter(x=>x.id!==id);
+  await run(()=>Store.saveSetting('attendance'),'削除しました'); render();
+}
+async function attCopy(id){
+  const u=S.attendanceData.forms?.[id]?.formUrl;
+  try{ await navigator.clipboard.writeText(u); toast('リンクをコピーしました'); }catch(e){ prompt('このリンクをコピーしてください',u); }
+}
+// フォームの回答はサーバー側で入るので、タブを開いたときに読み直す
+async function attReload(){
+  if(DEMO) return;
+  const {data,error}=await sb.from('ssc_settings').select('key,data').in('key',['attendance','attendance_data']);
+  if(error) return console.error(error);
+  data.forEach(r=>{ if(r.key==='attendance') S.attendance={rounds:[],...r.data}; else S.attendanceData={forms:{},answers:{},...r.data}; });
+  if(S.view==='attend' && !document.getElementById('modal-root').innerHTML) render();
+}
+
+// ===================== 紹介FEE =====================
+// #region referral-core（計算ルールはここだけ。SSC/tests/ssc_referral.test.js がこの範囲をそのまま読み込んでテストする）
+const RF_MIN=6; // これ未満は0円。到達すると最初の1人目から対象
+const RF_TIERS=[{rate:5000,upTo:10},{rate:7500,upTo:15},{rate:10000,upTo:Infinity}];
+function referralFee(n){
+  n=Math.max(0,Math.floor(Number(n)||0));
+  let prev=0,total=0;
+  const tiers=RF_TIERS.map(t=>{ const count=n<RF_MIN?0:Math.max(0,Math.min(n,t.upTo)-prev); prev=t.upTo; total+=count*t.rate; return {rate:t.rate,count,amount:count*t.rate}; });
+  return {total,tiers};
+}
+const rfNorm = s => String(s||'').replace(/[\s　]/g,'');
+// 運営本人の紹介は紹介FEEの対象外（紹介者欄の名前はそのまま残す）
+const RF_OPERATORS=['岡部真','真','石田雄太','雄太'];
+const rfIsOperator = name => RF_OPERATORS.includes(rfNorm(name));
+// 計算基準日：'end'＝月末、数字＝その日（その月に無い日は月末）。按分はせず、この日に在籍しているかだけを見る
+function rfBaseDate(ym,baseDay){
+  const [y,m]=ym.split('-').map(Number), last=new Date(y,m,0).getDate();
+  const d=(!baseDay||baseDay==='end')?last:Math.min(Number(baseDay),last);
+  return ym+'-'+String(d).padStart(2,'0');
+}
+// 在籍＝契約開始済み・未退会・休止していない。noSales（0期生など）は売上がないので対象外
+function rfEnrolled(c,ym,base,cur){
+  if(c.kind==='lead' || c.noSales || !c.startDate || c.startDate>base) return false;
+  if(c.endDate && c.endDate<base) return false;
+  if(isPaused(c,ym)) return false;
+  if(ym>=cur) return c.status==='契約中'; // 当月は最新のステータスに連動
+  return !(c.status==='契約終了' && !c.endDate);
+}
+function rfComputeMonth(ym,{customers,referrers,baseDay,cur}){
+  const base=rfBaseDate(ym,baseDay);
+  const rows=referrers.filter(r=>!rfIsOperator(r.name)).map(r=>{
+    const list=customers.filter(c=>c.referrerId===r.id && rfEnrolled(c,ym,base,cur));
+    const f=referralFee(list.length), approved=!!r.approved && (!r.approvedAt || r.approvedAt.slice(0,7)<=ym), payable=approved && r.payable!==false; // 承認した月より前は支払わない
+    return {referrerId:r.id,name:r.name,count:list.length,fee:f.total,tiers:f.tiers,approved,payable,included:payable&&f.total>0,students:list.map(c=>({id:c.id,name:c.name}))};
+  });
+  return {month:ym,base,rows,total:rows.reduce((a,x)=>a+(x.included?x.fee:0),0),estimate:rows.reduce((a,x)=>a+x.fee,0),enrolled:rows.reduce((a,x)=>a+x.count,0)};
+}
+// 確定済みの月は保存した結果を返す（その後の退会や変更で金額が変わらない）
+function rfMonthResult(ym,ctx,months){ return months[ym] ? {...months[ym],confirmed:true} : {...rfComputeMonth(ym,ctx),confirmed:false}; }
+function rfSnapshot(ym,ctx,by,at){
+  const r=rfComputeMonth(ym,ctx);
+  r.rows.forEach(x=>{ x.paid=x.included?'未払い':''; });
+  return {...r,confirmedAt:at,confirmedBy:by};
+}
+// キーマンのうち、在籍の紹介が6人以上になった人（サポートメンバーへ移す対象）
+function rfPromotions(keyman,rows){ return keyman.filter(k=>rows.some(x=>rfNorm(x.name)===rfNorm(k.name) && x.count>=RF_MIN)); }
+// #endregion referral-core
+
+const rfCtx = () => ({customers:S.customers,referrers:S.referral.referrers,baseDay:S.referral.baseDay,cur:curYM()});
+const rfResult = ym => rfMonthResult(ym,rfCtx(),S.referral.months);
+const rfAdmin = () => S.admin==='yes';
+const rfById = id => S.referral.referrers.find(r=>r.id===id);
+const rfByName = name => S.referral.referrers.find(r=>rfNorm(r.name)===rfNorm(name));
+const rfWho = () => S.userEmail||'—';
+const rfMemberRow = name => { const r=rfByName(name); return r ? rfResult(curYM()).rows.find(a=>a.referrerId===r.id) : null; };
+const rfIsSupport = name => S.marketing.support.some(m=>rfNorm(m.name)===rfNorm(name));
+const fmtDT = iso => { if(!iso) return '—'; const d=new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+function rfBadge(x){
+  if(!x.fee) return '<span class="badge b-end">未達</span>';
+  if(!x.approved) return '<span class="badge b-pause">未承認（試算）</span>';
+  if(!x.payable) return '<span class="badge b-end">支払対象外</span>';
+  return '<span class="badge b-on">対象</span>';
+}
+// 別の人が保存した内容を消さないよう、書き込む直前に最新を読み直してから変更する
+async function saveReferral(mut,msg){
+  if(!rfAdmin()){ toast('変更できるのは管理者だけです',true); return false; }
+  await run(async()=>{
+    if(!DEMO){ const r=await sb.from('ssc_settings').select('data').eq('key','referral').maybeSingle(); if(r.error) throw r.error; if(r.data) S.referral={...S.referral,...r.data.data}; }
+    mut(S.referral);
+    await Store.saveSetting('referral');
+  },msg);
+  return true;
+}
+const rfLog = (R,action,detail) => { R.log=[{at:new Date().toISOString(),by:rfWho(),action,detail},...(R.log||[])].slice(0,200); };
+const rfNew = name => ({id:uid(),name:name.trim(),approved:false,approvedAt:'',payable:false,note:'',createdAt:todayStr()});
+// 管理者のログイン時：名前だけの紹介者（フォーム登録など）とマーケのキーマンを紹介者IDに紐づける
+async function rfLinkAll(){
+  const removed=S.referral.removed||[]; // 紹介FEE管理で削除した人は、キーマン一覧からは登録し直さない
+  const names=[...S.customers.filter(c=>c.referrer&&!c.referrerId).map(c=>c.referrer),...[...S.marketing.keyman,...S.marketing.support].map(k=>k.name).filter(n=>!removed.includes(rfNorm(n)))].filter(n=>n&&!rfIsOperator(n));
+  const fresh=[]; names.forEach(n=>{ if(!rfByName(n) && !fresh.some(x=>rfNorm(x)===rfNorm(n))) fresh.push(n); });
+  try{
+    // すでに紹介者として登録された運営本人を外す
+    const ops=S.referral.referrers.filter(r=>rfIsOperator(r.name));
+    if(ops.length){
+      for(const c of S.customers.filter(c=>ops.some(r=>r.id===c.referrerId))){ const cc=clone(c); delete cc.referrerId; await Store.saveCustomer(cc); }
+      await saveReferral(R=>{ R.referrers=R.referrers.filter(r=>!rfIsOperator(r.name)); });
+    }
+    if(fresh.length) await saveReferral(R=>fresh.forEach(n=>{ if(!R.referrers.some(r=>rfNorm(r.name)===rfNorm(n))) R.referrers.push(rfNew(n)); }));
+    for(const c of S.customers.filter(c=>c.referrer&&!c.referrerId&&!rfIsOperator(c.referrer))){ const cc=clone(c), r=rfByName(c.referrer); cc.referrerId=r.id; await Store.saveCustomer(cc); }
+    await rfPromote();
+    if(S.view==='referral') render();
+  }catch(e){ console.error(e); }
+}
+// キーマンの在籍紹介が6人以上になったら、サポートメンバーへ移して承認する。人数が減っても戻さない（報酬が0円になるだけ）
+async function rfPromote(){
+  const hits=rfPromotions(S.marketing.keyman,rfComputeMonth(curYM(),rfCtx()).rows);
+  if(!hits.length) return;
+  const today=todayStr(), names=hits.map(k=>k.name).join('、');
+  await saveReferral(R=>hits.forEach(k=>{
+    const a=R.referrers.find(r=>rfNorm(r.name)===rfNorm(k.name));
+    if(a && !a.approved){ a.approved=true; a.payable=true; a.approvedAt=today; }
+    rfLog(R,'サポートメンバーへ自動で移動',k.name);
+  }));
+  const M=S.marketing;
+  hits.forEach(k=>{ const ex=M.support.find(m=>rfNorm(m.name)===rfNorm(k.name)); if(ex){ ex.keymanAt=k.addedAt||''; ex.movedAt=today; } else M.support.push({...k,id:uid(),keymanAt:k.addedAt||'',movedAt:today,addedAt:today}); });
+  M.keyman=M.keyman.filter(k=>!hits.includes(k));
+  await run(()=>Store.saveSetting('marketing'),`${names}さんがサポートメンバーになりました`);
+}
+// 生徒の保存時：入力された名前を紹介者IDに変換（なければ新しい紹介者を作る）
+async function rfLinkCustomer(rec){
+  const name=(rec.referrer||'').trim();
+  if(!name){ rec.referrer=''; delete rec.referrerId; return true; }
+  if(rfNorm(name)===rfNorm(rec.name)){ toast('本人を紹介者にはできません',true); return false; }
+  if(rfIsOperator(name)){ delete rec.referrerId; return true; }
+  if(!rfByName(name)) await saveReferral(R=>{ if(!R.referrers.some(r=>rfNorm(r.name)===rfNorm(name))) R.referrers.push(rfNew(name)); });
+  const r=rfByName(name); rec.referrerId=r.id; rec.referrer=r.name;
+  return true;
+}
+function rfImpactRows(rec){
+  const calc=list=>rfComputeMonth(curYM(),{...rfCtx(),customers:list}).rows;
+  const a=calc(S.customers), b=calc(S.customers.map(c=>c.id===rec.id?rec:c));
+  return b.map((x,i)=>[x,a[i]]).filter(([x,o])=>x.fee!==o.fee).map(([x,o])=>[`紹介FEE：${x.name}（今月${x.payable||rfPromotions(S.marketing.keyman,[x]).length?'':'・試算'}）`,yen(o.fee),yen(x.fee),x.fee-o.fee]);
+}
+
+function viewReferral(){
+  if(S.admin==='unset') return rfSetupCard();
+  if(S.rfDetail && rfById(S.rfDetail)) return viewRfDetail(S.rfDetail);
+  const ym=S.rfMonth, R=rfResult(ym), admin=rfAdmin(), cur=curYM();
+  const rows=[...R.rows].sort((a,b)=>b.fee-a.fee||b.count-a.count||a.name.localeCompare(b.name,'ja'));
+  const unlinked=S.customers.filter(c=>c.referrer&&!c.referrerId&&!rfIsOperator(c.referrer));
+  const canConfirm=admin&&!R.confirmed&&R.base<=todayStr();
+  const paidCell=x=>!x.included?'—':!R.confirmed?'<span style="color:var(--faint)">確定後に管理</span>':admin?`<select class="inp" style="width:auto;padding:4px 8px" onclick="event.stopPropagation()" onchange="rfSetPaid('${ym}','${x.referrerId}',this.value)">${['未払い','支払済み'].map(s=>`<option ${x.paid===s?'selected':''}>${s}</option>`).join('')}</select>`:`<span class="badge ${x.paid==='支払済み'?'b-on':'b-pause'}">${esc(x.paid)}</span>`;
+  const kp=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+  const paidDone=R.rows.filter(x=>x.included&&x.paid==='支払済み').reduce((a,x)=>a+x.fee,0);
+  return `
+  <div class="head"><div><h2>紹介FEE管理</h2><p>生徒の入会・退会・紹介者を更新すると、キーマン別の紹介FEEが自動で計算されます。</p></div>
+    ${admin?`<button class="btn primary" onclick="rfAdd()">＋ 紹介者を追加</button>`:''}</div>
+  ${admin?'':'<div class="warn" style="margin:0 0 12px">閲覧のみです。紹介者・承認・確定・支払状況を変更できるのは管理者だけです。</div>'}
+  ${unlinked.length?`<div class="warn" style="margin:0 0 12px">⚠ 紹介者の紐づけが済んでいない生徒が ${unlinked.length}名 います（管理者のログイン時に自動で紐づきます）。</div>`:''}
+  <div class="toolbar">
+    <button class="btn sm" onclick="rfMove(-1)">‹ 前月</button>
+    <input class="inp" type="month" value="${ym}" max="${cur}" onchange="if(this.value){S.rfMonth=this.value;render()}">
+    <button class="btn sm" onclick="rfMove(1)" ${ym>=cur?'disabled':''}>翌月 ›</button>
+    <span style="flex:1"></span>
+    <button class="btn" onclick="rfCsv('${ym}')">CSV出力</button>
+    ${R.confirmed?(admin?`<button class="btn danger" onclick="rfUnconfirm('${ym}')">確定を取り消す</button>`:''):admin?`<button class="btn primary" ${canConfirm?'':'disabled'} onclick="rfConfirm('${ym}')">${mLabel(ym)}を確定</button>`:''}
+  </div>
+  <p class="hint" style="margin:-4px 0 12px">${R.confirmed?`<span class="badge b-on">確定済み</span> ${esc(fmtDT(R.confirmedAt))}・${esc(R.confirmedBy)}（基準日 ${fmtDate(R.base)}）。この後の退会や変更では金額は変わりません。`:`<span class="badge b-blue">自動計算中</span> 基準日 ${fmtDate(R.base)} 時点の在籍で計算しています。${R.base>todayStr()?'基準日を過ぎると確定できます。':''}`}</p>
+  <div class="grid kpis">
+    ${kp(ym===cur?'今月の紹介FEE総額':`${mShort(ym)}の紹介FEE総額`,yen(R.total),`承認済みのみ${R.estimate!==R.total?`／未承認を含む試算 ${yen(R.estimate)}`:''}${R.confirmed&&R.total?`／支払済み ${yen(paidDone)}`:''}`)}
+    ${kp('紹介者の人数',`${R.rows.filter(x=>x.count>0).length}<small>人</small>`,`在籍の紹介生徒がいる人（登録 ${R.rows.length}人）`)}
+    ${kp('報酬支払対象者数',`${R.rows.filter(x=>x.included).length}<small>人</small>`,'承認済みで6人以上')}
+    ${kp('紹介経由の在籍生徒数',`${R.enrolled}<small>人</small>`)}
+  </div>
+  <div class="tbl-wrap resp"><table>
+    <thead><tr><th>紹介者名</th><th class="r">在籍紹介人数</th><th class="r">月額紹介FEE</th><th>状態</th><th>承認</th><th>支払状況</th></tr></thead>
+    <tbody>${rows.length?rows.map(x=>`<tr class="row" onclick="rfOpen('${x.referrerId}')"><td><span class="nm">${esc(x.name)}</span>${rfIsSupport(x.name)?'<small>サポートメンバー</small>':''}</td><td class="r num">${x.count}人</td><td class="r num">${yen(x.fee)}</td><td>${rfBadge(x)}</td><td>${x.approved?'<span class="badge b-on">承認済み</span>':'<span class="badge b-end">未承認</span>'}</td><td>${paidCell(x)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--faint);padding:24px">紹介者はまだいません</td></tr>'}</tbody>
+  </table></div>
+  <div class="cards">${rows.map(x=>`<div class="mcard" onclick="rfOpen('${x.referrerId}')"><div class="top"><b>${esc(x.name)}</b>${rfBadge(x)}</div><div class="meta">在籍 ${x.count}人 ・ ${x.approved?'承認済み':'未承認'}${rfIsSupport(x.name)?' ・ サポートメンバー':''}</div><div class="foot"><b class="num">${yen(x.fee)}</b><span>${paidCell(x)}</span></div></div>`).join('')}</div>
+  <div class="card" style="margin-top:14px"><h3>計算ルール</h3>
+    <p class="hint">1〜5人は0円／6人に達すると1人目から10人目まで各¥5,000／11〜15人目は各¥7,500／16人目以降は各¥10,000（毎月）。在籍＝契約中で休止していない生徒。売上に含めない生徒（0期生など）は数えません。運営（岡部・石田）の紹介は対象外です。</p>
+    <div class="fl" style="margin-top:12px;max-width:260px"><label>計算基準日</label><select class="inp" ${admin?'':'disabled'} onchange="rfSetBaseDay(this.value)">${[['end','毎月 月末'],...Array.from({length:28},(_,i)=>[String(i+1),`毎月 ${i+1}日`])].map(([v,l])=>`<option value="${v}" ${String(S.referral.baseDay||'end')===v?'selected':''}>${l}</option>`).join('')}</select><div class="hint">この日に在籍しているかで人数を数えます（日割りはしません）。確定済みの月には影響しません。</div></div>
+    ${(S.referral.log||[]).length?`<details style="margin-top:12px"><summary class="hint" style="cursor:pointer">操作履歴</summary><div class="hint">${S.referral.log.slice(0,50).map(l=>`${esc(fmtDT(l.at))} ${esc(l.by)}：${esc(l.action)} ${esc(l.detail||'')}`).join('<br>')}</div></details>`:''}
+  </div>`;
+}
+function viewRfDetail(id){
+  const r=rfById(id), admin=rfAdmin(), cur=curYM();
+  const live=rfComputeMonth(cur,rfCtx()).rows.find(a=>a.referrerId===id);
+  const mine=S.customers.filter(c=>c.referrerId===id);
+  const studs=mine.filter(c=>c.kind!=='lead'), left=studs.filter(c=>c.status==='契約終了');
+  const inNow=new Set(live.students.map(s=>s.id));
+  const state=c=>c.kind==='lead'?'<span class="badge b-blue">見込み</span>':inNow.has(c.id)?'<span class="badge b-on">在籍</span>':c.status==='契約終了'?'<span class="badge b-end">退会</span>':c.noSales?'<span class="badge b-end">対象外（売上なし）</span>':c.status==='休止中'?'<span class="badge b-pause">休止中</span>':'<span class="badge b-end">対象外</span>';
+  const starts=[...studs.map(c=>c.startDate).filter(Boolean).map(d=>d.slice(0,7)),...Object.keys(S.referral.months).filter(m=>S.referral.months[m].rows.some(a=>a.referrerId===id))].sort();
+  const hist=[]; if(starts.length) for(let m=cur;m>=starts[0];m=addM(m,-1)){ const R=rfResult(m), a=R.rows.find(y=>y.referrerId===id)||{count:0,fee:0,paid:''}; hist.push({m,R,a}); }
+  const dis=admin?'':'disabled';
+  return `
+  <div class="head"><div><button class="btn ghost sm" onclick="rfOpen('')">‹ 紹介FEE管理に戻る</button><h2 style="margin-top:6px">${esc(r.name)}</h2><p>${rfBadge(live)}${rfIsSupport(r.name)?' <span class="badge b-blue">サポートメンバー</span>':''}</p></div>
+    ${admin?`<div style="display:flex;gap:8px"><button class="btn" onclick="rfRename('${id}')">名前を変更</button>${Object.values(S.referral.months).some(M=>M.rows.some(a=>a.referrerId===id))?'<span class="hint" style="align-self:center">確定済みの履歴があるので削除できません</span>':`<button class="btn danger" onclick="rfDelete('${id}')">削除</button>`}</div>`:''}</div>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">現在の在籍紹介人数</div><div class="v">${live.count}<small>人</small></div></div>
+    <div class="card kpi"><div class="l">退会した紹介生徒数</div><div class="v">${left.length}<small>人</small></div></div>
+    <div class="card kpi"><div class="l">現在の月額紹介FEE</div><div class="v">${yen(live.fee)}</div><div class="s">${live.fee&&!live.payable?'試算（支払予定には含みません）':''}</div></div>
+  </div>
+  <div class="two">
+    <div class="card"><h3>報酬の内訳</h3><table><tbody>${live.tiers.map(t=>`<tr><td>${yen(t.rate)}枠</td><td class="r num">${t.count}人</td><td class="r num"><b>${yen(t.amount)}</b></td></tr>`).join('')}</tbody><tfoot><tr><td>合計</td><td class="r num">${live.count<RF_MIN?`${live.count}人（6人未満）`:`${live.count}人`}</td><td class="r num">${yen(live.fee)}</td></tr></tfoot></table></div>
+    <div class="card"><h3>キーマン承認</h3>
+      <label class="cbox ${r.approved?'on':''}" style="margin-top:10px"><input type="checkbox" ${r.approved?'checked':''} ${dis} onchange="rfSetApproved('${id}',this.checked)"> キーマン承認済み</label>
+      <div class="fl" style="margin-top:10px"><label>承認日</label><input class="inp" type="date" value="${esc(r.approvedAt||'')}" ${dis} onchange="rfSetField('${id}','approvedAt',this.value)"></div>
+      <label class="cbox ${r.approved&&r.payable!==false?'on':''}" style="margin-top:10px"><input type="checkbox" ${r.approved&&r.payable!==false?'checked':''} ${admin&&r.approved?'':'disabled'} onchange="rfSetField('${id}','payable',this.checked)"> 報酬支払対象</label>
+      <p class="hint">未承認でも試算は見られますが、支払予定の総額には入りません。</p></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>紹介した生徒 <small>${mine.length}人</small></h3><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>氏名</th><th>状態</th><th>入会日</th><th>退会日</th><th class="r">月額料金</th></tr></thead>
+    <tbody>${mine.length?mine.map(c=>`<tr class="row" onclick="openCustomer('${c.id}')"><td><span class="nm">${esc(c.name)}</span></td><td>${state(c)}</td><td class="num">${fmtDate(c.startDate)}</td><td class="num">${fmtDate(c.endDate)}</td><td class="r num">${c.kind==='lead'?'—':yen(monthlyFee(c))}</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--faint);padding:18px">まだいません</td></tr>'}</tbody></table></div>
+    <p class="hint">紹介者は各生徒の編集画面で変更します。</p></div>
+  <div class="card" style="margin-top:14px"><h3>月別の報酬履歴</h3><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>月</th><th class="r">在籍</th><th class="r">紹介FEE</th><th>区分</th><th>支払状況</th></tr></thead>
+    <tbody>${hist.length?hist.map(({m,R,a})=>`<tr><td class="num">${mLabel(m)}</td><td class="r num">${a.count}人</td><td class="r num">${yen(a.fee)}</td><td>${R.confirmed?'<span class="badge b-on">確定</span>':'<span class="badge b-blue">自動計算</span>'}</td><td>${R.confirmed&&a.paid?`${esc(a.paid)}${a.paidAt?`<small>${esc(fmtDT(a.paidAt))}</small>`:''}`:'—'}</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--faint);padding:18px">履歴はまだありません</td></tr>'}</tbody></table></div></div>`;
+}
+function rfSetupCard(){
+  return `<div class="head"><div><h2>紹介FEE管理</h2><p>使い始める前に、管理者の設定が1回だけ必要です。</p></div></div>
+  <div class="card"><h3>管理者の設定がまだです</h3><p style="color:var(--muted);margin-top:6px">Supabase の SQL Editor で <b>SSC/ssc_referral_setup.sql</b> を実行してください。「ここにログインメール」の部分は、管理者のログインメールに書き換えます。</p>
+    <p class="hint" style="margin-top:10px">ログイン中のメール：${esc(S.userEmail||'')}</p>
+    <button class="btn primary" style="margin-top:12px" onclick="location.reload()">実行したので読み込み直す</button></div>`;
+}
+function rfOpen(id){ S.rfDetail=id||null; render(); window.scrollTo(0,0); }
+function rfMove(n){ const m=addM(S.rfMonth,n); if(m<=curYM()){ S.rfMonth=m; render(); } }
+async function rfAdd(){
+  const name=(prompt('紹介者の名前')||'').trim(); if(!name) return;
+  if(rfIsOperator(name)) return toast('運営本人は紹介FEEの対象外です',true);
+  if(rfByName(name)) return toast('同じ名前の紹介者がすでにいます',true);
+  await saveReferral(R=>{ R.referrers.push(rfNew(name)); rfLog(R,'紹介者を追加',name); },'追加しました'); render();
+}
+async function rfRename(id){
+  const r=rfById(id), name=(prompt('新しい名前',r.name)||'').trim();
+  if(!name || name===r.name) return;
+  if(rfIsOperator(name)) return toast('運営本人は紹介FEEの対象外です',true);
+  if(rfByName(name) && rfByName(name).id!==id) return toast('同じ名前の紹介者がすでにいます',true);
+  const old=r.name;
+  await saveReferral(R=>{ R.referrers.find(a=>a.id===id).name=name; rfLog(R,'名前を変更',`${old} → ${name}`); });
+  await run(async()=>{ for(const c of S.customers.filter(c=>c.referrerId===id)){ const cc=clone(c); cc.referrer=name; await Store.saveCustomer(cc); }
+    const same=['support','keyman','candidates'].flatMap(k=>S.marketing[k]).filter(m=>rfNorm(m.name)===rfNorm(old));
+    if(same.length){ same.forEach(m=>{ m.name=name; }); await Store.saveSetting('marketing'); } },'名前を変更しました'); render();
+}
+// 削除すると紐づく生徒の紹介者欄も空にする。キーマン一覧に名前が残っていても、次のログインで復活させない
+async function rfDelete(id){
+  const r=rfById(id), mine=S.customers.filter(c=>c.referrerId===id), fee=rfComputeMonth(curYM(),rfCtx()).rows.find(a=>a.referrerId===id)?.fee||0;
+  if(!confirm(`紹介者「${r.name}」を削除しますか？${mine.length?`\n\n次の${mine.length}人の紹介者欄も空になります：\n${mine.map(c=>c.name).join('、')}`:''}${fee?`\n\n今月の紹介FEE ${yen(fee)} もなくなります。`:''}`)) return;
+  S.rfDetail=null;
+  await run(async()=>{ for(const c of mine){ const cc=clone(c); cc.referrer=''; delete cc.referrerId; await Store.saveCustomer(cc); } });
+  await saveReferral(R=>{ R.referrers=R.referrers.filter(a=>a.id!==id); R.removed=[...new Set([...(R.removed||[]),rfNorm(r.name)])]; rfLog(R,'紹介者を削除',r.name); },'削除しました'); render();
+}
+async function rfSetApproved(id,on){
+  const r=rfById(id), fee=rfComputeMonth(curYM(),rfCtx()).rows.find(a=>a.referrerId===id).fee;
+  if(!confirm(on?`${r.name}さんをキーマン承認します。\n今月の支払予定に ${yen(fee)} が加わります。`:`${r.name}さんの承認を外します。\n確定前の月の支払予定から外れます（確定済みの月はそのままです）。`)) return render();
+  await saveReferral(R=>{ const a=R.referrers.find(y=>y.id===id); a.approved=on; a.payable=on; if(on&&!a.approvedAt) a.approvedAt=todayStr(); if(!on) a.approvedAt=''; rfLog(R,on?'キーマン承認':'承認を解除',a.name); },'保存しました'); render();
+}
+async function rfSetField(id,k,v){
+  await saveReferral(R=>{ const a=R.referrers.find(y=>y.id===id); a[k]=v; rfLog(R,k==='payable'?(v?'支払対象にした':'支払対象から外した'):'承認日を変更',`${a.name}${k==='approvedAt'?' '+v:''}`); },'保存しました'); render();
+}
+async function rfSetBaseDay(v){
+  await saveReferral(R=>{ R.baseDay=v==='end'?'end':Number(v); rfLog(R,'計算基準日を変更',v==='end'?'月末':v+'日'); },'保存しました'); render();
+}
+async function rfConfirm(ym){
+  if(!rfAdmin()) return toast('変更できるのは管理者だけです',true);
+  await run(()=>Store.load()); await rfLinkAll(); // 確定する瞬間は最新の生徒データで計算する
+  const R=rfComputeMonth(ym,rfCtx());
+  if(R.base>todayStr()) return toast('基準日を過ぎてから確定してください',true);
+  const list=R.rows.filter(x=>x.included);
+  if(!(await confirmMoney(`${mLabel(ym)}の紹介FEEを確定`,[...list.map(x=>[`${x.name}（${x.count}人）`,'—',yen(x.fee)]),['支払予定の合計','—',yen(R.total)]],'確定すると、この後の退会や変更ではこの月の金額は変わりません。未承認の人は試算のまま記録され、支払いの対象になりません。'))) return render();
+  await saveReferral(M=>{ if(M.months[ym]) throw new Error('この月はすでに確定されています'); M.months[ym]=rfSnapshot(ym,rfCtx(),rfWho(),new Date().toISOString()); rfLog(M,'月次を確定',`${ym} ${yen(M.months[ym].total)}`); },`${mLabel(ym)}を確定しました`); render();
+}
+async function rfUnconfirm(ym){
+  if(S.referral.months[ym].rows.some(x=>x.paid==='支払済み')) return toast('支払済みの人がいるので取り消せません。先に「未払い」に戻してください',true);
+  if(!confirm(`${mLabel(ym)}の確定を取り消しますか？\n金額は最新の生徒データで計算し直されます。`)) return;
+  await saveReferral(R=>{ delete R.months[ym]; rfLog(R,'確定を取り消し',ym); },'取り消しました'); render();
+}
+async function rfSetPaid(ym,rid,v){
+  await saveReferral(R=>{ const x=R.months[ym].rows.find(a=>a.referrerId===rid); x.paid=v; if(v==='支払済み'){ x.paidAt=new Date().toISOString(); x.paidBy=rfWho(); } else { delete x.paidAt; delete x.paidBy; } rfLog(R,v==='支払済み'?'支払済みにした':'未払いに戻した',`${ym} ${x.name} ${yen(x.fee)}`); },'保存しました'); render();
+}
+function rfCsv(ym){
+  const R=rfResult(ym), cell=v=>{ const s=String(v??''); return `"${(/^[=+\-@]/.test(s)?"'"+s:s).replace(/"/g,'""')}"`; };
+  const head=['対象年月','紹介者ID','紹介者名','在籍紹介人数','月額紹介FEE','5000円枠人数','7500円枠人数','10000円枠人数','承認','報酬支払対象','支払予定額','支払状況','支払日時','区分','基準日','確定日時','確定者'];
+  const body=R.rows.map(x=>[ym,x.referrerId,x.name,x.count,x.fee,...x.tiers.map(t=>t.count),x.approved?'承認済み':'未承認',x.payable?'対象':'対象外',x.included?x.fee:0,x.paid||'',x.paidAt?fmtDT(x.paidAt):'',R.confirmed?'確定':'自動計算',R.base,R.confirmed?fmtDT(R.confirmedAt):'',R.confirmedBy||'']);
+  const csv=[head,...body].map(r=>r.map(cell).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=`SSC紹介FEE_${ym}.csv`; a.click();
+}
+
 const MK_TABS=[['support','サポートメンバー'],['candidates','キーマン候補'],['keyman','キーマン'],['seminars','セミナーセールス'],['schools','スクール提携']];
 const PARTNERS=['岡部 真','石田 雄太']; // キーマンの担当・利益を分ける2人
 const KEYMAN_OWNERS=PARTNERS;
@@ -1075,7 +1907,8 @@ const mkDone = x => !!x.date && x.date < todayStr();
 // 目標との比較用：今期に登録したキーマン数／今期に日程があるセミナー数
 function mkInFY(key,fy){
   const ms=fyMonths(fy);
-  return S.marketing[key].filter(x=>{ const d=key==='seminars'?x.date:(x.addedAt||''); return d && ms.includes(d.slice(0,7)); }).length;
+  const list=key==='keyman'?[...S.marketing.keyman,...S.marketing.support.filter(x=>x.keymanAt).map(x=>({addedAt:x.keymanAt}))]:S.marketing[key];
+  return list.filter(x=>{ const d=key==='seminars'?x.date:(x.addedAt||''); return d && ms.includes(d.slice(0,7)); }).length;
 }
 const referCount = name => name ? S.customers.filter(c=>c.referrer===name).length : 0;
 function viewMarketing(){
@@ -1087,8 +1920,8 @@ function viewMarketing(){
     const rows=[...M[t]].filter(x=>!km||!own||x.owner===own).sort((a,b)=>(b.addedAt||'').localeCompare(a.addedAt||''));
     body=`${km?`<div class="toolbar"><div class="seg">${[['','全員'],...KEYMAN_OWNERS.map(o=>[o,o])].map(([v,l])=>`<button class="${own===v?'on':''}" onclick="S.mkOwner='${v}';render()">${l}<span class="n">${M[t].filter(x=>!v||x.owner===v).length}</span></button>`).join('')}</div></div>`:''}
     <div class="tbl-wrap"><table><thead><tr><th>名前</th>${km?'<th>担当</th>':''}<th>業種</th><th class="r">紹介数</th>${t==='support'?'<th class="r">今月の報酬</th>':''}<th>登録日</th><th>備考</th><th></th></tr></thead><tbody>
-      ${rows.length?rows.map(x=>`<tr class="row" onclick="openMk('${t}','${x.id}')"><td><span class="nm">${esc(x.name)}</span></td>${km?`<td><span class="badge ${x.owner===KEYMAN_OWNERS[0]?'b-blue':'b-pause'}">${esc(x.owner||'未設定')}</span></td>`:''}<td>${esc(x.industry)||'—'}</td><td class="r num">${referCount(x.name)}名</td>${t==='support'?`<td class="r num"><b>${yen(supportPayout(x,curYM()).amt)}</b><small>${yen(supportFeeAt(x,curYM()))}/人・確認済 ${supportPayout(x,curYM()).list.length}名</small></td>`:''}<td class="num">${fmtDate(x.addedAt)}</td><td class="wrap" style="color:var(--muted);max-width:320px">${esc((x.note||'').slice(0,60))}</td><td class="r" style="width:40px"><button class="icon-btn" title="削除" onclick="event.stopPropagation();delMkRow('${t}','${x.id}')">🗑</button></td></tr>`).join(''):`<tr><td colspan="8"><div class="empty">まだ登録がありません</div></td></tr>`}
-    </tbody></table></div><p class="hint" style="margin-top:8px">${t==='support'?`今月の報酬＝紹介した生徒のうち今月の入金が確認できた人数 × その人の単価（自動・利益管理に反映）。`:''}紹介数＝生徒・見込み客の「紹介者」欄にこの名前が入っている人数（自動）。${t==='candidates'?'候補の詳細から「キーマンに昇格」でキーマンへ移せます。':''}</p>`;
+      ${rows.length?rows.map(x=>`<tr class="row" onclick="openMk('${t}','${x.id}')"><td><span class="nm">${esc(x.name)}</span></td>${km?`<td><span class="badge ${x.owner===KEYMAN_OWNERS[0]?'b-blue':'b-pause'}">${esc(x.owner||'未設定')}</span></td>`:''}<td>${esc(x.industry)||'—'}</td><td class="r num">${referCount(x.name)}名</td>${t==='support'?`<td class="r num"><b>${yen(rfMemberRow(x.name)?.fee)}</b><small>在籍 ${rfMemberRow(x.name)?.count||0}人${rfMemberRow(x.name)?.fee&&!rfMemberRow(x.name)?.payable?'・未承認':''}</small></td>`:''}<td class="num">${fmtDate(x.addedAt)}</td><td class="wrap" style="color:var(--muted);max-width:320px">${esc((x.note||'').slice(0,60))}</td><td class="r" style="width:40px"><button class="icon-btn" title="削除" onclick="event.stopPropagation();delMkRow('${t}','${x.id}')">🗑</button></td></tr>`).join(''):`<tr><td colspan="8"><div class="empty">まだ登録がありません</div></td></tr>`}
+    </tbody></table></div><p class="hint" style="margin-top:8px">${t==='support'?`今月の報酬は紹介FEEのルールで自動計算します（利益管理に反映）。`:''}紹介数＝生徒・見込み客の「紹介者」欄にこの名前が入っている人数（自動）。${t==='candidates'?'候補の詳細から「キーマンに昇格」でキーマンへ移せます。':''}${t==='keyman'?'在籍の紹介が6人以上になると、自動でサポートメンバーへ移ります。':''}</p>`;
   }
   if(t==='seminars'){
     const rows=[...M.seminars].sort((a,b)=>(b.date||'9999').localeCompare(a.date||'9999'));
@@ -1122,7 +1955,6 @@ function viewMarketing(){
 function openMk(key,id){
   MKD = id ? clone(S.marketing[key].find(x=>x.id===id)) : {addedAt:todayStr(), ...(key==='schools'?{status:'打診中'}:{}), ...(MK_OWNED.includes(key)?{owner:S.mkOwner||KEYMAN_OWNERS[0]}:{})};
   MKD._key=key;
-  if(key==='support' && !(MKD.fees||[]).length) MKD.fees=[{from:(MKD.addedAt||todayStr()).slice(0,7), amount:Number(S.master.supportFee)||0}];
   const x=MKD, f=(id,label,val,type='text',extra='')=>`<div class="fl"><label>${label}</label><input class="inp" id="mk-${id}" type="${type}" value="${esc(val??'')}" ${extra}></div>`;
   const title={candidates:'キーマン候補',support:'サポートメンバー',keyman:'キーマン',seminars:'セミナー',schools:'スクール提携'}[key];
   let fields='';
@@ -1133,8 +1965,7 @@ function openMk(key,id){
       <div class="fl"><label>業種</label><input class="inp" id="mk-industry" list="mk-ind" value="${esc(x.industry||'')}" placeholder="選択 or 入力"><datalist id="mk-ind">${S.master.industries.map(v=>`<option value="${esc(v)}">`).join('')}</datalist></div>
       ${f('addedAt','登録日',x.addedAt,'date')}
       <div class="fl"><label>紹介数（自動）</label><div class="inp num" style="background:var(--surface2);display:flex;align-items:center">${referCount(x.name)}名</div></div>
-      ${key==='support'?`<div class="fl w3"><label>報酬単価（紹介した生徒1人あたり・月額）</label><div id="mk-fees"></div></div>
-      <div class="fl w3"><label>登録前の紹介分</label><div id="mk-retro"></div></div>`:''}
+      ${key==='support'?`<div class="fl w3"><label>報酬</label><div class="hint" style="margin-top:0">紹介FEEのルールで自動計算します。承認や内訳は「紹介FEE管理」で確認できます。</div></div>`:''}
       <div class="fl w3"><label>備考</label><textarea class="inp" id="mk-note">${esc(x.note||'')}</textarea></div></div>`;
   }
   if(key==='seminars'){
@@ -1166,18 +1997,7 @@ function openMk(key,id){
     <div class="modal-b" style="padding-top:16px">${fields}</div>
     <div class="modal-f">${id?`<button class="btn danger" onclick="delMk()">削除</button>`:'<span></span>'}<div class="r">${key==='candidates'&&id?`<button class="btn accent" onclick="promoteMk()">キーマンに昇格 →</button>`:''}<button class="btn" onclick="closeMk()">キャンセル</button><button class="btn primary" onclick="saveMk()">保存</button></div></div>
   </div></div>`;
-  drawMkFees(); drawMkRetro();
   setTimeout(()=>document.querySelector('#modal-root input')?.focus(),30);
-}
-function drawMkFees(){
-  const el=document.getElementById('mk-fees'); if(!el) return;
-  el.innerHTML=MKD.fees.map((f,i)=>`<div class="pause-row"><input class="inp" type="month" value="${f.from||''}" onchange="MKD.fees[${i}].from=this.value"><span>から</span><input class="inp num" type="number" min="0" style="max-width:120px" value="${f.amount??''}" oninput="MKD.fees[${i}].amount=Number(this.value)||0"><span>円 ／ 人・月</span>${MKD.fees.length>1?`<button class="icon-btn" onclick="MKD.fees.splice(${i},1);drawMkFees()">✕</button>`:''}</div>`).join('')
-    +`<button class="btn sm" onclick="MKD.fees.push({from:curYM(),amount:MKD.fees[MKD.fees.length-1]?.amount||0});drawMkFees()">＋ 途中から金額を変える</button><div class="hint">金額が上がる月を追加すると、その月から新しい金額で計算します（それより前の月は元の金額のまま）。</div>`;
-}
-function drawMkRetro(){
-  const el=document.getElementById('mk-retro'); if(!el) return;
-  el.innerHTML=`<div class="seg">${[[false,'登録した月から払う'],[true,'遡って払う']].map(([v,l])=>`<button type="button" class="${!!MKD.retro===v?'on':''}" onclick="MKD.retro=${v};drawMkRetro()">${l}</button>`).join('')}</div>
-    <div class="hint">${MKD.retro?'サポートメンバーになる前に紹介した生徒の、過去の月の分も報酬に含めます。':`サポートメンバーに登録した月（${esc((MKD.addedAt||'').slice(0,7)||'—')}）以降の分だけ報酬を計算します。`}</div>`;
 }
 function mkSemState(){ const d=document.getElementById('mk-date').value; const done=!!d&&d<todayStr(); document.getElementById('mk-state').innerHTML=done?'<span class="badge b-on">完了</span>':d?'<span class="badge b-blue">予定</span>':'<span class="badge b-end">日程未定</span>'; }
 function closeMk(){ document.getElementById('modal-root').innerHTML=''; MKD=null; }
@@ -1189,17 +2009,6 @@ async function saveMk(){
   const note=document.getElementById('mk-note'); if(note) rec.note=note.value;
   if(key==='seminars' ? !rec.host : !rec.name) return toast(key==='seminars'?'セミナー先を入力してください':'名前を入力してください',true);
   const list=S.marketing[key];
-  if(key==='support'){
-    if(rec.fees.some(f=>!f.from)) return toast('報酬単価の開始月を入力してください',true);
-    const old=rec.id?list.find(x=>x.id===rec.id):null;
-    if(old){
-      const fy=fyOf(curYM()), ms=fyMonths(fy), tot=mem=>ms.reduce((a,m)=>a+supportPayout(mem,m).amt,0);
-      const rows=[], cm=curYM();
-      if(supportFeeAt(old,cm)!==supportFeeAt(rec,cm)) rows.push(['今月の単価（1人あたり）',yen(supportFeeAt(old,cm)),yen(supportFeeAt(rec,cm)),supportFeeAt(rec,cm)-supportFeeAt(old,cm)]);
-      const a=tot(old), b=tot(rec); if(a!==b) rows.push([`今期の報酬合計（${rec.name}さん）`,yen(a),yen(b),b-a],['今期の利益（2人合計）','',b>a?'減る':'増える',a-b],['1人あたりの取り分','',b>a?'減る':'増える',Math.round((a-b)/2)]);
-      if(rows.length && !(await confirmMoney(`${rec.name}さんの報酬設定の変更`,rows,'利益管理の「サポートメンバー報酬」と、岡部・石田の取り分に反映されます。'))) return;
-    }
-  }
   if(rec.id){ list[list.findIndex(x=>x.id===rec.id)]=rec; } else { rec.id=uid(); list.push(rec); }
   await run(()=>Store.saveSetting('marketing'),'保存しました'); closeMk(); render();
 }
@@ -1252,17 +2061,19 @@ function viewSettings(){
       <div class="hint" style="margin-bottom:8px">左から：期の名前 ／ 開講日 ／ 基本プラン</div>
       <div class="add-row"><input class="inp" id="add-cohorts" placeholder="例：${M.cohorts.length+1}期生" onkeydown="if(event.key==='Enter')addItem('cohorts')"><button class="btn primary" onclick="addItem('cohorts')">追加</button></div></div>
     ${listBlock('industries','業種','生徒の業種の選択肢。',M.industries,it=>all.filter(c=>c.industry===it).length)}
-    <div class="card" style="grid-column:1/-1"><h3>SSCスケジュール <small>東京校・大阪校の年間の回。オリエン・見込みの「体験日」で選べます</small></h3>
+    <div class="card" style="grid-column:1/-1"><h3>SSCスケジュール <small>東京校・大阪校の授業と飲み会。「授業」はオリエン・見込みの「体験日」で選べます</small></h3>
       <div class="grid two">${CAMPUSES.map(cp=>{ const list=sortedSchedule(cp); return `<div>
         <div style="font-weight:700;color:var(--heading);margin-bottom:8px">${cp} <small style="color:var(--muted);font-weight:400">${list.length}回</small></div>
         <div class="set-list" style="max-height:360px;overflow:auto">${list.map(x=>`<div class="set-item ${x.date<todayStr()?'arch':''}">
+          <select class="inp" style="flex:.7" onchange="setSched('${x.id}','type',this.value)"><option value="class">授業</option><option value="closed" ${x.type==='closed'?'selected':''}>授業（体験なし）</option><option value="party" ${isParty(x)?'selected':''}>飲み会</option></select>
           <input class="inp" type="date" style="flex:1.3" value="${x.date}" onchange="setSched('${x.id}','date',this.value)">
           <input class="inp" style="flex:.8" value="${esc(x.time||'')}" placeholder="時間" onchange="setSched('${x.id}','time',this.value)">
           <input class="inp" style="flex:1.4" value="${esc(x.title||'')}" placeholder="内容（例：第3回）" onchange="setSched('${x.id}','title',this.value)">
-          <span class="cnt">体験${trialsOf(x.id).length}</span>
+          ${noTrialEvent(x)?'':`<span class="cnt">体験${trialsOf(x.id).length}</span>`}
           <button class="icon-btn" title="削除" onclick="delSched('${x.id}')">✕</button></div>`).join('')||'<div class="empty">まだありません</div>'}</div>
         <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px">
           <div class="add-row" style="flex-wrap:wrap">
+            <select class="inp" id="sc-type-${cp}" style="flex:0 1 90px"><option value="class">授業</option><option value="closed">授業（体験なし）</option><option value="party">飲み会</option></select>
             <input class="inp" type="date" id="sc-date-${cp}" style="flex:1 1 140px">
             <input class="inp" id="sc-time-${cp}" placeholder="16:00〜18:00" style="flex:1 1 110px">
             <input class="inp" id="sc-title-${cp}" placeholder="内容（任意）" style="flex:1 1 120px">
@@ -1276,8 +2087,8 @@ function viewSettings(){
           <textarea class="inp" id="sc-bulk-${cp}" style="margin-top:6px;min-height:120px;font-size:13px" placeholder="1行に1回。例：&#10;9/10 19:30〜21:30 営業課題壁打ち会（オンライン）&#10;2026/9/28 19:30〜21:30 90日目標設定会"></textarea>
           <button class="btn sm primary" style="margin-top:6px" onclick="bulkSched('${cp}')">この内容で登録</button></details></div>`; }).join('')}</div></div>
     ${listBlock('sources','流入経路','どこから来たか（紹介・SNSなど）。紹介者とは別に集計できます。',M.sources,it=>all.filter(c=>c.source===it).length)}
-    <div class="card"><h3>サポートメンバー報酬</h3><p class="hint" style="margin:-6px 0 12px">紹介した生徒が在籍している間、1人につき毎月支払う金額。利益管理で経費と一緒に差し引かれます。</p>
-      <div class="add-row" style="align-items:center"><input class="inp num" type="number" min="0" style="max-width:160px" value="${M.supportFee??5000}" onchange="S.master.supportFee=Number(this.value)||0;saveMaster()"><span style="color:var(--muted)">円 ／ 人・月</span></div></div>
+    <div class="card"><h3>場所の自動読み取り</h3><p class="hint" style="margin:-6px 0 12px">場所候補で予約リンクを入れたときに、収容人数・料金・最寄駅を読み取るためのApps ScriptのURL（…/exec）。</p>
+      <input class="inp" value="${esc(M.venueApi||'')}" placeholder="https://script.google.com/macros/s/…/exec" onchange="S.master.venueApi=this.value.trim();saveMaster()"></div>
     <div class="card"><h3>料金プラン</h3><p class="hint" style="margin:-6px 0 12px">ここに登録した料金が、生徒登録のプルダウンに出ます。各欄の一番上が新規登録時の初期値（期生にプランがあればそちら優先）。金額を変えても、登録済みの生徒の金額はそのままです。</p>
       ${PLAN_TYPES.map(([t,l,sub])=>`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--heading);margin-bottom:6px">${l} <span style="font-weight:400;color:var(--faint)">${sub}</span></div>
         <div class="set-list">${M.plans[t].map((p,i)=>`<div class="set-item">
@@ -1309,7 +2120,7 @@ function addSched(cp){
   for(let i=0;i<n;i++){
     const t=new Date(base); if(rep==='m') t.setMonth(t.getMonth()+i); else t.setDate(t.getDate()+i*Number(rep));
     const ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
-    out.push({id:uid(),campus:cp,date:ds,time:g('time'),title:g('title')});
+    out.push({id:uid(),campus:cp,date:ds,time:g('time'),title:g('title'),type:g('type')});
   }
   S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); toast(`${cp}に${out.length}回追加しました`); render();
 }
@@ -1323,14 +2134,17 @@ function bulkSched(cp){
     let rest=m[4]||'', time='';
     const t=rest.match(/^(\d{1,2}:\d{2}(?:\s*[〜~\-－–]\s*\d{1,2}:\d{2})?)\s*[|｜]?\s*/);
     if(t){ time=t[1].replace(/\s*[~\-－–]\s*/,'〜'); rest=rest.slice(t[0].length); }
-    out.push({id:uid(),campus:cp,date:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time,title:rest.trim()});
+    out.push({id:uid(),campus:cp,date:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time,title:rest.trim(),type:/飲み会|懇親会/.test(rest)?'party':'class'});
   });
   if(!out.length) return toast('読み取れる行がありませんでした',true);
   const dup=out.filter(x=>(S.master.schedule||[]).some(s=>s.campus===cp&&s.date===x.date));
   if(!confirm(`${cp}に ${out.length}回 を登録します。${dup.length?`\n（うち${dup.length}回は同じ日付がすでにあります）`:''}${bad.length?`\n読み取れなかった行：\n${bad.join('\n')}`:''}`)) return;
   S.master.schedule=[...(S.master.schedule||[]),...out]; saveMaster(); render();
 }
-function setSched(id,k,v){ const x=sessionOf(id); if(!x) return; x[k]=v.trim(); saveMaster();
+function setSched(id,k,v){ const x=sessionOf(id); if(!x) return;
+  if(k==='type' && v!=='class' && trialsOf(id).length){ toast('体験予定の人がいる回は変更できません',true); return render(); }
+  x[k]=v.trim(); saveMaster();
+  if(k==='type') return render();
   if(k==='date') S.customers.filter(c=>c.trialSession===id).forEach(c=>{ const cc=clone(c); cc.interviewDate=x.date; Store.saveCustomer(cc).catch(()=>{}); }); }
 function delSched(id){
   const x=sessionOf(id), n=trialsOf(id).length;
@@ -1368,7 +2182,7 @@ function deleteItem(key,i){
   S.master[key].splice(i,1); saveMaster(); render();
 }
 function backup(){
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),customers:S.customers,payments:S.payments,master:S.master,goals:S.goals,marketing:S.marketing,expenses:S.expenses,trainings:S.trainings,venues:S.venues},null,2)],{type:'application/json'})); a.download=`SSC_backup_${todayStr()}.json`; a.click();
 }
 
 // ===================== 生徒・見込みフォーム =====================
@@ -1389,14 +2203,14 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; D=nul
 function toEnroll(){
   readForm();
   const nr=newRecord('student');
-  D={...nr,...D,kind:'student',status:'契約中',stage:'入学',plan:nr.plan,cohort:D.cohort||nr.cohort,startDate:nr.startDate,payMethod:D.payMethod||nr.payMethod};
+  D={...nr,...D,kind:'student',status:'契約中',stage:'入学',plan:nr.plan,cohort:D.cohort||nr.cohort,campus:D.campus||sessionOf(D.trialSession)?.campus||'',startDate:nr.startDate,payMethod:D.payMethod||nr.payMethod};
   D._enrolling=true; drawForm(); toast('契約内容を入力して保存してください');
 }
 function drawForm(){
   const isLead=D.kind==='lead', M=S.master, c=D;
   const sel=(id,arr,cur,blank)=>`<select class="inp" id="${id}">${blank!=null?`<option value="">${blank}</option>`:''}${arr.map(x=>{const [v,l]=Array.isArray(x)?x:[x,x];return `<option value="${esc(v)}" ${String(v)===String(cur??'')?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;
   const txt=(id,v,ph='',type='text',extra='')=>`<input class="inp" id="${id}" type="${type}" value="${esc(v??'')}" placeholder="${ph}" ${extra}>`;
-  const names=[...new Set([...S.marketing.support,...S.marketing.keyman].map(x=>x.name).concat(S.customers.filter(x=>x.id!==c.id).map(x=>x.name)).filter(Boolean))];
+  const names=[...new Set([...S.referral.referrers,...S.marketing.support,...S.marketing.keyman].map(x=>x.name).concat(S.customers.filter(x=>x.id!==c.id).map(x=>x.name)).filter(Boolean))];
   const referred = c.id ? S.customers.filter(x=>x.id!==c.id && x.referrer && x.referrer===c.name) : [];
   const sources = c.source && !M.sources.includes(c.source) ? [...M.sources,c.source] : M.sources;
   let summary='';
@@ -1416,7 +2230,7 @@ function drawForm(){
       ${summary}
       ${isLead?`<div class="sec"><div class="sec-t">オリエンテーション</div><div class="fg">
         <div class="fl"><label>ステージ</label><select class="inp" id="f-stage"><option value="" ${c.stage!=='見送り'?'selected':''}>自動（日付で判定）：${autoStage(c)}</option><option value="見送り" ${c.stage==='見送り'?'selected':''}>見送り</option></select><div class="hint">オリエン日→面談予定、体験日→体験予定に自動で進みます</div></div>
-        <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}<div class="hint">空のままなら「日程未定」</div></div>
+        <div class="fl"><label>オリエン日</label>${txt('f-orientDate',c.orientDate,'','date')}<div class="hint">オリエンをしない人は空のままでOK</div></div>
         <div class="fl"><label>時間</label>${txt('f-orientTime',c.orientTime,'例：19:00')}</div>
         <div class="fl w2"><label>体験日（SSCの回）</label>${trialSelect(c)}<div class="hint">回の追加は 設定 → SSCスケジュール</div></div>
       </div></div>`:''}
@@ -1432,6 +2246,7 @@ function drawForm(){
         <div class="fl w2"><label>メール</label>${txt('f-email',c.email,'','email')}</div>
       </div></div>
       ${!isLead?`<div class="sec"><div class="sec-t">所属</div><div class="fg">
+        <div class="fl"><label>所属校</label>${sel('f-campus',CAMPUSES,c.campus,'未設定')}</div>
         <div class="fl"><label>期生</label>${sel('f-cohort',M.cohorts.map(k=>[k.id,k.name]),c.cohort,'—')}</div>
         <div class="fl w2"><label>部活動（複数可）</label><div class="clubs" id="club-sels"></div></div>
       </div></div>
@@ -1444,11 +2259,12 @@ function drawForm(){
         <div class="fl"><label>入学金</label>${planSel('entry',c.plan.entryFee?c.plan.entryId:null,c.plan.entryFee,true)}</div>
         <div class="fl"><label>月額合計</label><div class="inp num" id="f-total" style="background:var(--surface2);display:flex;align-items:center;font-weight:700"></div></div>
         <div class="fl"><label>支払方法</label>${sel('f-payMethod',PAY_METHODS,c.payMethod)}</div>
+        <div class="fl w3"><label class="cbox ${c.noSales?'on':''}" style="margin:0"><input type="checkbox" id="f-noSales" ${c.noSales?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> 売上に含めない（旧ラボからの移行など。請求・入金・売上の集計から外れます）</label></div>
         <div class="fl w2"><label>休止期間</label><div id="pause-rows"></div></div>
       </div><div id="status-warn"></div></div>
       <div class="sec"><div class="sec-t">手続き</div><div class="checkrow">${CHECKS.map(([k,l])=>`<label class="cbox ${c.checks[k]?'on':''}"><input type="checkbox" id="f-ck-${k}" ${c.checks[k]?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> ${l}</label>`).join('')}</div></div>`:''}
       <div class="sec"><div class="sec-t">紹介・流入</div><div class="fg">
-        <div class="fl"><label>紹介者</label><input class="inp" id="f-referrer" list="ref-list" value="${esc(c.referrer||'')}" placeholder="名前を入力（生徒から候補表示）"><datalist id="ref-list">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+        <div class="fl"><label>紹介者</label><input class="inp" id="f-referrer" list="ref-list" value="${esc(c.referrer||'')}" placeholder="名前を入力（生徒から候補表示）" ${S.admin==='no'?'disabled':''}><datalist id="ref-list">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>${S.admin==='no'?'<div class="hint">紹介者を変更できるのは管理者だけです</div>':''}</div>
         <div class="fl"><label>流入経路</label>${sel('f-source',sources,c.source,'—')}</div>
       </div></div>
       <div class="sec"><div class="sec-t">備考</div><textarea class="inp" id="f-note" placeholder="目標、悩み、面談メモなど">${esc(c.note||'')}</textarea></div>
@@ -1471,7 +2287,7 @@ function trialSelect(c){
   const today=todayStr(), cur=c.trialSession||'';
   const legacy=!cur && c.interviewDate;
   const groups=CAMPUSES.map(cp=>{
-    const list=sortedSchedule(cp).filter(x=>x.date>=today || x.id===cur);
+    const list=classSchedule(cp).filter(x=>x.date>=today || x.id===cur);
     return list.length?`<optgroup label="${cp}">${list.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(sessionLabel(x))}（体験 ${trialsOf(x.id).filter(t=>t.id!==c.id).length}名）</option>`).join('')}</optgroup>`:'';
   }).join('');
   return `<select class="inp" id="f-trialSession"><option value="">未定</option>${legacy?`<option value="__legacy__" selected>${fmtDate(c.interviewDate)}（スケジュール外）</option>`:''}${groups}</select>`;
@@ -1584,9 +2400,10 @@ function onStatus(){
 function readForm(){
   const v=id=>{const e=document.getElementById(id); return e?e.value.trim():undefined;};
   const set=(k,val)=>{ if(val!==undefined) D[k]=val; };
-  ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
+  ['name','kana','gender','company','industry','jobTitle','age','experience','email','referrer','source','note','stage','orientDate','orientTime','interviewDate','campus','cohort','status','startDate','endDate','payMethod'].forEach(k=>set(k,v('f-'+k)));
   if(document.getElementById('f-plan-base')){ const b=readPlan('base'),o=readPlan('option'),e=readPlan('entry');
     D.plan={baseId:b.id,baseName:b.name,base:b.amount,advisor:o.on,optId:o.id,optName:o.name,advisorFee:o.amount,entryId:e.id,entryName:e.name,entryFee:e.amount}; }
+  const ns=document.getElementById('f-noSales'); if(ns) D.noSales=ns.checked;
   if(document.getElementById('f-ck-contract')) CHECKS.forEach(([k])=>D.checks[k]=document.getElementById('f-ck-'+k).checked);
   const ta=document.getElementById('f-note'); if(ta) D.note=ta.value;
   const ts=document.getElementById('f-trialSession');
@@ -1602,6 +2419,8 @@ async function saveForm(){
     if(D.status==='休止中' && !D.pauses.some(p=>!p.to || p.to>=curYM())) D.pauses.push({from:curYM(),to:''});
   }
   if(D.kind==='lead' && D.stage==='見送り' && byId(D.id)?.stage!=='見送り') D.lostAt=STAGES.indexOf(autoStage(D));
+  if(D.kind!=='lead' && !D.studentNo) D.studentNo=nextStudentNo();
+  if(rfAdmin() && !(await rfLinkCustomer(D))) return;
   const {_enrolling,...rec}=D; const wasEnroll=_enrolling;
   const old=rec.id && !wasEnroll ? byId(rec.id) : null;
   if(old && old.kind!=='lead' && rec.kind!=='lead'){
@@ -1612,15 +2431,18 @@ async function saveForm(){
     if((Number(old.plan?.entryFee)||0)!==(Number(rec.plan?.entryFee)||0)) rows.push(['入学金',yen(old.plan?.entryFee),yen(rec.plan?.entryFee),(Number(rec.plan?.entryFee)||0)-(Number(old.plan?.entryFee)||0)]);
     const a=billedTotal(old), b=billedTotal(rec); if(a!==b) rows.push(['累計売上（今月まで）',yen(a),yen(b),b-a]);
     const fa=fyB(old), fb=fyB(rec); if(fa!==fb) rows.push([`今期（${fy}/9〜${fy+1}/8）の請求見込み`,yen(fa),yen(fb),fb-fa]);
+    rows.push(...rfImpactRows(rec));
     const chg=ms.filter(m=>billOf(old,m)!==billOf(rec,m));
     if(rows.length && !(await confirmMoney(`${rec.name}さんの契約内容の変更`,rows,chg.length?`金額が変わる月：${mShort(chg[0])}${chg.length>1?'〜'+mShort(chg[chg.length-1]):''}（${chg.length}ヶ月）。入金済みの記録は変わりません。`:''))) return;
   }
   await run(()=>Store.saveCustomer(rec), wasEnroll?`${rec.name}さんを入学登録しました 🎉`:'保存しました');
+  if(rfAdmin()) await rfPromote();
   closeModal();
   if(wasEnroll){ S.view='students'; S.f.status='契約中'; }
   render();
 }
 async function delCustomer(){
+  if(D.kind!=='lead' && D.referrerId) return toast('紹介FEEの履歴があるので削除できません。退会なら「契約終了」にしてください',true);
   const n=D.name, paid=S.payments.filter(p=>p.customerId===D.id).length;
   if(!confirm(`「${n}」を削除しますか？${paid?`\n入金記録 ${paid}件も一緒に削除されます。`:''}\n\n※契約が終わった人は削除せず「契約終了」にすると売上履歴が残ります。`)) return;
   await run(()=>Store.deleteCustomer(D.id),'削除しました'); closeModal(); render();
@@ -1644,7 +2466,11 @@ function demoSeed(){
     {kind:'lead',id:uid(),name:'中村 彩',gender:'女性',industry:'人材',stage:'選考・面接',orientDate:'2026-09-20',source:'Instagram',checks:{},clubs:[],pauses:[]},
     {kind:'lead',id:uid(),name:'小林 誠',gender:'男性',industry:'金融',stage:'オリエン予約',orientDate:'2026-10-03',orientTime:'20:00',source:'X',checks:{},clubs:[],pauses:[]},
   ];
+  const rfDemo=(ref,n)=>{ for(let i=1;i<=n;i++) cs.push(mk({name:`${ref[0]}紹介 生徒${String(i).padStart(2,'0')}`,industry:'保険',cohort:'k1',status:'契約中',startDate:'2026-06-01',referrer:ref,source:'紹介'})); };
+  rfDemo('Aさん',17); rfDemo('Bさん',14); rfDemo('Cさん',5); rfDemo('Dさん',7); rfDemo('Eさん',5);
+  cs.push(mk({name:'A紹介 退会者',industry:'保険',cohort:'k1',status:'契約終了',startDate:'2026-06-01',endDate:'2026-09-30',referrer:'Aさん',source:'紹介'}));
   const ps=[];
+  cs.filter(c=>c.kind==='student').forEach((c,i)=>{ if(i%6) c.campus=i%3?'東京校':'大阪校'; });
   cs.filter(c=>c.kind==='student').forEach(c=>{ for(let m=c.startDate.slice(0,7); m<curYM(); m=addM(m,1)){ const b=billOf(c,m); if(b) ps.push({id:uid(),customerId:c.id,month:m,amount:b,date:m+'-27',method:c.payMethod}); } });
   const goals={}; fyMonths(fyOf(curYM())).forEach((m,i)=>goals[m]={enroll:2+Math.floor(i/4),...(i===0?{price:22000,rate:30}:{}),...(i===6?{price:33000}:{}),keyman:3,seminar:1});
   const marketing={
@@ -1653,10 +2479,24 @@ function demoSeed(){
     seminars:[{id:uid(),host:'〇〇生命 営業部',date:'2026-09-20',time:'19:00〜20:30',attendees:15,consultGoal:5,consultResult:4,contracts:1},{id:uid(),host:'△△不動産',date:'2026-10-28',time:'18:00〜',consultGoal:4}],
     schools:[{id:uid(),name:'□□ビジネススクール',contact:'田中様',status:'交渉中',addedAt:'2026-09-15'}],
   };
+  marketing.keyman.push({id:uid(),name:'Eさん',owner:'岡部 真',industry:'保険',addedAt:'2026-10-01'});
   marketing.candidates=[{id:uid(),name:'村上 亮',owner:'岡部 真',industry:'不動産賃貸',addedAt:'2026-10-05',note:'経営者仲間が多い'}];
   const m0=addM(curYM(),-1);
   const expenses=[{id:uid(),date:m0+'-05',month:m0,payer:'岡部 真',category:'広告費',item:'Instagram広告',amount:30000},{id:uid(),date:m0+'-18',month:m0,payer:'石田 雄太',category:'会場費',item:'セミナー会場',amount:15000},{id:uid(),date:curYM()+'-03',month:curYM(),payer:'石田 雄太',category:'交通費',item:'打ち合わせ',amount:2400}];
-  return {customers:cs,payments:ps,master:M,goals,marketing,expenses};
+  const dAt=n=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const ev=(i,campus,n,title,type='class')=>({id:'ev'+i,campus,date:dAt(n),time:type==='party'?'19:00〜':'19:30〜21:30',title,type});
+  M.schedule=[ev(0,'東京校',-5,'振り返り会'),ev(1,'東京校',5,'紹介の角度を上げる会'),ev(2,'大阪校',8,'営業力UP実践会'),ev(3,'東京校',12,'東京校 交流飲み会','party'),ev(4,'大阪校',30,'戦略シナジーMTG')];
+  const lead0=cs.find(c=>c.kind==='lead'); lead0.trialSession='ev1'; lead0.interviewDate=M.schedule[1].date;
+  const pick=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,5), ans={}; pick.slice(0,4).forEach((c,i)=>{ ans[c.id]={at:'2026-11-01T00:00:00Z',no:c.studentNo||'',a:{ev1:i===3?'欠席':'出席',ev2:'欠席',ev3:i%2?'出席':'欠席',ev4:'出席'}}; });
+  const attendance={rounds:[{id:'rd1',title:'出欠（デモ）',from:dAt(-1),to:dAt(90),eventIds:['ev1','ev2','ev3','ev4'],createdAt:'2026-11-01T00:00:00Z'}]};
+  const attendanceData={forms:{rd1:{formUrl:'https://forms.gle/demo'}},answers:{rd1:ans}};
+  const svAns=(c,i,bump)=>({at:`2026-${bump?'11':'08'}-0${(i%8)+1}T09:00:00Z`,cid:c?c.id:'',no:c?.studentNo||'',name:c?.name||'',a:{q1:3+(i+bump)%3,q2:4,q3:3+i%3,q4:2+(i+bump)%4,q5:4+bump%2,q6:i%3?'はい':'いいえ',q7:'はい',q8:3+i%3,q9:(i+bump)%2?'はい':'いいえ',q10:i%4===0?'成果を共有していない':4+i%2,q11:5,q12:4,q13:i%2?'はい':'いいえ',q22:(i+bump)%3?'はい':'いいえ',q14:3+(i+bump)%3,q15:i%2?'仲間と本音で話せるのが良いです':'',q16:6+(i+bump*2)%5,q17:'',q18:i===1?'紹介営業の実践会':'',q19:i===2?'開催日を早めに知りたい':'',q20:4+i%2,q21:i%2?['本音で話せる仲間','営業スキルの向上']:['紹介・協業の機会']}});
+  const svS=cs.filter(c=>c.kind==='student'&&c.status==='契約中').slice(0,6);
+  const survey={rounds:[{id:'sv1',title:'2026年8月アンケート',from:'2026-08-01',to:'2026-08-15',questions:SV_QUESTIONS,createdAt:'2026-08-01T00:00:00Z'},{id:'sv2',title:'2026年11月アンケート',from:dAt(-3),to:dAt(10),questions:SV_QUESTIONS,createdAt:'2026-11-01T00:00:00Z'}]};
+  const surveyData={forms:{sv1:{formUrl:'https://forms.gle/demo',closed:true},sv2:{formUrl:'https://forms.gle/demo'}},answers:{sv1:svS.map((c,i)=>svAns(i<3?c:null,i,0)),sv2:svS.map((c,i)=>svAns(i<4?c:null,i,1))}};
+  const appr=n=>({id:uid(),name:n,approved:true,approvedAt:'2026-06-01',payable:true,note:'',createdAt:'2026-06-01'});
+  const trainings=[{id:uid(),company:'株式会社サンプル商事',title:'新人営業研修（2日間）',date:m0+'-12',month:m0,amount:330000,paidDate:'',note:''}];
+  return {customers:cs,payments:ps,master:M,goals,marketing,expenses,trainings,referral:{referrers:[appr('Aさん'),appr('Bさん'),appr('Cさん')],months:{},baseDay:'end',log:[]},attendance,attendanceData,survey,surveyData};
 }
 
 init();
