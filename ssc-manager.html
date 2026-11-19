@@ -1340,30 +1340,32 @@ const svNums = (list,q) => list.map(x=>x.a?.[q]).filter(v=>typeof v==='number');
 function svMean(list,qs){ const v=qs.flatMap(q=>svNums(list,q)); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:null; }
 function svYes(list,q){ const v=list.map(x=>x.a?.[q]).filter(a=>a==='はい'||a==='いいえ'); return v.length?Math.round(v.filter(a=>a==='はい').length/v.length*100):null; }
 // 紹介意向スコア（NPS）＝ 9〜10点の割合 − 0〜6点の割合
+// 肯定回答率＝5段階で4以上をつけた人の割合
+function svAgree(list,q){ const v=svNums(list,q); return v.length?Math.round(v.filter(n=>n>=4).length/v.length*100):null; }
 function svNps(list,q){ const v=svNums(list,q); return v.length?Math.round((v.filter(n=>n>=9).length-v.filter(n=>n<=6).length)/v.length*100):null; }
 function svIndicators(list){
-  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),contrib:svMean(list,['q10','q11','q12']),contribYes:svYes(list,'q13'),meet:svYes(list,'q22'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
+  return {honest:svMean(list,['q1','q2','q3','q4']),challenge:svMean(list,['q5']),challengeYes:svYes(list,'q9'),altruism:svAgree(list,'q23'),altruismAct:svAgree(list,'q24'),learn:svAgree(list,'q12'),contribYes:svYes(list,'q13'),meet:svYes(list,'q22'),sat:svMean(list,['q14']),nps:svNps(list,'q16'),cont:svMean(list,['q20'])};
 }
 // #endregion survey-core
 
 const SV_AGREE=['全くそう思わない','とてもそう思う'];
-const SV_SECS={A:'本音で向き合う',B:'挑戦を讃える',C:'仲間を勝たせる',D:'満足度・継続意向'};
+const SV_SECS={A:'本音で向き合う',B:'挑戦を讃える',C:'利他の精神を持つ',D:'満足度・継続意向'};
 // 質問は回を作るときに回の中へ写す（文言を変えても過去の回は変わらない）
 const SV_QUESTIONS=[
   {id:'q1',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCには、他では話しにくい自分の理想や悩みを安心して話せる相手がいる'},
   {id:'q2',sec:'A',type:'scale',labels:SV_AGREE,text:'SSCでは、営業実績や経験年数に関係なく、対等に意見を交わせている'},
   {id:'q3',sec:'A',type:'scale',labels:SV_AGREE,text:'仕事や人生で困ったとき、相談・協力をお願いできるSSCの仲間がいる'},
   {id:'q4',sec:'A',type:'scale',labels:SV_AGREE,text:'授業以外でも、本音で話せるSSCの仲間がいる'},
+  {id:'q22',sec:'A',type:'yesno',text:'過去3か月で、SSCの授業や公式の飲み会以外で、SSCの仲間と接点があった（会う、交流、協業のMTGなど。オンラインMTGは含み、LINEなどのやり取りだけは含まない）'},
   {id:'q5',sec:'B',type:'scale',labels:SV_AGREE,text:'SSCでは、成果の大小に関係なく、自分の挑戦を仲間に認めてもらえている'},
   {id:'q6',sec:'B',type:'yesno',text:'自分の人生GOALを明確に説明できる'},
   {id:'q7',sec:'B',type:'yesno',text:'自分の直近のGOALを明確に説明できる'},
   {id:'q8',sec:'B',type:'scale',labels:SV_AGREE,text:'うまくいかなかったことを振り返り、次に取る行動を決めている'},
   {id:'q9',sec:'B',type:'yesno',text:'過去3か月で、SSCの仲間の挑戦に刺激を受け、自分も新しい挑戦をした'},
-  {id:'q10',sec:'C',type:'scale',labels:SV_AGREE,extra:'成果を共有していない',text:'SSCで共有した自分の成果を、仲間が自分のことのように喜んでくれた'},
-  {id:'q11',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCの仲間を本気で勝たせたいと思っている'},
+  {id:'q23',sec:'C',type:'scale',labels:SV_AGREE,text:'「目の前の人に貢献しよう」「目の前の人を勝たせよう」と思える'},
+  {id:'q24',sec:'C',type:'scale',labels:SV_AGREE,text:'相手を想った連絡やアポイントができている'},
   {id:'q12',sec:'C',type:'scale',labels:SV_AGREE,text:'SSCでは、自分と実績や経験の異なる仲間からも学びを得られている'},
   {id:'q13',sec:'C',type:'yesno',text:'過去3か月で、SSCの仲間と紹介や協業について具体的に相談したことがある'},
-  {id:'q22',sec:'C',type:'yesno',text:'過去3か月で、SSCの授業や公式の飲み会以外で、SSCの仲間と接点があった（会う、交流、協業のMTGなど。オンラインMTGは含み、LINEなどのやり取りだけは含まない）'},
   {id:'q14',sec:'D',type:'scale',labels:['とても不満','とても満足'],text:'現在のSSCにどのくらい満足していますか？'},
   {id:'q15',sec:'D',type:'text',text:'その満足度をつけた理由を教えてください'},
   {id:'q16',sec:'D',type:'nps',labels:['全く紹介したくない','ぜひ紹介したい'],text:'SSCを友人や知人にどのくらい紹介したいと思いますか？'},
@@ -1436,13 +1438,14 @@ function viewSurvey(){
   ${tooFew?`<div class="card" style="margin:14px 0"><div class="empty">${esc(C)}の回答は${list.length}件です。誰の回答か分からないよう、${SV_MIN_N}件未満の校は校別の結果を表示しません（全体の集計には入っています）。</div></div>`:`<div class="grid kpis">
     ${tile('本音で話せる関係',`${svFmt(I.honest)}<small>/5</small>`,delta('honest'))}
     ${tile('挑戦の連鎖',`${svFmt(I.challenge)}<small>/5</small>`,`新しい挑戦をした ${svFmt(I.challengeYes,'%')}${delta('challenge')?` ・ ${delta('challenge')}`:''}`)}
-    ${tile('仲間への貢献',`${svFmt(I.contrib)}<small>/5</small>`,`紹介・協業の相談 ${svFmt(I.contribYes,'%')}${delta('contrib')?` ・ ${delta('contrib')}`:''}`)}
+    ${tile('利他の精神',svFmt(I.altruism,'%'),`貢献しよう・勝たせようと思える（目標80%）・ 相手を想った行動 ${svFmt(I.altruismAct,'%')}${delta('altruism')?` ・ ${delta('altruism')}`:''}`)}
+    ${tile('学び合い・協業',svFmt(I.learn,'%'),`経験の違う仲間から学べた（目標80%）・ 紹介・協業の相談 ${svFmt(I.contribYes,'%')}（目標30%）`)}
     ${tile('自主交流',svFmt(I.meet,'%'),`授業・公式の飲み会以外で接点があった人${delta('meet')?` ・ ${delta('meet')}`:''}`)}
     ${tile('満足度',`${svFmt(I.sat)}<small>/5</small>`,`紹介意向 NPS ${svFmt(I.nps)}${delta('sat')?` ・ ${delta('sat')}`:''}`)}
     ${tile('継続意向',`${svFmt(I.cont)}<small>/5</small>`,delta('cont'))}
   </div>`}
-  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">貢献</th><th class="r">交流</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
-    <tbody>${[...rounds].reverse().map(x=>{ const L=svShown(x.id), J=svTooFew(L,C)?{}:svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.contrib)}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
+  ${rounds.length>1?`<div class="card" style="margin-bottom:14px"><h3>回ごとの推移</h3><div class="tbl-wrap" style="border:0"><table><thead><tr><th>回</th><th class="r">回答</th><th class="r">本音</th><th class="r">挑戦</th><th class="r">利他</th><th class="r">交流</th><th class="r">満足</th><th class="r">NPS</th><th class="r">継続</th></tr></thead>
+    <tbody>${[...rounds].reverse().map(x=>{ const L=svShown(x.id), J=svTooFew(L,C)?{}:svIndicators(L); return `<tr class="row" onclick="S.svRound='${x.id}';render()" style="${x.id===r.id?'background:var(--blue-soft)':''}"><td><b>${esc(x.title)}</b></td><td class="r num">${L.length}</td><td class="r num">${svFmt(J.honest)}</td><td class="r num">${svFmt(J.challenge)}</td><td class="r num">${svFmt(J.altruism,'%')}</td><td class="r num">${svFmt(J.meet,'%')}</td><td class="r num">${svFmt(J.sat)}</td><td class="r num">${svFmt(J.nps)}</td><td class="r num">${svFmt(J.cont)}</td></tr>`; }).join('')}</tbody></table></div></div>`:''}
   ${tooFew?'':`<div class="card" style="margin-bottom:14px"><h3>回答者ごとの回答 <small>行を押すと全問の回答が見られます</small></h3>
     ${list.length?`<div class="tbl-wrap" style="border:0"><table><thead><tr><th>名前</th><th>回答日時</th><th class="r">満足</th><th class="r">紹介</th><th class="r">継続</th></tr></thead><tbody>
       ${list.map((x,i)=>`<tr class="row" onclick="svOpenAnswer('${r.id}',${i})"><td><span class="nm">${esc(svName(x))}</span></td><td class="num">${esc(fmtDT(x.at))}</td><td class="r num">${svFmt(x.a?.q14)}</td><td class="r num">${svFmt(x.a?.q16)}</td><td class="r num">${svFmt(x.a?.q20)}</td></tr>`).join('')}
