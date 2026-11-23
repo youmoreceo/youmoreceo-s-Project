@@ -2309,21 +2309,31 @@ function pickIndustry(){
 
 // ふりがな自動入力：氏名の漢字から辞書（kuromoji）で読みを推測して入れる
 // ふりがな欄を直接書き換えたら、それ以降は自動で上書きしない（空にすると自動に戻る）
-let _kanaTk=null, _kanaP=null;
+// 辞書の読み込みと展開は重く、遅いPCだと画面が固まる（「ページが応答していません」）ので、裏側（Web Worker）で動かす
+let _kanaP=null, _kanaSeq=0, _kanaReady=false;
+const _kanaCb={};
 function loadKanaDict(){
   if(_kanaP) return _kanaP;
   const base='https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/';
+  const src=`importScripts('${base}build/kuromoji.js');
+let tk=null;
+kuromoji.builder({dicPath:'${base}dict/'}).build(function(e,t){ if(e) postMessage({err:String(e)}); else { tk=t; postMessage({ready:1}); } });
+function hira(s){ return s.replace(/[ァ-ヶ]/g,function(c){ return String.fromCharCode(c.charCodeAt(0)-0x60); }); }
+onmessage=function(ev){ var d=ev.data, kana='';
+  try{ kana=d.name.trim().split(/[\\s　]+/).map(function(p){ return hira(tk.tokenize(p).map(function(x){ return x.reading&&x.reading!=='*'?x.reading:x.surface_form; }).join('')); }).join(' '); }catch(e){}
+  postMessage({id:d.id,kana:kana}); };`;
   _kanaP=new Promise((res,rej)=>{
-    const go=()=>kuromoji.builder({dicPath:base+'dict/'}).build((e,t)=>e?rej(e):res(_kanaTk=t));
-    if(window.kuromoji) return go();
-    const sc=document.createElement('script'); sc.src=base+'build/kuromoji.js'; sc.onload=go; sc.onerror=rej; document.head.appendChild(sc);
+    let w;
+    try{ w=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'}))); }catch(e){ return rej(e); }
+    w.onmessage=ev=>{ const d=ev.data;
+      if(d.ready) res(w);
+      else if(d.err){ w.terminate(); rej(new Error(d.err)); }
+      else if(_kanaCb[d.id]){ _kanaCb[d.id](d.kana); delete _kanaCb[d.id]; } };
+    w.onerror=e=>{ w.terminate(); rej(e); };
   }).catch(e=>{ _kanaP=null; throw e; });
   return _kanaP;
 }
-function guessKana(name){
-  const toHira=t=>t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
-  return name.trim().split(/[\s　]+/).map(part=>toHira(_kanaTk.tokenize(part).map(x=>x.reading&&x.reading!=='*'?x.reading:x.surface_form).join(''))).join(' ');
-}
+function guessKana(name){ return loadKanaDict().then(w=>new Promise(res=>{ const id=++_kanaSeq; _kanaCb[id]=res; w.postMessage({id,name}); })); }
 function setupAutoKana(){
   const name=document.getElementById('f-name'), kana=document.getElementById('f-kana'), hint=document.getElementById('kana-hint');
   if(!name||!kana) return;
@@ -2332,8 +2342,9 @@ function setupAutoKana(){
   const fill=()=>{
     if(!auto) return;
     if(!name.value.trim()){ kana.value=''; return; }
-    if(!_kanaTk) show('読みの辞書を読み込み中…');
-    loadKanaDict().then(()=>{ if(auto){ kana.value=guessKana(name.value); show(); } })
+    const v=name.value, ready=!!_kanaReady;
+    if(!ready) show('読みの辞書を読み込み中…（入力はそのまま続けられます）');
+    guessKana(v).then(k=>{ _kanaReady=true; if(auto && name.value===v && k){ kana.value=k; show(); } })
       .catch(()=>show('読みの推測を読み込めませんでした（手入力してください）'));
   };
   name.addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(fill,250); });
