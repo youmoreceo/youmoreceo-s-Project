@@ -356,7 +356,7 @@ const DEFAULT_MASTER = {
   schedule: [], // SSCの年間スケジュール [{id, campus, date, time, title}]
   plans: {
     base:   [{id:'pb1', name:'1期生特別価格', amount:22000}, {id:'pb2', name:'通常', amount:44000}],
-    option: [{id:'po1', name:'顧問', amount:55000}],
+    option: [],
     entry:  [],
   },
 };
@@ -418,7 +418,7 @@ const WD='日月火水木金土';
 const mdw = d => { const t=new Date(d+'T00:00:00'); return `${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})`; };
 const sessionOf = id => (S.master.schedule||[]).find(x=>x.id===id);
 const sessionLabel = x => `${x.campus} ${mdw(x.date)}${x.time?' '+x.time:''}${x.title?' '+x.title:''}`;
-const trialsOf = id => S.customers.filter(c=>c.trialSession===id && stageOf(c)!=='見送り');
+const trialsOf = id => S.customers.filter(c=>c.trialSession===id && c.kind==='lead' && stageOf(c)!=='見送り');
 const sortedSchedule = campus => [...(S.master.schedule||[])].filter(x=>!campus||x.campus===campus).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
 const PLAN_TYPES = [['base','基本プラン','月額'],['option','オプション','月額・任意'],['entry','入学金','初月のみ・任意']];
 // 期生に紐づくプラン → なければ基本プランの一番上
@@ -434,10 +434,12 @@ const optLabel = p => p?.optName || 'オプション';
 function monthlyFee(c){ if(c.noSales) return 0; const p=c.plan||{}; return (Number(p.base)||0) + (p.advisor ? (Number(p.advisorFee)||0) : 0); }
 function isPaused(c,ym){ return (c.pauses||[]).some(p=>p.from && ym>=p.from && (!p.to || ym<=p.to)); }
 function endYM(c){ return c.endDate ? c.endDate.slice(0,7) : null; }
+// 引き落としは入会した月の次の月から（入学金も最初の引き落とし月）。退会した月で終わり
+const firstBillYM = c => c.startDate ? addM(c.startDate.slice(0,7),1) : '';
 // その月の請求見込み額
 function billOf(c,ym){
   if(c.kind==='lead' || !c.startDate || c.noSales) return 0;
-  const s=c.startDate.slice(0,7), e=endYM(c);
+  const s=firstBillYM(c), e=endYM(c);
   if(ym<s || (e && ym>e)) return 0;
   if(isPaused(c,ym)) return 0;
   return monthlyFee(c) + (ym===s ? (Number(c.plan?.entryFee)||0) : 0);
@@ -897,7 +899,7 @@ function viewPay(){
   ${rows.filter(r=>r.paid<r.bill).length>1?`<div style="margin-bottom:10px;text-align:right"><button class="btn sm" onclick="payAll()">未入金をまとめて「入金済」にする</button></div>`:''}
   <div class="tbl-wrap"><table>
     <thead><tr><th style="width:56px;text-align:center">確認</th><th>氏名</th><th>期生</th><th>内訳</th><th class="r">請求見込み</th><th class="r">入金額</th><th>状態</th><th>入金記録</th><th></th></tr></thead>
-    <tbody>${rows.length?rows.map(r=>{const [l,b]=st(r);const c=r.c;const s=c.startDate?.slice(0,7)===m;return `<tr>
+    <tbody>${rows.length?rows.map(r=>{const [l,b]=st(r);const c=r.c;const s=firstBillYM(c)===m;return `<tr>
       <td style="text-align:center">${r.bill?`<input type="checkbox" class="paycheck" ${r.paid>=r.bill?'checked':''} onchange="togglePaid('${c.id}',this.checked,this)" title="入金確認">`:''}</td>
       <td><span class="nm" style="cursor:pointer" onclick="openCustomer('${c.id}')">${esc(c.name)}</span><small>${esc(c.payMethod||'')}</small></td>
       <td>${esc(cohortName(c.cohort))}</td>
@@ -909,7 +911,7 @@ function viewPay(){
     </tr>`}).join(''):'<tr><td colspan="9"><div class="empty">この月の請求対象者はいません</div></td></tr>'}</tbody>
     ${rows.length?`<tfoot><tr><td colspan="4">合計</td><td class="r num">${yen(bill)}</td><td class="r num">${yen(paid)}</td><td colspan="3"></td></tr></tfoot>`:''}
   </table></div>
-  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋開始月のみ入学金）。休止期間の月と契約終了月の翌月以降は 0 円になります。月額が変わった人は生徒詳細で修正してください。</p>${trainCard(m)}`;
+  <p class="hint" style="margin-top:10px">請求見込み ＝ 基本月額 ＋ オプション（＋最初の月のみ入学金）。引き落としは入会した月の次の月から始まり、契約終了月で終わります。休止期間の月は 0 円です。月額が変わった人は生徒詳細で修正してください。</p>${trainCard(m)}`;
 }
 // ===================== 企業研修 =====================
 function trainCard(m){
@@ -2099,7 +2101,7 @@ function viewSettings(){
           <input class="inp num" type="number" min="0" style="flex:1" value="${p.amount}" onchange="setPlan('${t}',${i},'amount',this.value)">
           <span class="cnt">${all.filter(c=>c.plan&&[c.plan.baseId,c.plan.optId,c.plan.entryId].includes(p.id)).length}名</span>
           <button class="icon-btn" title="上へ（一番上＝初期値）" onclick="movePlan('${t}',${i})">↑</button><button class="icon-btn" title="削除" onclick="delPlan('${t}',${i})">✕</button></div>`).join('')||'<div class="empty" style="padding:6px 0;text-align:left">なし</div>'}</div>
-        <div class="add-row"><input class="inp" style="flex:2" id="plan-n-${t}" placeholder="プラン名（例：${t==='base'?'2期生特別価格':t==='option'?'顧問':'入学金'}）"><input class="inp num" style="flex:1" type="number" min="0" id="plan-a-${t}" placeholder="金額" onkeydown="if(event.key==='Enter')addPlan('${t}')"><button class="btn primary" onclick="addPlan('${t}')">追加</button></div></div>`).join('')}
+        <div class="add-row"><input class="inp" style="flex:2" id="plan-n-${t}" placeholder="プラン名（例：${t==='base'?'2期生特別価格':t==='option'?'個別サポート':'入学金'}）"><input class="inp num" style="flex:1" type="number" min="0" id="plan-a-${t}" placeholder="金額" onkeydown="if(event.key==='Enter')addPlan('${t}')"><button class="btn primary" onclick="addPlan('${t}')">追加</button></div></div>`).join('')}
     </div>
     <div class="card"><h3>データ</h3><p class="hint" style="margin:-6px 0 12px">念のためのバックアップ。JSON で全データを書き出せます。</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="backup()">バックアップをダウンロード</button><button class="btn" onclick="S.view='students';S.f.status='';render();exportCSV()">生徒一覧をCSV出力</button>${DEMO?`<button class="btn danger" onclick="if(confirm('デモデータを初期化しますか？')){localStorage.removeItem('ssc_demo_v7');location.reload()}">デモデータを初期化</button>`:''}</div>
